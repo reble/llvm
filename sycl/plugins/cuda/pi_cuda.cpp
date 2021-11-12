@@ -2702,11 +2702,50 @@ pi_result cuda_piEnqueueKernelLaunch(
           PI_COMMAND_TYPE_NDRANGE_KERNEL, command_queue));
       retImplEv->start();
     }
+#if 1
 
+    //std::cout << "launching kernel through graph!\n"; 
+
+    CUgraph my_graph;
+
+    cuGraphCreate(&my_graph, 0);
+
+    CUgraphNode graphNode; // = new CUgraphNode();
+    CUDA_KERNEL_NODE_PARAMS nodeParams; // = new CUDA_KERNEL_NODE_PARAMS();
+
+    nodeParams.func = cuFunc;
+    nodeParams.gridDimX = blocksPerGrid[0];
+    nodeParams.gridDimY = blocksPerGrid[1];
+    nodeParams.gridDimZ = blocksPerGrid[2];
+    nodeParams.blockDimX = threadsPerBlock[0];
+    nodeParams.blockDimY = threadsPerBlock[1];
+    nodeParams.blockDimZ = threadsPerBlock[2];
+    nodeParams.sharedMemBytes = local_size;
+    nodeParams.extra = nullptr;
+    nodeParams.kernelParams = const_cast<void **>(argIndices.data());
+
+    retError = PI_CHECK_ERROR(
+        cuGraphAddKernelNode(&graphNode, my_graph, nullptr, 0, &nodeParams)
+    );
+
+    CUgraphExec my_instance;
+
+    cuGraphInstantiate(&my_instance, my_graph, nullptr, nullptr, 0);
+
+    cuGraphLaunch(my_instance, cuStream);
+
+    cuStreamSynchronize(cuStream);
+
+    cuGraphExecDestroy(my_instance);
+
+    cuGraphDestroy(my_graph);
+
+#else
     retError = PI_CHECK_ERROR(cuLaunchKernel(
         cuFunc, blocksPerGrid[0], blocksPerGrid[1], blocksPerGrid[2],
         threadsPerBlock[0], threadsPerBlock[1], threadsPerBlock[2], local_size,
         cuStream, const_cast<void **>(argIndices.data()), nullptr));
+#endif
     if (local_size != 0)
       kernel->clear_local_size();
 
