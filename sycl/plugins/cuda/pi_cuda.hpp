@@ -379,6 +379,10 @@ struct _pi_mem {
 struct _pi_queue {
   using native_type = CUstream;
 
+  CUgraph graph_;
+  CUgraphExec instance_;
+  bool executed_;
+
   native_type stream_;
   _pi_context *context_;
   _pi_device *device_;
@@ -392,11 +396,18 @@ struct _pi_queue {
         properties_{properties}, refCount_{1}, eventCount_{0} {
     cuda_piContextRetain(context_);
     cuda_piDeviceRetain(device_);
+
+    cuGraphCreate(&graph_, 0);
+    executed_ = false;
   }
 
   ~_pi_queue() {
     cuda_piContextRelease(context_);
     cuda_piDeviceRelease(device_);
+
+    if(executed_)
+        cuGraphExecDestroy(instance_);
+    cuGraphDestroy(graph_);
   }
 
   native_type get() const noexcept { return stream_; };

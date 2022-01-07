@@ -2594,7 +2594,7 @@ pi_result cuda_piKernelGetGroupInfo(pi_kernel kernel, pi_device device,
   return PI_INVALID_KERNEL;
 }
 
-pi_result cuda_piEnqueueKernelLaunch(
+pi_result cuda_piEnqueueKernel(
     pi_queue command_queue, pi_kernel kernel, pi_uint32 work_dim,
     const size_t *global_work_offset, const size_t *global_work_size,
     const size_t *local_work_size, pi_uint32 num_events_in_wait_list,
@@ -2671,7 +2671,7 @@ pi_result cuda_piEnqueueKernelLaunch(
 
     std::unique_ptr<_pi_event> retImplEv{nullptr};
 
-    CUstream cuStream = command_queue->get();
+    //CUstream cuStream = command_queue->get();
     CUfunction cuFunc = kernel->get();
 
     if (event_wait_list) {
@@ -2702,15 +2702,16 @@ pi_result cuda_piEnqueueKernelLaunch(
           PI_COMMAND_TYPE_NDRANGE_KERNEL, command_queue));
       retImplEv->start();
     }
-#if 1
+#if 0
 
     //std::cout << "launching kernel through graph!\n"; 
 
-    CUgraph my_graph;
+    //CUgraph my_graph;
 
-    cuGraphCreate(&my_graph, 0);
+    //cuGraphCreate(&my_graph, 0);
 
-    CUgraphNode graphNode; // = new CUgraphNode();
+    auto graphNode = command_queue->add_node();
+    //CUgraphNode graphNode; // = new CUgraphNode();
     CUDA_KERNEL_NODE_PARAMS nodeParams; // = new CUDA_KERNEL_NODE_PARAMS();
 
     nodeParams.func = cuFunc;
@@ -2725,30 +2726,34 @@ pi_result cuda_piEnqueueKernelLaunch(
     nodeParams.kernelParams = const_cast<void **>(argIndices.data());
 
     retError = PI_CHECK_ERROR(
-        cuGraphAddKernelNode(&graphNode, my_graph, nullptr, 0, &nodeParams)
+        cuGraphAddKernelNode(graphNode, command_queue->graph_, nullptr, 0, &nodeParams)
+        auto from = command_queue->get_last_node();
+        if(from != nullptr) cuGraphAddDependencies(command_queue->graph_, from, graphNode, 1);
     );
 
-    CUgraphExec my_instance;
+    //CUgraphExec my_instance;
 
-    cuGraphInstantiate(&my_instance, my_graph, nullptr, nullptr, 0);
+    //cuGraphInstantiate(&my_instance, my_graph, nullptr, nullptr, 0);
 
-    cuGraphLaunch(my_instance, cuStream);
+    //cuGraphLaunch(my_instance, cuStream);
 
-    cuStreamSynchronize(cuStream);
+    //cuStreamSynchronize(cuStream);
 
-    cuGraphExecDestroy(my_instance);
+    //cuGraphExecDestroy(my_instance);
 
-    cuGraphDestroy(my_graph);
-
+    //cuGraphDestroy(my_graph);
 #else
+    CUstream cuStream = command_queue->get();
+
     retError = PI_CHECK_ERROR(cuLaunchKernel(
         cuFunc, blocksPerGrid[0], blocksPerGrid[1], blocksPerGrid[2],
         threadsPerBlock[0], threadsPerBlock[1], threadsPerBlock[2], local_size,
         cuStream, const_cast<void **>(argIndices.data()), nullptr));
-#endif
-    if (local_size != 0)
-      kernel->clear_local_size();
 
+    //TODO: How to deal with local mem.
+    //if (local_size != 0)
+    //  kernel->clear_local_size();
+#endif
     if (event) {
       retError = retImplEv->record();
       *event = retImplEv.release();
@@ -2757,6 +2762,55 @@ pi_result cuda_piEnqueueKernelLaunch(
     retError = err;
   }
   return retError;
+}
+
+pi_result cuda_piLaunchKernel(pi_queue command_queue) {
+
+    CUstream cuStream = command_queue->get();
+    pi_result retError = PI_SUCCESS;
+
+    std::cout << "launching kernel through graph!\n"; 
+#if 0 
+    // class
+    CUgraph my_graph;
+    CUgraphExec my_instance;
+    bool _executed;
+
+    // constructor
+    cuGraphCreate(&my_graph, 0);
+#endif
+    if(!command_queue->executed_) {
+        cuGraphInstantiate(&(command_queue->instance_), command_queue->graph_, nullptr, nullptr, 0);
+        command_queue->executed_ = true;
+    }
+
+    retError = PI_CHECK_ERROR(
+        cuGraphLaunch(command_queue->instance_, cuStream));
+
+    cuStreamSynchronize(cuStream);
+#if 0
+    // destructor
+    cuGraphExecDestroy(my_instance);
+
+    cuGraphDestroy(my_graph);
+
+    if (local_size != 0)
+      kernel->clear_local_size();
+#endif
+
+    return retError;
+}
+
+pi_result cuda_piEnqueueKernelLaunch(
+    pi_queue command_queue, pi_kernel kernel, pi_uint32 work_dim,
+    const size_t *global_work_offset, const size_t *global_work_size,
+    const size_t *local_work_size, pi_uint32 num_events_in_wait_list,
+    const pi_event *event_wait_list, pi_event *event) {
+
+    auto retError = cuda_piEnqueueKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event);
+    //cuda_piLaunchKernel(command_queue);
+    
+    return retError;
 }
 
 /// \TODO Not implemented
