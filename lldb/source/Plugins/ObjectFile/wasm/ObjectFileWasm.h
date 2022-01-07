@@ -24,7 +24,7 @@ public:
   static void Initialize();
   static void Terminate();
 
-  static ConstString GetPluginNameStatic();
+  static llvm::StringRef GetPluginNameStatic() { return "wasm"; }
   static const char *GetPluginDescriptionStatic() {
     return "WebAssembly object file reader.";
   }
@@ -48,9 +48,7 @@ public:
 
   /// PluginInterface protocol.
   /// \{
-  llvm::StringRef GetPluginName() override {
-    return GetPluginNameStatic().GetStringRef();
-  }
+  llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
   /// \}
 
   /// LLVM RTTI support
@@ -80,7 +78,7 @@ public:
     return AddressClass::eInvalid;
   }
 
-  Symtab *GetSymtab() override;
+  void ParseSymtab(lldb_private::Symtab &symtab) override;
 
   bool IsStripped() override { return !!GetExternalDebugInfoFileSpec(); }
 

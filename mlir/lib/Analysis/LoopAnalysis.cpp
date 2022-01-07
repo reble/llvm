@@ -182,8 +182,7 @@ static bool isAccessIndexInvariant(Value iv, Value index) {
 
 DenseSet<Value> mlir::getInvariantAccesses(Value iv, ArrayRef<Value> indices) {
   DenseSet<Value> res;
-  for (unsigned idx = 0, n = indices.size(); idx < n; ++idx) {
-    auto val = indices[idx];
+  for (auto val : indices) {
     if (isAccessIndexInvariant(iv, val)) {
       res.insert(val);
     }
@@ -219,15 +218,8 @@ static bool isContiguousAccess(Value iv, LoadOrStoreOp memoryOp,
   assert(memRefDim && "memRefDim == nullptr");
   auto memRefType = memoryOp.getMemRefType();
 
-  auto layoutMap = memRefType.getAffineMaps();
-  // TODO: remove dependence on Builder once we support non-identity layout map.
-  Builder b(memoryOp.getContext());
-  if (layoutMap.size() >= 2 ||
-      (layoutMap.size() == 1 &&
-       !(layoutMap[0] ==
-         b.getMultiDimIdentityMap(layoutMap[0].getNumDims())))) {
+  if (!memRefType.getLayout().isIdentity())
     return memoryOp.emitError("NYI: non-trivial layoutMap"), false;
-  }
 
   int uniqueVaryingIndexAlongIv = -1;
   auto accessMap = memoryOp.getAffineMap();
