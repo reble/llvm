@@ -25,7 +25,7 @@
  *  Guard Object Layout:
  * -------------------------------------------------------------------------
  * |a: guard byte | a+1: init byte | a+2 : unused ... | a+4: thread-id ... |
- * ------------------------------------------------------------------------
+ * -------------------------------------------------------------------------
  *
  *  Access Protocol:
  *    For each implementation the guard byte is checked and set before accessing
@@ -39,10 +39,12 @@
 
 #include "__cxxabi_config.h"
 #include "include/atomic_support.h" // from libc++
-#include <unistd.h>
 #if defined(__has_include)
 #  if __has_include(<sys/syscall.h>)
 #    include <sys/syscall.h>
+#  endif
+#  if __has_include(<unistd.h>)
+#    include <unistd.h>
 #  endif
 #endif
 

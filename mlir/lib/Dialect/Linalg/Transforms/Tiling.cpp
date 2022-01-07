@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "PassDetail.h"
-#include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
@@ -152,21 +152,26 @@ static Value insertSliceIntoTensor(OpBuilder &b, Location loc,
 }
 
 template <typename LoopTy>
-static Optional<TiledLinalgOp>
+static FailureOr<TiledLinalgOp>
 tileLinalgOpImpl(OpBuilder &b, LinalgOp op, ValueRange tileSizes,
                  const LinalgTilingOptions &options) {
   auto nLoops = op.getNumLoops();
   // Initial tile sizes may be too big, only take the first nLoops.
   tileSizes = tileSizes.take_front(nLoops);
 
-  if (llvm::all_of(tileSizes, isZero))
-    return llvm::None;
+  if (llvm::all_of(tileSizes, isZero)) {
+    TiledLinalgOp tiledOp;
+    tiledOp.op = cast<LinalgOp>(b.clone(*op.getOperation()));
+    tiledOp.tensorResults.assign(tiledOp.op->result_begin(),
+                                 tiledOp.op->result_end());
+    return tiledOp;
+  }
 
   // 1. Build the tiled loop ranges.
   auto allShapeSizes = op.createFlatListOfOperandDims(b, op.getLoc());
   AffineMap shapeSizesToLoopsMap = op.getShapesToLoopsMap();
   if (!shapeSizesToLoopsMap)
-    return llvm::None;
+    return failure();
 
   SmallVector<Range, 4> loopRanges;
   LoopIndexToRangeIndexMap loopIndexToRangeIndex;
@@ -291,13 +296,13 @@ tileLinalgOpImpl(OpBuilder &b, LinalgOp op, ValueRange tileSizes,
 }
 
 template <typename LoopTy>
-Optional<TiledLinalgOp> static tileLinalgOpImpl(
+FailureOr<TiledLinalgOp> static tileLinalgOpImpl(
     OpBuilder &b, LinalgOp op, const LinalgTilingOptions &options) {
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPoint(op);
 
   if (!options.tileSizeComputationFunction)
-    return llvm::None;
+    return failure();
 
   // Enforce the convention that "tiling by zero" skips tiling a particular
   // dimension. This convention is significantly simpler to handle instead of
@@ -313,7 +318,7 @@ Optional<TiledLinalgOp> static tileLinalgOpImpl(
   return tileLinalgOpImpl<LoopTy>(b, op, tileSizeVector, options);
 }
 
-Optional<TiledLinalgOp>
+FailureOr<TiledLinalgOp>
 mlir::linalg::tileLinalgOp(OpBuilder &b, LinalgOp op,
                            const LinalgTilingOptions &options) {
   switch (options.loopType) {
@@ -325,7 +330,7 @@ mlir::linalg::tileLinalgOp(OpBuilder &b, LinalgOp op,
     return tileLinalgOpImpl<linalg::TiledLoopOp>(b, op, options);
   default:;
   }
-  return llvm::None;
+  return failure();
 }
 
 /// Generate a loop nest around a given PadTensorOp (for tiling). `newPadOp`
@@ -346,7 +351,7 @@ static LogicalResult tilePadTensorOp(OpBuilder &builder, PadTensorOp op,
       options.tileSizeComputationFunction(builder, op);
   assert(static_cast<int64_t>(tileSizes.size()) == rank);
   // Compute lower and upper bounds of the loop nest.
-  SmallVector<Range> ranges = op.getLoopBounds(builder);
+  SmallVector<Range> ranges = op.getIterationDomain(builder);
   SmallVector<Value> lbs, dims, allDims, steps;
   for (int64_t i = 0; i < rank; ++i) {
     allDims.push_back(ranges[i].size);
@@ -447,8 +452,8 @@ public:
     auto *ctx = patterns.getContext();
     patterns.add<LinalgTilingPattern<OpTy>>(
         ctx, options,
-        LinalgTransformationFilter(ArrayRef<Identifier>{},
-                                   Identifier::get("tiled", ctx)));
+        LinalgTransformationFilter(ArrayRef<StringAttr>{},
+                                   StringAttr::get(ctx, "tiled")));
     RewritePatternList<OpTypes...>::insert(patterns, options);
   }
 };

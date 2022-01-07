@@ -188,6 +188,11 @@ const Builtin::Info RISCVTargetInfo::BuiltinInfo[] = {
   {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
     {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+#include "clang/Basic/BuiltinsRISCVVector.def"
+#define BUILTIN(ID, TYPE, ATTRS)                                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+#define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
+    {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
 #include "clang/Basic/BuiltinsRISCV.def"
 };
 
@@ -240,6 +245,9 @@ bool RISCVTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
   } else {
     ISAInfo = std::move(*ParseResult);
   }
+
+  if (ABI.empty())
+    ABI = llvm::RISCV::computeDefaultABIFromArch(*ISAInfo).str();
 
   return true;
 }

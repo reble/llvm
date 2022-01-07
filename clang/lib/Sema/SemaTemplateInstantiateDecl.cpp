@@ -442,6 +442,7 @@ static void instantiateOMPDeclareVariantAttr(
   // begin declare variant` (which use implicit attributes).
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       S.checkOpenMPDeclareVariantFunction(S.ConvertDeclToDeclGroup(New), E, TI,
+                                          Attr.appendArgs_size(),
                                           Attr.getRange());
 
   if (!DeclVarData)
@@ -484,6 +485,8 @@ static void instantiateOMPDeclareVariantAttr(
 
   SmallVector<Expr *, 8> NothingExprs;
   SmallVector<Expr *, 8> NeedDevicePtrExprs;
+  SmallVector<OMPDeclareVariantAttr::InteropType, 8> AppendArgs;
+
   for (Expr *E : Attr.adjustArgsNothing()) {
     ExprResult ER = Subst(E);
     if (ER.isInvalid())
@@ -496,8 +499,12 @@ static void instantiateOMPDeclareVariantAttr(
       continue;
     NeedDevicePtrExprs.push_back(ER.get());
   }
-  S.ActOnOpenMPDeclareVariantDirective(FD, E, TI, NothingExprs,
-                                       NeedDevicePtrExprs, Attr.getRange());
+  for (auto A : Attr.appendArgs())
+    AppendArgs.push_back(A);
+
+  S.ActOnOpenMPDeclareVariantDirective(
+      FD, E, TI, NothingExprs, NeedDevicePtrExprs, AppendArgs, SourceLocation(),
+      SourceLocation(), Attr.getRange());
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
@@ -634,6 +641,37 @@ static void instantiateIntelFPGABankBitsAttr(
     Args.push_back(Result.getAs<Expr>());
   }
   S.AddIntelFPGABankBitsAttr(New, *Attr, Args.data(), Args.size());
+}
+
+static void
+instantiateSYCLDeviceHasAttr(Sema &S,
+                             const MultiLevelTemplateArgumentList &TemplateArgs,
+                             const SYCLDeviceHasAttr *Attr, Decl *New) {
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  SmallVector<Expr *, 8> Args;
+  for (auto I : Attr->aspects()) {
+    ExprResult Result = S.SubstExpr(I, TemplateArgs);
+    if (Result.isInvalid())
+      return;
+    Args.push_back(Result.getAs<Expr>());
+  }
+  S.AddSYCLDeviceHasAttr(New, *Attr, Args.data(), Args.size());
+}
+
+static void instantiateSYCLUsesAspectsAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const SYCLUsesAspectsAttr *Attr, Decl *New) {
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  SmallVector<Expr *, 8> Args;
+  for (auto I : Attr->aspects()) {
+    ExprResult Result = S.SubstExpr(I, TemplateArgs);
+    if (Result.isInvalid())
+      return;
+    Args.push_back(Result.getAs<Expr>());
+  }
+  S.AddSYCLUsesAspectsAttr(New, *Attr, Args.data(), Args.size());
 }
 
 static void instantiateSYCLIntelPipeIOAttr(
@@ -1030,6 +1068,14 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     }
     if (const auto *A = dyn_cast<WorkGroupSizeHintAttr>(TmplAttr)) {
       instantiateWorkGroupSizeHintAttr(*this, TemplateArgs, A, New);
+      continue;
+    }
+    if (const auto *A = dyn_cast<SYCLDeviceHasAttr>(TmplAttr)) {
+      instantiateSYCLDeviceHasAttr(*this, TemplateArgs, A, New);
+      continue;
+    }
+    if (const auto *A = dyn_cast<SYCLUsesAspectsAttr>(TmplAttr)) {
+      instantiateSYCLUsesAspectsAttr(*this, TemplateArgs, A, New);
       continue;
     }
     // Existing DLL attribute on the instantiation takes precedence.
@@ -2130,9 +2176,7 @@ TemplateDeclInstantiator::VisitFunctionTemplateDecl(FunctionTemplateDecl *D) {
 
 Decl *TemplateDeclInstantiator::VisitCXXRecordDecl(CXXRecordDecl *D) {
   CXXRecordDecl *PrevDecl = nullptr;
-  if (D->isInjectedClassName())
-    PrevDecl = cast<CXXRecordDecl>(Owner);
-  else if (CXXRecordDecl *PatternPrev = getPreviousDeclForInstantiation(D)) {
+  if (CXXRecordDecl *PatternPrev = getPreviousDeclForInstantiation(D)) {
     NamedDecl *Prev = SemaRef.FindInstantiatedDecl(D->getLocation(),
                                                    PatternPrev,
                                                    TemplateArgs);
@@ -2141,6 +2185,7 @@ Decl *TemplateDeclInstantiator::VisitCXXRecordDecl(CXXRecordDecl *D) {
   }
 
   CXXRecordDecl *Record = nullptr;
+  bool IsInjectedClassName = D->isInjectedClassName();
   if (D->isLambda())
     Record = CXXRecordDecl::CreateLambda(
         SemaRef.Context, Owner, D->getLambdaTypeInfo(), D->getLocation(),
@@ -2149,7 +2194,11 @@ Decl *TemplateDeclInstantiator::VisitCXXRecordDecl(CXXRecordDecl *D) {
   else
     Record = CXXRecordDecl::Create(SemaRef.Context, D->getTagKind(), Owner,
                                    D->getBeginLoc(), D->getLocation(),
-                                   D->getIdentifier(), PrevDecl);
+                                   D->getIdentifier(), PrevDecl,
+                                   /*DelayTypeCreation=*/IsInjectedClassName);
+  // Link the type of the injected-class-name to that of the outer class.
+  if (IsInjectedClassName)
+    (void)SemaRef.Context.getTypeDeclType(Record, cast<CXXRecordDecl>(Owner));
 
   // Substitute the nested name specifier, if any.
   if (SubstQualifier(D, Record))
@@ -2164,7 +2213,7 @@ Decl *TemplateDeclInstantiator::VisitCXXRecordDecl(CXXRecordDecl *D) {
   // specifier. Remove once this area of the code gets sorted out.
   if (D->getAccess() != AS_none)
     Record->setAccess(D->getAccess());
-  if (!D->isInjectedClassName())
+  if (!IsInjectedClassName)
     Record->setInstantiationOfMemberClass(D, TSK_ImplicitInstantiation);
 
   // If the original function was part of a friend declaration,
@@ -2216,6 +2265,9 @@ Decl *TemplateDeclInstantiator::VisitCXXRecordDecl(CXXRecordDecl *D) {
   }
 
   SemaRef.DiagnoseUnusedNestedTypedefs(Record);
+
+  if (IsInjectedClassName)
+    assert(Record->isInjectedClassName() && "Broken injected-class-name");
 
   return Record;
 }
@@ -3677,12 +3729,23 @@ Decl *TemplateDeclInstantiator::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
   SmallVector<OMPClause *, 4> Clauses;
   // Copy map clauses from the original mapper.
   for (OMPClause *C : D->clauselists()) {
-    auto *AC = cast<OMPAllocatorClause>(C);
-    ExprResult NewE = SemaRef.SubstExpr(AC->getAllocator(), TemplateArgs);
-    if (!NewE.isUsable())
-      continue;
-    OMPClause *IC = SemaRef.ActOnOpenMPAllocatorClause(
-        NewE.get(), AC->getBeginLoc(), AC->getLParenLoc(), AC->getEndLoc());
+    OMPClause *IC = nullptr;
+    if (auto *AC = dyn_cast<OMPAllocatorClause>(C)) {
+      ExprResult NewE = SemaRef.SubstExpr(AC->getAllocator(), TemplateArgs);
+      if (!NewE.isUsable())
+        continue;
+      IC = SemaRef.ActOnOpenMPAllocatorClause(
+          NewE.get(), AC->getBeginLoc(), AC->getLParenLoc(), AC->getEndLoc());
+    } else if (auto *AC = dyn_cast<OMPAlignClause>(C)) {
+      ExprResult NewE = SemaRef.SubstExpr(AC->getAlignment(), TemplateArgs);
+      if (!NewE.isUsable())
+        continue;
+      IC = SemaRef.ActOnOpenMPAlignClause(NewE.get(), AC->getBeginLoc(),
+                                          AC->getLParenLoc(), AC->getEndLoc());
+      // If align clause value ends up being invalid, this can end up null.
+      if (!IC)
+        continue;
+    }
     Clauses.push_back(IC);
   }
 
@@ -5654,10 +5717,6 @@ void Sema::InstantiateVariableInitializer(
 
   if (getLangOpts().CUDA)
     checkAllowedCUDAInitializer(Var);
-
-  if (getLangOpts().SYCLIsDevice && !checkAllowedSYCLInitializer(Var))
-    SYCLDiagIfDeviceCode(Var->getLocation(), diag::err_sycl_restrict)
-        << Sema::KernelConstStaticVariable;
 }
 
 /// Instantiate the definition of the given variable from its

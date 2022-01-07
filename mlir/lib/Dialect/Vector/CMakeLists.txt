@@ -1,8 +1,12 @@
 add_mlir_dialect_library(MLIRVector
-  VectorOps.cpp
+  VectorDropLeadUnitDim.cpp
+  VectorInsertExtractStridedSliceRewritePatterns.cpp
   VectorMultiDimReductionTransforms.cpp
+  VectorOps.cpp
   VectorTransferOpTransforms.cpp
+  VectorTransferPermutationMapRewritePatterns.cpp
   VectorTransforms.cpp
+  VectorUnrollDistribute.cpp
   VectorUtils.cpp
 
   ADDITIONAL_HEADER_DIRS

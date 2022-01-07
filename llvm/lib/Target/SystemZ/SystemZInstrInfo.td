@@ -510,6 +510,12 @@ let mayLoad = 1, mayStore = 1, Defs = [CC] in {
   def MVCLU : SideEffectTernaryMemMemRSY<"mvclu", 0xEB8E, GR128, GR128>;
 }
 
+// Memset[Length][Byte] pseudos.
+def MemsetImmImm : MemsetPseudo<imm64, imm32zx8trunc>;
+def MemsetImmReg : MemsetPseudo<imm64, GR32>;
+def MemsetRegImm : MemsetPseudo<ADDR64, imm32zx8trunc>;
+def MemsetRegReg : MemsetPseudo<ADDR64, GR32>;
+
 // Move right.
 let Predicates = [FeatureMiscellaneousExtensions3],
     mayLoad = 1, mayStore = 1, Uses = [R0L] in
@@ -2173,7 +2179,7 @@ let hasSideEffects = 1 in {
   def EX   : SideEffectBinaryRX<"ex", 0x44, ADDR64>;
   def EXRL : SideEffectBinaryRILPC<"exrl", 0xC60, ADDR64>;
   let hasNoSchedulingInfo = 1 in
-    def EXRL_Pseudo : Pseudo<(outs), (ins i64imm:$TargetOpc, ADDR64:$lenMinus1,
+    def EXRL_Pseudo : Alias<6, (outs), (ins i64imm:$TargetOpc, ADDR64:$lenMinus1,
                                           bdaddr12only:$bdl1, bdaddr12only:$bd2),
                                           []>;
 }

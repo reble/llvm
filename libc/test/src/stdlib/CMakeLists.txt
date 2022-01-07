@@ -1,6 +1,16 @@
 add_libc_testsuite(libc_stdlib_unittests)
 
 add_libc_unittest(
+  atof_test
+  SUITE
+    libc_stdlib_unittests
+  SRCS
+    atof_test.cpp
+  DEPENDS
+    libc.src.stdlib.atof
+)
+
+add_libc_unittest(
   atoi_test
   SUITE
     libc_stdlib_unittests
@@ -31,6 +41,26 @@ add_libc_unittest(
 )
 
 add_libc_unittest(
+  strtod_test
+  SUITE
+    libc_stdlib_unittests
+  SRCS
+    strtod_test.cpp
+  DEPENDS
+    libc.src.stdlib.strtod
+)
+
+add_libc_unittest(
+  strtof_test
+  SUITE
+    libc_stdlib_unittests
+  SRCS
+    strtof_test.cpp
+  DEPENDS
+    libc.src.stdlib.strtof
+)
+
+add_libc_unittest(
   strtol_test
   SUITE
     libc_stdlib_unittests
@@ -38,6 +68,16 @@ add_libc_unittest(
     strtol_test.cpp
   DEPENDS
     libc.src.stdlib.strtol
+)
+
+add_libc_unittest(
+  strtold_test
+  SUITE
+    libc_stdlib_unittests
+  SRCS
+    strtold_test.cpp
+  DEPENDS
+    libc.src.stdlib.strtold
 )
 
 add_libc_unittest(
@@ -85,19 +125,19 @@ add_libc_unittest(
     libc.src.stdlib._Exit
 )
 
-add_libc_unittest(
-  abort_test
-  SUITE
-    libc_stdlib_unittests
-  SRCS
-    abort_test.cpp
-  DEPENDS
-    libc.include.stdlib
-    libc.include.signal
-    libc.src.stdlib.abort
-    libc.src.stdlib._Exit
-    libc.src.signal.raise
-)
+# add_libc_unittest(
+#   abort_test
+#   SUITE
+#     libc_stdlib_unittests
+#   SRCS
+#     abort_test.cpp
+#   DEPENDS
+#     libc.include.stdlib
+#     libc.include.signal
+#     libc.src.stdlib.abort
+#     libc.src.stdlib._Exit
+#     libc.src.signal.raise
+# )
 
 add_libc_unittest(
   abs_test

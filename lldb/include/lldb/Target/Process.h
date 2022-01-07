@@ -238,10 +238,11 @@ public:
 
   ~ProcessModID() = default;
 
-  void BumpStopID() {
-    m_stop_id++;
+  uint32_t BumpStopID() {
+    const uint32_t prev_stop_id = m_stop_id++;
     if (!IsLastResumeForUserExpression())
       m_last_natural_stop_id++;
+    return prev_stop_id;
   }
 
   void BumpMemoryID() { m_memory_id++; }
@@ -1480,36 +1481,6 @@ public:
   ///     returned in the case of an error.
   size_t ReadMemoryFromInferior(lldb::addr_t vm_addr, void *buf, size_t size,
                                 Status &error);
-
-  /// Read a NULL terminated string from memory
-  ///
-  /// This function will read a cache page at a time until a NULL string
-  /// terminator is found. It will stop reading if an aligned sequence of NULL
-  /// termination \a type_width bytes is not found before reading \a
-  /// cstr_max_len bytes.  The results are always guaranteed to be NULL
-  /// terminated, and that no more than (max_bytes - type_width) bytes will be
-  /// read.
-  ///
-  /// \param[in] vm_addr
-  ///     The virtual load address to start the memory read.
-  ///
-  /// \param[in] str
-  ///     A character buffer containing at least max_bytes.
-  ///
-  /// \param[in] max_bytes
-  ///     The maximum number of bytes to read.
-  ///
-  /// \param[in] error
-  ///     The error status of the read operation.
-  ///
-  /// \param[in] type_width
-  ///     The size of the null terminator (1 to 4 bytes per
-  ///     character).  Defaults to 1.
-  ///
-  /// \return
-  ///     The error status or the number of bytes prior to the null terminator.
-  size_t ReadStringFromMemory(lldb::addr_t vm_addr, char *str, size_t max_bytes,
-                              Status &error, size_t type_width = 1);
 
   /// Read a NULL terminated C string from memory
   ///

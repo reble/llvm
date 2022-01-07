@@ -216,7 +216,7 @@ static bool checkUInt32Argument(Sema &S, const AttrInfo &AI, const Expr *Expr,
                                 uint32_t &Val, unsigned Idx = UINT_MAX,
                                 bool StrictlyUnsigned = false) {
   Optional<llvm::APSInt> I = llvm::APSInt(32);
-  if (Expr->isTypeDependent() || Expr->isValueDependent() ||
+  if (Expr->isTypeDependent() ||
       !(I = Expr->getIntegerConstantExpr(S.Context))) {
     if (Idx != UINT_MAX)
       S.Diag(getAttrLoc(AI), diag::err_attribute_argument_n_type)
@@ -384,7 +384,7 @@ static bool checkFunctionOrMethodParameterIndex(
       (HP ? getFunctionOrMethodNumParams(D) : 0) + HasImplicitThisParam;
 
   Optional<llvm::APSInt> IdxInt;
-  if (IdxExpr->isTypeDependent() || IdxExpr->isValueDependent() ||
+  if (IdxExpr->isTypeDependent() ||
       !(IdxInt = IdxExpr->getIntegerConstantExpr(S.Context))) {
     S.Diag(getAttrLoc(AI), diag::err_attribute_argument_n_type)
         << &AI << AttrArgNum << AANT_ArgumentIntegerConstant
@@ -1075,6 +1075,84 @@ public:
     return true;
   }
 };
+}
+
+static void handleDiagnoseAsBuiltinAttr(Sema &S, Decl *D,
+                                        const ParsedAttr &AL) {
+  const auto *DeclFD = cast<FunctionDecl>(D);
+
+  if (const auto *MethodDecl = dyn_cast<CXXMethodDecl>(DeclFD))
+    if (!MethodDecl->isStatic()) {
+      S.Diag(AL.getLoc(), diag::err_attribute_no_member_function) << AL;
+      return;
+    }
+
+  auto DiagnoseType = [&](unsigned Index, AttributeArgumentNType T) {
+    SourceLocation Loc = [&]() {
+      auto Union = AL.getArg(Index - 1);
+      if (Union.is<Expr *>())
+        return Union.get<Expr *>()->getBeginLoc();
+      return Union.get<IdentifierLoc *>()->Loc;
+    }();
+
+    S.Diag(Loc, diag::err_attribute_argument_n_type) << AL << Index << T;
+  };
+
+  FunctionDecl *AttrFD = [&]() -> FunctionDecl * {
+    if (!AL.isArgExpr(0))
+      return nullptr;
+    auto *F = dyn_cast_or_null<DeclRefExpr>(AL.getArgAsExpr(0));
+    if (!F)
+      return nullptr;
+    return dyn_cast_or_null<FunctionDecl>(F->getFoundDecl());
+  }();
+
+  if (!AttrFD || !AttrFD->getBuiltinID(true)) {
+    DiagnoseType(1, AANT_ArgumentBuiltinFunction);
+    return;
+  }
+
+  if (AttrFD->getNumParams() != AL.getNumArgs() - 1) {
+    S.Diag(AL.getLoc(), diag::err_attribute_wrong_number_arguments_for)
+        << AL << AttrFD << AttrFD->getNumParams();
+    return;
+  }
+
+  SmallVector<unsigned, 8> Indices;
+
+  for (unsigned I = 1; I < AL.getNumArgs(); ++I) {
+    if (!AL.isArgExpr(I)) {
+      DiagnoseType(I + 1, AANT_ArgumentIntegerConstant);
+      return;
+    }
+
+    const Expr *IndexExpr = AL.getArgAsExpr(I);
+    uint32_t Index;
+
+    if (!checkUInt32Argument(S, AL, IndexExpr, Index, I + 1, false))
+      return;
+
+    if (Index > DeclFD->getNumParams()) {
+      S.Diag(AL.getLoc(), diag::err_attribute_bounds_for_function)
+          << AL << Index << DeclFD << DeclFD->getNumParams();
+      return;
+    }
+
+    QualType T1 = AttrFD->getParamDecl(I - 1)->getType();
+    QualType T2 = DeclFD->getParamDecl(Index - 1)->getType();
+
+    if (T1.getCanonicalType().getUnqualifiedType() !=
+        T2.getCanonicalType().getUnqualifiedType()) {
+      S.Diag(IndexExpr->getBeginLoc(), diag::err_attribute_parameter_types)
+          << AL << Index << DeclFD << T2 << I << AttrFD << T1;
+      return;
+    }
+
+    Indices.push_back(Index - 1);
+  }
+
+  D->addAttr(::new (S.Context) DiagnoseAsBuiltinAttr(
+      S.Context, AL, AttrFD, Indices.data(), Indices.size()));
 }
 
 static void handleDiagnoseIfAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -2041,6 +2119,28 @@ static void handleRestrictAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleCPUSpecificAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  // Ensure we don't combine these with themselves, since that causes some
+  // confusing behavior.
+  if (AL.getParsedKind() == ParsedAttr::AT_CPUDispatch) {
+    if (checkAttrMutualExclusion<CPUSpecificAttr>(S, D, AL))
+      return;
+
+    if (const auto *Other = D->getAttr<CPUDispatchAttr>()) {
+      S.Diag(AL.getLoc(), diag::err_disallowed_duplicate_attribute) << AL;
+      S.Diag(Other->getLocation(), diag::note_conflicting_attribute);
+      return;
+    }
+  } else if (AL.getParsedKind() == ParsedAttr::AT_CPUSpecific) {
+    if (checkAttrMutualExclusion<CPUDispatchAttr>(S, D, AL))
+      return;
+
+    if (const auto *Other = D->getAttr<CPUSpecificAttr>()) {
+      S.Diag(AL.getLoc(), diag::err_disallowed_duplicate_attribute) << AL;
+      S.Diag(Other->getLocation(), diag::note_conflicting_attribute);
+      return;
+    }
+  }
+
   FunctionDecl *FD = cast<FunctionDecl>(D);
 
   if (const auto *MD = dyn_cast<CXXMethodDecl>(D)) {
@@ -2939,8 +3039,7 @@ static void handleSentinelAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (AL.getNumArgs() > 0) {
     Expr *E = AL.getArgAsExpr(0);
     Optional<llvm::APSInt> Idx = llvm::APSInt(32);
-    if (E->isTypeDependent() || E->isValueDependent() ||
-        !(Idx = E->getIntegerConstantExpr(S.Context))) {
+    if (E->isTypeDependent() || !(Idx = E->getIntegerConstantExpr(S.Context))) {
       S.Diag(AL.getLoc(), diag::err_attribute_argument_n_type)
           << AL << 1 << AANT_ArgumentIntegerConstant << E->getSourceRange();
       return;
@@ -2959,8 +3058,7 @@ static void handleSentinelAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (AL.getNumArgs() > 1) {
     Expr *E = AL.getArgAsExpr(1);
     Optional<llvm::APSInt> Idx = llvm::APSInt(32);
-    if (E->isTypeDependent() || E->isValueDependent() ||
-        !(Idx = E->getIntegerConstantExpr(S.Context))) {
+    if (E->isTypeDependent() || !(Idx = E->getIntegerConstantExpr(S.Context))) {
       S.Diag(AL.getLoc(), diag::err_attribute_argument_n_type)
           << AL << 2 << AANT_ArgumentIntegerConstant << E->getSourceRange();
       return;
@@ -3562,25 +3660,10 @@ static void handleSYCLIntelNumSimdWorkItemsAttr(Sema &S, Decl *D,
 }
 
 // Handles use_stall_enable_clusters
-static void handleUseStallEnableClustersAttr(Sema &S, Decl *D,
-                                             const ParsedAttr &Attr) {
-  if (D->isInvalidDecl())
-    return;
-
-  unsigned NumArgs = Attr.getNumArgs();
-  if (NumArgs > 0) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_too_many_arguments) << Attr << 0;
-    return;
-  }
-
-  handleSimpleAttribute<SYCLIntelUseStallEnableClustersAttr>(S, D, Attr);
-}
-
-// Handles disable_loop_pipelining attribute.
-static void handleSYCLIntelFPGADisableLoopPipeliningAttr(Sema &S, Decl *D,
-                                                         const ParsedAttr &A) {
+static void handleSYCLIntelUseStallEnableClustersAttr(Sema &S, Decl *D,
+                                                      const ParsedAttr &A) {
   D->addAttr(::new (S.Context)
-                 SYCLIntelFPGADisableLoopPipeliningAttr(S.Context, A));
+                 SYCLIntelUseStallEnableClustersAttr(S.Context, A));
 }
 
 // Handles initiation_interval attribute.
@@ -4110,54 +4193,57 @@ static void handleCodeSegAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 bool Sema::checkTargetAttr(SourceLocation LiteralLoc, StringRef AttrStr) {
   enum FirstParam { Unsupported, Duplicate, Unknown };
   enum SecondParam { None, Architecture, Tune };
-  if (AttrStr.find("fpmath=") != StringRef::npos)
+  enum ThirdParam { Target, TargetClones };
+  if (AttrStr.contains("fpmath="))
     return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-           << Unsupported << None << "fpmath=";
+           << Unsupported << None << "fpmath=" << Target;
 
   // Diagnose use of tune if target doesn't support it.
   if (!Context.getTargetInfo().supportsTargetAttributeTune() &&
-      AttrStr.find("tune=") != StringRef::npos)
+      AttrStr.contains("tune="))
     return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-           << Unsupported << None << "tune=";
+           << Unsupported << None << "tune=" << Target;
 
   ParsedTargetAttr ParsedAttrs = TargetAttr::parse(AttrStr);
 
   if (!ParsedAttrs.Architecture.empty() &&
       !Context.getTargetInfo().isValidCPUName(ParsedAttrs.Architecture))
     return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-           << Unknown << Architecture << ParsedAttrs.Architecture;
+           << Unknown << Architecture << ParsedAttrs.Architecture << Target;
 
   if (!ParsedAttrs.Tune.empty() &&
       !Context.getTargetInfo().isValidCPUName(ParsedAttrs.Tune))
     return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-           << Unknown << Tune << ParsedAttrs.Tune;
+           << Unknown << Tune << ParsedAttrs.Tune << Target;
 
   if (ParsedAttrs.DuplicateArchitecture)
     return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-           << Duplicate << None << "arch=";
+           << Duplicate << None << "arch=" << Target;
   if (ParsedAttrs.DuplicateTune)
     return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-           << Duplicate << None << "tune=";
+           << Duplicate << None << "tune=" << Target;
 
   for (const auto &Feature : ParsedAttrs.Features) {
     auto CurFeature = StringRef(Feature).drop_front(); // remove + or -.
     if (!Context.getTargetInfo().isValidFeatureName(CurFeature))
       return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-             << Unsupported << None << CurFeature;
+             << Unsupported << None << CurFeature << Target;
   }
 
   TargetInfo::BranchProtectionInfo BPI;
-  StringRef Error;
-  if (!ParsedAttrs.BranchProtection.empty() &&
-      !Context.getTargetInfo().validateBranchProtection(
-          ParsedAttrs.BranchProtection, BPI, Error)) {
-    if (Error.empty())
+  StringRef DiagMsg;
+  if (ParsedAttrs.BranchProtection.empty())
+    return false;
+  if (!Context.getTargetInfo().validateBranchProtection(
+          ParsedAttrs.BranchProtection, BPI, DiagMsg)) {
+    if (DiagMsg.empty())
       return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-             << Unsupported << None << "branch-protection";
-    else
-      return Diag(LiteralLoc, diag::err_invalid_branch_protection_spec)
-             << Error;
+             << Unsupported << None << "branch-protection" << Target;
+    return Diag(LiteralLoc, diag::err_invalid_branch_protection_spec)
+           << DiagMsg;
   }
+  if (!DiagMsg.empty())
+    Diag(LiteralLoc, diag::warn_unsupported_branch_protection_spec) << DiagMsg;
 
   return false;
 }
@@ -4170,6 +4256,107 @@ static void handleTargetAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
 
   TargetAttr *NewAttr = ::new (S.Context) TargetAttr(S.Context, AL, Str);
+  D->addAttr(NewAttr);
+}
+
+bool Sema::checkTargetClonesAttrString(SourceLocation LiteralLoc, StringRef Str,
+                                       const StringLiteral *Literal,
+                                       bool &HasDefault, bool &HasCommas,
+                                       SmallVectorImpl<StringRef> &Strings) {
+  enum FirstParam { Unsupported, Duplicate, Unknown };
+  enum SecondParam { None, Architecture, Tune };
+  enum ThirdParam { Target, TargetClones };
+  HasCommas = HasCommas || Str.contains(',');
+  // Warn on empty at the beginning of a string.
+  if (Str.size() == 0)
+    return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
+           << Unsupported << None << "" << TargetClones;
+
+  std::pair<StringRef, StringRef> Parts = {{}, Str};
+  while (!Parts.second.empty()) {
+    Parts = Parts.second.split(',');
+    StringRef Cur = Parts.first.trim();
+    SourceLocation CurLoc = Literal->getLocationOfByte(
+        Cur.data() - Literal->getString().data(), getSourceManager(),
+        getLangOpts(), Context.getTargetInfo());
+
+    bool DefaultIsDupe = false;
+    if (Cur.empty())
+      return Diag(CurLoc, diag::warn_unsupported_target_attribute)
+             << Unsupported << None << "" << TargetClones;
+
+    if (Cur.startswith("arch=")) {
+      if (!Context.getTargetInfo().isValidCPUName(
+              Cur.drop_front(sizeof("arch=") - 1)))
+        return Diag(CurLoc, diag::warn_unsupported_target_attribute)
+               << Unsupported << Architecture
+               << Cur.drop_front(sizeof("arch=") - 1) << TargetClones;
+    } else if (Cur == "default") {
+      DefaultIsDupe = HasDefault;
+      HasDefault = true;
+    } else if (!Context.getTargetInfo().isValidFeatureName(Cur))
+      return Diag(CurLoc, diag::warn_unsupported_target_attribute)
+             << Unsupported << None << Cur << TargetClones;
+
+    if (llvm::find(Strings, Cur) != Strings.end() || DefaultIsDupe)
+      Diag(CurLoc, diag::warn_target_clone_duplicate_options);
+    // Note: Add even if there are duplicates, since it changes name mangling.
+    Strings.push_back(Cur);
+  }
+
+  if (Str.rtrim().endswith(","))
+    return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
+           << Unsupported << None << "" << TargetClones;
+  return false;
+}
+
+static void handleTargetClonesAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  // Ensure we don't combine these with themselves, since that causes some
+  // confusing behavior.
+  if (const auto *Other = D->getAttr<TargetClonesAttr>()) {
+    S.Diag(AL.getLoc(), diag::err_disallowed_duplicate_attribute) << AL;
+    S.Diag(Other->getLocation(), diag::note_conflicting_attribute);
+    return;
+  }
+  if (checkAttrMutualExclusion<TargetClonesAttr>(S, D, AL))
+    return;
+
+  SmallVector<StringRef, 2> Strings;
+  bool HasCommas = false, HasDefault = false;
+
+  for (unsigned I = 0, E = AL.getNumArgs(); I != E; ++I) {
+    StringRef CurStr;
+    SourceLocation LiteralLoc;
+    if (!S.checkStringLiteralArgumentAttr(AL, I, CurStr, &LiteralLoc) ||
+        S.checkTargetClonesAttrString(
+            LiteralLoc, CurStr,
+            cast<StringLiteral>(AL.getArgAsExpr(I)->IgnoreParenCasts()),
+            HasDefault, HasCommas, Strings))
+      return;
+  }
+
+  if (HasCommas && AL.getNumArgs() > 1)
+    S.Diag(AL.getLoc(), diag::warn_target_clone_mixed_values);
+
+  if (!HasDefault) {
+    S.Diag(AL.getLoc(), diag::err_target_clone_must_have_default);
+    return;
+  }
+
+  // FIXME: We could probably figure out how to get this to work for lambdas
+  // someday.
+  if (const auto *MD = dyn_cast<CXXMethodDecl>(D)) {
+    if (MD->getParent()->isLambda()) {
+      S.Diag(D->getLocation(), diag::err_multiversion_doesnt_support)
+          << static_cast<unsigned>(MultiVersionKind::TargetClones)
+          << /*Lambda*/ 9;
+      return;
+    }
+  }
+
+  cast<FunctionDecl>(D)->setIsMultiVersion();
+  TargetClonesAttr *NewAttr = ::new (S.Context)
+      TargetClonesAttr(S.Context, AL, Strings.data(), Strings.size());
   D->addAttr(NewAttr);
 }
 
@@ -4287,6 +4474,13 @@ static void handleFormatArgAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
   Ty = getFunctionOrMethodResultType(D);
+  // replace instancetype with the class type
+  auto Instancetype = S.Context.getObjCInstanceTypeDecl()->getTypeForDecl();
+  if (Ty->getAs<TypedefType>() == Instancetype)
+    if (auto *OMD = dyn_cast<ObjCMethodDecl>(D))
+      if (auto *Interface = OMD->getClassInterface())
+        Ty = S.Context.getObjCObjectPointerType(
+            QualType(Interface->getTypeForDecl(), 0));
   if (!isNSStringType(Ty, S.Context, /*AllowNSAttributedString=*/true) &&
       !isCFStringType(Ty, S.Context) &&
       (!Ty->isPointerType() ||
@@ -5268,7 +5462,7 @@ void Sema::AddModeAttr(Decl *D, const AttributeCommonInfo &CI,
     return;
   }
   bool IntegralOrAnyEnumType = (OldElemTy->isIntegralOrEnumerationType() &&
-                                !OldElemTy->isExtIntType()) ||
+                                !OldElemTy->isBitIntType()) ||
                                OldElemTy->getAs<EnumType>();
 
   if (!OldElemTy->getAs<BuiltinType>() && !OldElemTy->isComplexType() &&
@@ -6319,17 +6513,32 @@ static void handleSYCLIntelNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
   S.AddSYCLIntelNoGlobalWorkOffsetAttr(D, A, E);
 }
 
-/// Handle the [[intel::doublepump]] and [[intel::singlepump]]
-/// attributes.
-template <typename AttrType>
-static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &A) {
-  checkForDuplicateAttribute<AttrType>(S, D, A);
+/// Handle the [[intel::singlepump]] attribute.
+static void handleSYCLIntelFPGASinglePumpAttr(Sema &S, Decl *D,
+                                              const ParsedAttr &AL) {
+  checkForDuplicateAttribute<IntelFPGASinglePumpAttr>(S, D, AL);
 
+  // If the declaration does not have an [[intel::fpga_memory]]
+  // attribute, this creates one as an implicit attribute.
   if (!D->hasAttr<IntelFPGAMemoryAttr>())
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
         S.Context, IntelFPGAMemoryAttr::Default));
 
-  handleSimpleAttribute<AttrType>(S, D, A);
+  D->addAttr(::new (S.Context) IntelFPGASinglePumpAttr(S.Context, AL));
+}
+
+/// Handle the [[intel::doublepump]] attribute.
+static void handleSYCLIntelFPGADoublePumpAttr(Sema &S, Decl *D,
+                                              const ParsedAttr &AL) {
+  checkForDuplicateAttribute<IntelFPGADoublePumpAttr>(S, D, AL);
+
+  // If the declaration does not have an [[intel::fpga_memory]]
+  // attribute, this creates one as an implicit attribute.
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  D->addAttr(::new (S.Context) IntelFPGADoublePumpAttr(S.Context, AL));
 }
 
 /// Handle the [[intel::fpga_memory]] attribute.
@@ -7071,8 +7280,8 @@ static void handleArmBuiltinAliasAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static bool RISCVAliasValid(unsigned BuiltinID, StringRef AliasName) {
-  return BuiltinID >= Builtin::FirstTSBuiltin &&
-         BuiltinID < RISCV::LastTSBuiltin;
+  return BuiltinID >= RISCV::FirstRVVBuiltin &&
+         BuiltinID <= RISCV::LastRVVBuiltin;
 }
 
 static void handleBuiltinAliasAttr(Sema &S, Decl *D,
@@ -8049,13 +8258,12 @@ bool Sema::DiagnoseSwiftName(Decl *D, StringRef Name, SourceLocation Loc,
       // might be because we've transformed some of them. Check for potential
       // "out" parameters and err on the side of not warning.
       unsigned MaybeOutParamCount =
-          std::count_if(Params.begin(), Params.end(),
-                        [](const ParmVarDecl *Param) -> bool {
-        QualType ParamTy = Param->getType();
-        if (ParamTy->isReferenceType() || ParamTy->isPointerType())
-          return !ParamTy->getPointeeType().isConstQualified();
-        return false;
-      });
+          llvm::count_if(Params, [](const ParmVarDecl *Param) -> bool {
+            QualType ParamTy = Param->getType();
+            if (ParamTy->isReferenceType() || ParamTy->isPointerType())
+              return !ParamTy->getPointeeType().isConstQualified();
+            return false;
+          });
 
       ParamCountValid = SwiftParamCount + MaybeOutParamCount >= ParamCount;
     }
@@ -9301,7 +9509,7 @@ static void handleOpenCLAccessAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // C++ for OpenCL 2021 inherits rule from OpenCL C v3.0.
   if (const auto *PDecl = dyn_cast<ParmVarDecl>(D)) {
     const Type *DeclTy = PDecl->getType().getCanonicalType().getTypePtr();
-    if (AL.getAttrName()->getName().find("read_write") != StringRef::npos) {
+    if (AL.getAttrName()->getName().contains("read_write")) {
       bool ReadWriteImagesUnsupported =
           (S.getLangOpts().getOpenCLCompatibleVersion() < 200) ||
           (S.getLangOpts().getOpenCLCompatibleVersion() == 300 &&
@@ -9317,6 +9525,130 @@ static void handleOpenCLAccessAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   D->addAttr(::new (S.Context) OpenCLAccessAttr(S.Context, AL));
+}
+
+static constexpr std::pair<Decl::Kind, StringRef>
+MakeDeclContextDesc(Decl::Kind K, StringRef SR) {
+  return std::pair<Decl::Kind, StringRef>{K, SR};
+}
+
+// FIXME: Refactor Util class in SemaSYCL.cpp to avoid following
+// code duplication.
+bool isDeviceAspectType(const QualType Ty) {
+  const EnumType *ET = Ty->getAs<EnumType>();
+  if (!ET)
+    return false;
+
+  std::array<std::pair<Decl::Kind, StringRef>, 3> Scopes = {
+      MakeDeclContextDesc(Decl::Kind::Namespace, "cl"),
+      MakeDeclContextDesc(Decl::Kind::Namespace, "sycl"),
+      MakeDeclContextDesc(Decl::Kind::Enum, "aspect")};
+
+  const auto *Ctx = cast<DeclContext>(ET->getDecl());
+  StringRef Name = "";
+
+  for (const auto &Scope : llvm::reverse(Scopes)) {
+    Decl::Kind DK = Ctx->getDeclKind();
+    if (DK != Scope.first)
+      return false;
+
+    switch (DK) {
+    case Decl::Kind::Enum:
+      Name = cast<EnumDecl>(Ctx)->getName();
+      break;
+    case Decl::Kind::Namespace:
+      Name = cast<NamespaceDecl>(Ctx)->getName();
+      break;
+    default:
+      llvm_unreachable("isDeviceAspectType: decl kind not supported");
+    }
+    if (Name != Scope.second)
+      return false;
+    Ctx = Ctx->getParent();
+  }
+  return Ctx->isTranslationUnit();
+}
+
+SYCLDeviceHasAttr *Sema::MergeSYCLDeviceHasAttr(Decl *D,
+                                                const SYCLDeviceHasAttr &A) {
+  if (const auto *ExistingAttr = D->getAttr<SYCLDeviceHasAttr>()) {
+    Diag(ExistingAttr->getLoc(), diag::warn_duplicate_attribute_exact) << &A;
+    Diag(A.getLoc(), diag::note_previous_attribute);
+    return nullptr;
+  }
+
+  SmallVector<Expr *, 5> Args;
+  for (auto *E : A.aspects())
+    Args.push_back(E);
+  return ::new (Context)
+      SYCLDeviceHasAttr(Context, A, Args.data(), Args.size());
+}
+
+void Sema::AddSYCLDeviceHasAttr(Decl *D, const AttributeCommonInfo &CI,
+                                Expr **Exprs, unsigned Size) {
+
+  SYCLDeviceHasAttr TmpAttr(Context, CI, Exprs, Size);
+  SmallVector<Expr *, 5> Aspects;
+  for (auto *E : TmpAttr.aspects())
+    if (!isDeviceAspectType(E->getType()))
+      Diag(E->getExprLoc(), diag::err_sycl_invalid_aspect_argument) << CI;
+
+  if (const auto *ExistingAttr = D->getAttr<SYCLDeviceHasAttr>()) {
+    Diag(CI.getLoc(), diag::warn_duplicate_attribute_exact) << CI;
+    Diag(ExistingAttr->getLoc(), diag::note_previous_attribute);
+    return;
+  }
+
+  D->addAttr(::new (Context) SYCLDeviceHasAttr(Context, CI, Exprs, Size));
+}
+
+static void handleSYCLDeviceHasAttr(Sema &S, Decl *D, const ParsedAttr &A) {
+  SmallVector<Expr *, 5> Args;
+  for (unsigned I = 0; I < A.getNumArgs(); ++I)
+    Args.push_back(A.getArgAsExpr(I));
+
+  S.AddSYCLDeviceHasAttr(D, A, Args.data(), Args.size());
+}
+
+SYCLUsesAspectsAttr *
+Sema::MergeSYCLUsesAspectsAttr(Decl *D, const SYCLUsesAspectsAttr &A) {
+  if (const auto *ExistingAttr = D->getAttr<SYCLUsesAspectsAttr>()) {
+    Diag(ExistingAttr->getLoc(), diag::warn_duplicate_attribute_exact) << &A;
+    Diag(A.getLoc(), diag::note_previous_attribute);
+    return nullptr;
+  }
+
+  SmallVector<Expr *, 5> Args;
+  for (auto *E : A.aspects())
+    Args.push_back(E);
+  return ::new (Context)
+      SYCLUsesAspectsAttr(Context, A, Args.data(), Args.size());
+}
+
+void Sema::AddSYCLUsesAspectsAttr(Decl *D, const AttributeCommonInfo &CI,
+                                  Expr **Exprs, unsigned Size) {
+
+  SYCLUsesAspectsAttr TmpAttr(Context, CI, Exprs, Size);
+  SmallVector<Expr *, 5> Aspects;
+  for (auto *E : TmpAttr.aspects())
+    if (!isDeviceAspectType(E->getType()))
+      Diag(E->getExprLoc(), diag::err_sycl_invalid_aspect_argument) << CI;
+
+  if (const auto *ExistingAttr = D->getAttr<SYCLUsesAspectsAttr>()) {
+    Diag(CI.getLoc(), diag::warn_duplicate_attribute_exact) << CI;
+    Diag(ExistingAttr->getLoc(), diag::note_previous_attribute);
+    return;
+  }
+
+  D->addAttr(::new (Context) SYCLUsesAspectsAttr(Context, CI, Exprs, Size));
+}
+
+static void handleSYCLUsesAspectsAttr(Sema &S, Decl *D, const ParsedAttr &A) {
+  SmallVector<Expr *, 5> Args;
+  for (unsigned I = 0; I < A.getNumArgs(); ++I)
+    Args.push_back(A.getArgAsExpr(I));
+
+  S.AddSYCLUsesAspectsAttr(D, A, Args.data(), Args.size());
 }
 
 static void handleSYCLKernelAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -9772,6 +10104,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_DiagnoseIf:
     handleDiagnoseIfAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_DiagnoseAsBuiltin:
+    handleDiagnoseAsBuiltinAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_NoBuiltin:
     handleNoBuiltinAttr(S, D, AL);
     break;
@@ -9813,6 +10148,12 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_SYCLIntelESimdVectorize:
     handleSYCLIntelESimdVectorizeAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLDeviceHas:
+    handleSYCLDeviceHasAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLUsesAspects:
+    handleSYCLUsesAspectsAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Format:
     handleFormatAttr(S, D, AL);
@@ -9975,13 +10316,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSYCLIntelNoGlobalWorkOffsetAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelUseStallEnableClusters:
-    handleUseStallEnableClustersAttr(S, D, AL);
+    handleSYCLIntelUseStallEnableClustersAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelLoopFuse:
     handleSYCLIntelLoopFuseAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_SYCLIntelFPGADisableLoopPipelining:
-    handleSYCLIntelFPGADisableLoopPipeliningAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelFPGAInitiationInterval:
     handleSYCLIntelFPGAInitiationIntervalAttr(S, D, AL);
@@ -10006,6 +10344,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_Target:
     handleTargetAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_TargetClones:
+    handleTargetClonesAttr(S, D, AL);
     break;
   case ParsedAttr::AT_MinVectorWidth:
     handleMinVectorWidthAttr(S, D, AL);
@@ -10232,10 +10573,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   // Intel FPGA specific attributes
   case ParsedAttr::AT_IntelFPGADoublePump:
-    handleIntelFPGAPumpAttr<IntelFPGADoublePumpAttr>(S, D, AL);
+    handleSYCLIntelFPGADoublePumpAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGASinglePump:
-    handleIntelFPGAPumpAttr<IntelFPGASinglePumpAttr>(S, D, AL);
+    handleSYCLIntelFPGASinglePumpAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
