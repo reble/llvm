@@ -743,6 +743,8 @@ struct _pi_queue : _pi_object {
   // Returns true if the queue is a in-order queue.
   bool isInOrderQueue() const;
 
+  bool isEagerExec();
+
   // adjust the queue's batch size, knowing that the current command list
   // is being closed with a full batch.
   // For copy commands, IsCopy is set to 'true'.
