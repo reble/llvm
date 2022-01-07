@@ -697,6 +697,8 @@ struct _pi_queue : _pi_object {
   // be batched together.
   bool isBatchingAllowed();
 
+  bool isEagerExec();
+
   // adjust the queue's batch size, knowing that the current command list
   // is being closed with a full batch.
   void adjustBatchSizeForFullBatch();

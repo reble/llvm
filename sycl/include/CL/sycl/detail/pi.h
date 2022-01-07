@@ -1422,6 +1422,8 @@ __SYCL_EXPORT pi_result piSamplerRelease(pi_sampler sampler);
 //
 // Queue Commands
 //
+__SYCL_EXPORT pi_result piKernelLaunch(pi_queue queue);
+
 __SYCL_EXPORT pi_result piEnqueueKernelLaunch(
     pi_queue queue, pi_kernel kernel, pi_uint32 work_dim,
     const size_t *global_work_offset, const size_t *global_work_size,
