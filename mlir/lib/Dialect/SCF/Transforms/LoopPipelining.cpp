@@ -14,7 +14,7 @@
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Transforms.h"
-#include "mlir/Dialect/SCF/Utils.h"
+#include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/PatternMatch.h"
@@ -138,7 +138,8 @@ void LoopPipelinerInternal::emitPrologue(PatternRewriter &rewriter) {
   auto yield = cast<scf::YieldOp>(forOp.getBody()->getTerminator());
   for (int64_t i = 0; i < maxStage; i++) {
     // special handling for induction variable as the increment is implicit.
-    Value iv = rewriter.create<arith::ConstantIndexOp>(forOp.getLoc(), lb + i);
+    Value iv =
+        rewriter.create<arith::ConstantIndexOp>(forOp.getLoc(), lb + i * step);
     setValueMapping(forOp.getInductionVar(), iv, i);
     for (Operation *op : opOrder) {
       if (stages[op] > i)
@@ -198,7 +199,7 @@ scf::ForOp LoopPipelinerInternal::createKernelLoop(
   llvm::SmallVector<Value> newLoopArg;
   // For existing loop argument initialize them with the right version from the
   // prologue.
-  for (auto retVal :
+  for (const auto &retVal :
        llvm::enumerate(forOp.getBody()->getTerminator()->getOperands())) {
     Operation *def = retVal.value().getDefiningOp();
     assert(def && "Only support loop carried dependencies of distance 1");
@@ -245,7 +246,7 @@ void LoopPipelinerInternal::createKernel(
   rewriter.setInsertionPoint(newForOp.getBody(), newForOp.getBody()->begin());
   BlockAndValueMapping mapping;
   mapping.map(forOp.getInductionVar(), newForOp.getInductionVar());
-  for (auto arg : llvm::enumerate(forOp.getRegionIterArgs())) {
+  for (const auto &arg : llvm::enumerate(forOp.getRegionIterArgs())) {
     mapping.map(arg.value(), newForOp.getRegionIterArgs()[arg.index()]);
   }
   for (Operation *op : opOrder) {
@@ -325,7 +326,7 @@ void LoopPipelinerInternal::createKernel(
     yieldOperands.push_back(mapping.lookupOrDefault(it.first));
   }
   // Map the yield operand to the forOp returned value.
-  for (auto retVal :
+  for (const auto &retVal :
        llvm::enumerate(forOp.getBody()->getTerminator()->getOperands())) {
     Operation *def = retVal.value().getDefiningOp();
     assert(def && "Only support loop carried dependencies of distance 1");

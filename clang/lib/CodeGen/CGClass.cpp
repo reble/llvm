@@ -162,7 +162,8 @@ CodeGenFunction::EmitCXXMemberDataPointerAddress(const Expr *E, Address base,
     CGM.getDynamicOffsetAlignment(base.getAlignment(),
                             memberPtrType->getClass()->getAsCXXRecordDecl(),
                                   memberAlign);
-  return Address(ptr, memberAlign);
+  return Address(ptr, ConvertTypeForMem(memberPtrType->getPointeeType()),
+                 memberAlign);
 }
 
 CharUnits CodeGenModule::computeNonVirtualBaseClassOffset(
@@ -390,7 +391,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
     llvm::PHINode *PHI = Builder.CreatePHI(BasePtrTy, 2, "cast.result");
     PHI->addIncoming(Value.getPointer(), notNullBB);
     PHI->addIncoming(llvm::Constant::getNullValue(BasePtrTy), origBB);
-    Value = Address(PHI, Value.getAlignment());
+    Value = Value.withPointer(PHI);
   }
 
   return Value;
@@ -1983,7 +1984,7 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
   CharUnits eltAlignment =
     arrayBase.getAlignment()
              .alignmentOfArrayElement(getContext().getTypeSizeInChars(type));
-  Address curAddr = Address(cur, eltAlignment);
+  Address curAddr = Address(cur, elementType, eltAlignment);
 
   // Zero initialize the storage, if requested.
   if (zeroInitialize)
@@ -2852,9 +2853,8 @@ llvm::Value *CodeGenFunction::EmitVTableTypeCheckedLoad(
               SanitizerHandler::CFICheckFail, {}, {});
   }
 
-  return Builder.CreateBitCast(
-      Builder.CreateExtractValue(CheckedLoad, 0),
-      cast<llvm::PointerType>(VTable->getType())->getElementType());
+  return Builder.CreateBitCast(Builder.CreateExtractValue(CheckedLoad, 0),
+                               VTable->getType()->getPointerElementType());
 }
 
 void CodeGenFunction::EmitForwardingCallToLambda(

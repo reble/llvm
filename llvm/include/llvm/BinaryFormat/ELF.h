@@ -22,7 +22,6 @@
 #include "llvm/ADT/StringRef.h"
 #include <cstdint>
 #include <cstring>
-#include <string>
 
 namespace llvm {
 namespace ELF {
@@ -320,6 +319,7 @@ enum {
   EM_BPF = 247,           // Linux kernel bpf virtual machine
   EM_VE = 251,            // NEC SX-Aurora VE
   EM_CSKY = 252,          // C-SKY 32-bit processor
+  EM_LOONGARCH = 258,     // LoongArch
 };
 
 // Object file classes.
@@ -373,7 +373,8 @@ enum {
   // was never defined for V1.
   ELFABIVERSION_AMDGPU_HSA_V2 = 0,
   ELFABIVERSION_AMDGPU_HSA_V3 = 1,
-  ELFABIVERSION_AMDGPU_HSA_V4 = 2
+  ELFABIVERSION_AMDGPU_HSA_V4 = 2,
+  ELFABIVERSION_AMDGPU_HSA_V5 = 3
 };
 
 #define ELF_RELOC(name, value) name = value,
@@ -656,7 +657,8 @@ enum : unsigned {
   EF_RISCV_FLOAT_ABI_SINGLE = 0x0002,
   EF_RISCV_FLOAT_ABI_DOUBLE = 0x0004,
   EF_RISCV_FLOAT_ABI_QUAD = 0x0006,
-  EF_RISCV_RVE = 0x0008
+  EF_RISCV_RVE = 0x0008,
+  EF_RISCV_TSO = 0x0010,
 };
 
 // ELF Relocation types for RISC-V
@@ -868,6 +870,11 @@ enum {
 // ELF Relocation types for CSKY
 enum {
 #include "ELFRelocs/CSKY.def"
+};
+
+// ELF Relocation types for LoongArch
+enum {
+#include "ELFRelocs/LoongArch.def"
 };
 
 #undef ELF_RELOC
