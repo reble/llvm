@@ -407,7 +407,7 @@ void DWARFUnit::extractDIEsToVector(
     assert((Parents.back() == UINT32_MAX || Parents.back() <= Dies.size()) &&
            "Wrong parent index");
 
-    // Extract die. Stop if any error occured.
+    // Extract die. Stop if any error occurred.
     if (!DIE.extractFast(*this, &DIEOffset, DebugInfoData, NextCUOffset,
                          Parents.back()))
       break;
@@ -607,7 +607,7 @@ bool DWARFUnit::parseDWO() {
     DWO->setAddrOffsetSection(AddrOffsetSection, *AddrOffsetSectionBase);
   if (getVersion() == 4) {
     auto DWORangesBase = UnitDie.getRangesBaseAttribute();
-    DWO->setRangesSection(RangeSection, DWORangesBase ? *DWORangesBase : 0);
+    DWO->setRangesSection(RangeSection, DWORangesBase.getValueOr(0));
   }
 
   return true;

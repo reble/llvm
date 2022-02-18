@@ -752,23 +752,17 @@ unsigned ARMBaseInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   const MCAsmInfo *MAI = MF->getTarget().getMCAsmInfo();
 
   const MCInstrDesc &MCID = MI.getDesc();
-  if (MCID.getSize())
-    return MCID.getSize();
 
   switch (MI.getOpcode()) {
   default:
-    // pseudo-instruction sizes are zero.
-    return 0;
+    // Return the size specified in .td file. If there's none, return 0, as we
+    // can't define a default size (Thumb1 instructions are 2 bytes, Thumb2
+    // instructions are 2-4 bytes, and ARM instructions are 4 bytes), in
+    // contrast to AArch64 instructions which have a default size of 4 bytes for
+    // example.
+    return MCID.getSize();
   case TargetOpcode::BUNDLE:
     return getInstBundleLength(MI);
-  case ARM::MOVi16_ga_pcrel:
-  case ARM::MOVTi16_ga_pcrel:
-  case ARM::t2MOVi16_ga_pcrel:
-  case ARM::t2MOVTi16_ga_pcrel:
-    return 4;
-  case ARM::MOVi32imm:
-  case ARM::t2MOVi32imm:
-    return 8;
   case ARM::CONSTPOOL_ENTRY:
   case ARM::JUMPTABLE_INSTS:
   case ARM::JUMPTABLE_ADDRS:
@@ -777,19 +771,6 @@ unsigned ARMBaseInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
     // If this machine instr is a constant pool entry, its size is recorded as
     // operand #2.
     return MI.getOperand(2).getImm();
-  case ARM::Int_eh_sjlj_longjmp:
-    return 16;
-  case ARM::tInt_eh_sjlj_longjmp:
-    return 10;
-  case ARM::tInt_WIN_eh_sjlj_longjmp:
-    return 12;
-  case ARM::Int_eh_sjlj_setjmp:
-  case ARM::Int_eh_sjlj_setjmp_nofp:
-    return 20;
-  case ARM::tInt_eh_sjlj_setjmp:
-  case ARM::t2Int_eh_sjlj_setjmp:
-  case ARM::t2Int_eh_sjlj_setjmp_nofp:
-    return 12;
   case ARM::SPACE:
     return MI.getOperand(1).getImm();
   case ARM::INLINEASM:
@@ -800,14 +781,6 @@ unsigned ARMBaseInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
       Size = alignTo(Size, 4);
     return Size;
   }
-  case ARM::SpeculationBarrierISBDSBEndBB:
-  case ARM::t2SpeculationBarrierISBDSBEndBB:
-    // This gets lowered to 2 4-byte instructions.
-    return 8;
-  case ARM::SpeculationBarrierSBEndBB:
-  case ARM::t2SpeculationBarrierSBEndBB:
-    // This gets lowered to 1 4-byte instructions.
-    return 4;
   }
 }
 
@@ -4867,6 +4840,36 @@ bool ARMBaseInstrInfo::verifyInstruction(const MachineInstr &MI,
       ErrInfo = "Incorrect array index for MVE_VMOV_q_rr";
       return false;
     }
+  }
+
+  // Check the address model by taking the first Imm operand and checking it is
+  // legal for that addressing mode.
+  ARMII::AddrMode AddrMode =
+      (ARMII::AddrMode)(MI.getDesc().TSFlags & ARMII::AddrModeMask);
+  switch (AddrMode) {
+  default:
+    break;
+  case ARMII::AddrModeT2_i7:
+  case ARMII::AddrModeT2_i7s2:
+  case ARMII::AddrModeT2_i7s4:
+  case ARMII::AddrModeT2_i8:
+  case ARMII::AddrModeT2_i8pos:
+  case ARMII::AddrModeT2_i8neg:
+  case ARMII::AddrModeT2_i8s4:
+  case ARMII::AddrModeT2_i12: {
+    uint32_t Imm = 0;
+    for (auto Op : MI.operands()) {
+      if (Op.isImm()) {
+        Imm = Op.getImm();
+        break;
+      }
+    }
+    if (!isLegalAddressImm(MI.getOpcode(), Imm, this)) {
+      ErrInfo = "Incorrect AddrMode Imm for instruction";
+      return false;
+    }
+    break;
+  }
   }
   return true;
 }
