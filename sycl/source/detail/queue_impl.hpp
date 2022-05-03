@@ -305,6 +305,9 @@ public:
             ext::oneapi::cuda::property::queue::use_default_stream>()) {
       CreationFlags |= __SYCL_PI_CUDA_USE_DEFAULT_STREAM;
     }
+    if (has_property<ext::oneapi::property::queue::lazy_execution>()) {
+      CreationFlags |= PI_QUEUE_LAZY_EXECUTION;
+    }
     RT::PiQueue Queue{};
     RT::PiContext Context = MContext->getHandleRef();
     RT::PiDevice Device = MDevice->getHandleRef();
