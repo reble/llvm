@@ -187,6 +187,26 @@ public:
   node add_device_node(T cgf, const std::vector<node> &dep = {});
 
   // Adding dependency between two nodes.
+  // Adds a fill node
+  template <typename T>
+  node fill(void *Ptr, const T &Pattern, size_t Count,
+            const std::vector<node> &dep = {});
+  // Adds a memset node
+  node memset(void *Ptr, int Value, size_t Count,
+              const std::vector<node> &dep = {});
+  // Adds a memcpy node
+  node memcpy(void *Dest, const void *Src, size_t Count,
+              const std::vector<node> &dep = {});
+  // Adds a copy node
+  template <typename T>
+  node copy(const T *Src, T *Dest, size_t Count,
+            const std::vector<node> &dep = {});
+  // Adds a mem_advise node
+  node mem_advise(const void *Ptr, size_t Length, int Advice,
+                  const std::vector<node> &dep = {});
+  // Adds a prefetch node
+  node prefetch(const void *Ptr, size_t Count,
+                const std::vector<node> &dep = {});
   void make_edge(node sender, node receiver);
 
   // TODO: Extend queue to directly submit graph
@@ -240,6 +260,93 @@ node graph::submit(const std::vector<node> &dep) {
     _node.set_root();
   }
   return _node;
+}
+/// Fills the specified memory with the specified pattern.
+///
+/// \param Ptr is the pointer to the memory to fill.
+/// \param Pattern is the pattern to fill into the memory.  T should be
+/// trivially copyable.
+/// \param Count is the number of times to fill Pattern into Ptr.
+/// \param dep is a vector of graph nodes the fill depends on.
+/// \return a graph node representing the fill operation.
+template <typename T>
+node graph::fill(void *Ptr, const T &Pattern, size_t Count,
+                 const std::vector<node> &dep) {
+  return graph::submit([=](sycl::handler &h) { h.fill(Ptr, Pattern, Count); },
+                       dep);
+}
+/// Copies data from one memory region to another, both pointed by
+/// USM pointers.
+/// No operations is done if \param Count is zero. An exception is thrown
+/// if either \param Dest or \param Src is nullptr. The behavior is undefined
+/// if any of the pointer parameters is invalid.
+///
+/// \param Dest is a USM pointer to the destination memory.
+/// \param Src is a USM pointer to the source memory.
+/// \param dep is a vector of graph nodes the memset depends on.
+/// \return a graph node representing the memset operation.
+node graph::memset(void *Ptr, int Value, size_t Count,
+                   const std::vector<node> &dep) {
+  return graph::submit([=](sycl::handler &h) { h.memset(Ptr, Value, Count); },
+                       dep);
+}
+/// Copies data from one memory region to another, both pointed by
+/// USM pointers.
+/// No operations is done if \param Count is zero. An exception is thrown
+/// if either \param Dest or \param Src is nullptr. The behavior is undefined
+/// if any of the pointer parameters is invalid.
+///
+/// \param Dest is a USM pointer to the destination memory.
+/// \param Src is a USM pointer to the source memory.
+/// \param Count is a number of bytes to copy.
+/// \param dep is a vector of graph nodes the memcpy depends on.
+/// \return a graph node representing the memcpy operation.
+node graph::memcpy(void *Dest, const void *Src, size_t Count,
+                   const std::vector<node> &dep) {
+  return graph::submit([=](sycl::handler &h) { h.memcpy(Dest, Src, Count); },
+                       dep);
+}
+/// Copies data from one memory region to another, both pointed by
+/// USM pointers.
+/// No operations is done if \param Count is zero. An exception is thrown
+/// if either \param Dest or \param Src is nullptr. The behavior is undefined
+/// if any of the pointer parameters is invalid.
+///
+/// \param Src is a USM pointer to the source memory.
+/// \param Dest is a USM pointer to the destination memory.
+/// \param Count is a number of elements of type T to copy.
+/// \param dep is a vector of graph nodes the copy depends on.
+/// \return a graph node representing the copy operation.
+template <typename T>
+node graph::copy(const T *Src, T *Dest, size_t Count,
+                 const std::vector<node> &dep) {
+  return graph::submit(
+      [=](sycl::handler &h) { h.memcpy(Dest, Src, Count * sizeof(T)); }, dep);
+}
+/// Provides additional information to the underlying runtime about how
+/// different allocations are used.
+///
+/// \param Ptr is a USM pointer to the allocation.
+/// \param Length is a number of bytes in the allocation.
+/// \param Advice is a device-defined advice for the specified allocation.
+/// \param dep is a vector of graph nodes the mem_advise depends on.
+/// \return a graph node representing the mem_advise operation.
+node graph::mem_advise(const void *Ptr, size_t Length, int Advice,
+                       const std::vector<node> &dep) {
+  return graph::submit(
+      [=](sycl::handler &h) { h.mem_advise(Ptr, Length, Advice); }, dep);
+}
+/// Provides hints to the runtime library that data should be made available
+/// on a device earlier than Unified Shared Memory would normally require it
+/// to be available.
+///
+/// \param Ptr is a USM pointer to the memory to be prefetched to the device.
+/// \param Count is a number of bytes to be prefetched.
+/// \param dep is a vector of graph nodes the prefetch depends on.
+/// \return a graph node representing the prefetch operation.
+node graph::prefetch(const void *Ptr, size_t Count,
+                     const std::vector<node> &dep) {
+  return graph::submit([=](sycl::handler &h) { h.prefetch(Ptr, Count); }, dep);
 }
 void graph::make_edge(node sender, node receiver) {
   sender.register_successor(receiver);     // register successor
