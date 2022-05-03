@@ -179,7 +179,7 @@ public:
   // TODO: Extend queue to directly submit graph
   void exec_and_wait(sycl::queue q);
 
-  executable_graph exec(sycl::queue q) {
+  executable_graph instantiate(sycl::queue q) {
     return executable_graph{my_graph, q};
   };
 
