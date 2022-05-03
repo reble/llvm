@@ -787,7 +787,8 @@ struct _pi_queue : _pi_object {
   // of the value of OKToBatchCommand
   pi_result executeCommandList(pi_command_list_ptr_t CommandList,
                                bool IsBlocking = false,
-                               bool OKToBatchCommand = false, bool Graph = false);
+                               bool OKToBatchCommand = false,
+                               bool Graph = false);
 
   // If there is an open command list associated with this queue,
   // close it, execute it, and reset the corresponding OpenCommandList.
