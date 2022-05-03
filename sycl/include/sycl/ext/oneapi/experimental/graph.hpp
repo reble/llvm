@@ -176,55 +176,102 @@ public:
   // Adds a node
   template <typename T> node submit(T cgf, const std::vector<node> &dep = {});
 
-  // Adding node for host task
   template <typename T>
-  node add_host_node(T hostTaskCallable, const std::vector<node> &dep = {});
+  void submit(node &Node, T cgf, const std::vector<node> &dep = {});
+
   // Adds an empty node
   node submit(const std::vector<node> &dep = {});
 
-  // Adding device node:
+  // Updates a node
+  void update(node &Node, const std::vector<node> &dep = {});
   template <typename T>
-  node add_device_node(T cgf, const std::vector<node> &dep = {});
+  void update(node &Node, T cgf, const std::vector<node> &dep = {});
+
   // Shortcuts to add graph nodes
 
   // Adds a fill node
   template <typename T>
   node fill(void *Ptr, const T &Pattern, size_t Count,
             const std::vector<node> &dep = {});
+  template <typename T>
+  void fill(node &Node, void *Ptr, const T &Pattern, size_t Count,
+            const std::vector<node> &dep = {});
+
   // Adds a memset node
   node memset(void *Ptr, int Value, size_t Count,
               const std::vector<node> &dep = {});
+  void memset(node &Node, void *Ptr, int Value, size_t Count,
+              const std::vector<node> &dep = {});
+
   // Adds a memcpy node
   node memcpy(void *Dest, const void *Src, size_t Count,
               const std::vector<node> &dep = {});
+  void memcpy(node &Node, void *Dest, const void *Src, size_t Count,
+              const std::vector<node> &dep = {});
+
   // Adds a copy node
   template <typename T>
   node copy(const T *Src, T *Dest, size_t Count,
             const std::vector<node> &dep = {});
+  template <typename T>
+  void copy(node &Node, const T *Src, T *Dest, size_t Count,
+            const std::vector<node> &dep = {});
+
   // Adds a mem_advise node
   node mem_advise(const void *Ptr, size_t Length, int Advice,
                   const std::vector<node> &dep = {});
+  void mem_advise(node &Node, const void *Ptr, size_t Length, int Advice,
+                  const std::vector<node> &dep = {});
+
   // Adds a prefetch node
   node prefetch(const void *Ptr, size_t Count,
                 const std::vector<node> &dep = {});
+  void prefetch(node &Node, const void *Ptr, size_t Count,
+                const std::vector<node> &dep = {});
+
   // Adds a single_task node
   template <typename KernelName = sycl::detail::auto_name, typename KernelType>
   node single_task(const KernelType &(KernelFunc),
                    const std::vector<node> &dep = {});
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType>
+  void single_task(node &Node, const KernelType &(KernelFunc),
+                   const std::vector<node> &dep = {});
+
   // Adds a parallel_for node
   template <typename KernelName = sycl::detail::auto_name, typename KernelType>
   node parallel_for(range<1> NumWorkItems, const KernelType &(KernelFunc),
                     const std::vector<node> &dep = {});
   template <typename KernelName = sycl::detail::auto_name, typename KernelType>
+  void parallel_for(node &Node, range<1> NumWorkItems,
+                    const KernelType &(KernelFunc),
+                    const std::vector<node> &dep = {});
+
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType>
   node parallel_for(range<2> NumWorkItems, const KernelType &(KernelFunc),
                     const std::vector<node> &dep = {});
   template <typename KernelName = sycl::detail::auto_name, typename KernelType>
+  void parallel_for(node &Node, range<2> NumWorkItems,
+                    const KernelType &(KernelFunc),
+                    const std::vector<node> &dep = {});
+
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType>
   node parallel_for(range<3> NumWorkItems, const KernelType &(KernelFunc),
                     const std::vector<node> &dep = {});
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType>
+  void parallel_for(node &Node, range<3> NumWorkItems,
+                    const KernelType &(KernelFunc),
+                    const std::vector<node> &dep = {});
+
   template <typename KernelName = sycl::detail::auto_name, typename KernelType,
             int Dims>
   node parallel_for(range<Dims> NumWorkItems, const KernelType &(KernelFunc),
                     const std::vector<node> &dep = {});
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType,
+            int Dims>
+  void parallel_for(node &Node, range<Dims> NumWorkItems,
+                    const KernelType &(KernelFunc),
+                    const std::vector<node> &dep = {});
+
   template <typename KernelName = sycl::detail::auto_name, typename KernelType,
             int Dims>
   node parallel_for(range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
@@ -232,9 +279,21 @@ public:
                     const std::vector<node> &dep = {});
   template <typename KernelName = sycl::detail::auto_name, typename KernelType,
             int Dims>
+  void parallel_for(node &Node, range<Dims> NumWorkItems,
+                    id<Dims> WorkItemOffset, const KernelType &(KernelFunc),
+                    const std::vector<node> &dep = {});
+
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType,
+            int Dims>
   node parallel_for(nd_range<Dims> ExecutionRange,
                     const KernelType &(KernelFunc),
                     const std::vector<node> &dep = {});
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType,
+            int Dims>
+  void parallel_for(node &Node, nd_range<Dims> ExecutionRange,
+                    const KernelType &(KernelFunc),
+                    const std::vector<node> &dep = {});
+
   template <typename KernelName = sycl::detail::auto_name, typename KernelType,
             int Dims, typename Reduction>
   node parallel_for(range<Dims> NumWorkItems, Reduction Redu,
@@ -242,9 +301,21 @@ public:
                     const std::vector<node> &dep = {});
   template <typename KernelName = sycl::detail::auto_name, typename KernelType,
             int Dims, typename Reduction>
+  void parallel_for(node &Node, range<Dims> NumWorkItems, Reduction Redu,
+                    const KernelType &(KernelFunc),
+                    const std::vector<node> &dep = {});
+
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType,
+            int Dims, typename Reduction>
   node parallel_for(nd_range<Dims> ExecutionRange, Reduction Redu,
                     const KernelType &(KernelFunc),
                     const std::vector<node> &dep = {});
+  template <typename KernelName = sycl::detail::auto_name, typename KernelType,
+            int Dims, typename Reduction>
+  void parallel_for(node &Node, nd_range<Dims> ExecutionRange, Reduction Redu,
+                    const KernelType &(KernelFunc),
+                    const std::vector<node> &dep = {});
+
   // Adds a dependency between two nodes.
   void make_edge(node sender, node receiver);
 
@@ -257,7 +328,7 @@ public:
 
   graph() : my_graph(new detail::graph_impl()) {}
 
-  // Creating a subgraph (with predecessors)
+  // Creates a subgraph (with predecessors)
   graph(graph &parent, const std::vector<node> &dep = {}) {}
 
   bool is_subgraph();
@@ -300,6 +371,53 @@ node graph::submit(const std::vector<node> &dep) {
   }
   return _node;
 }
+
+/// Submits a node to the graph, in order to be executed upon graph execution.
+///
+/// \param Node is the graph node to be used. This overwrites the node
+/// parameters.
+/// \param cgf is a function object containing command group.
+/// \param dep is a vector of graph nodes the to be submitted node depends on.
+template <typename T>
+void graph::submit(node &Node, T cgf, const std::vector<node> &dep) {
+  Node.my_node->my_body = cgf;
+  if (!dep.empty()) {
+    for (auto n : dep)
+      this->make_edge(n, Node);
+  } else {
+    Node.set_root();
+  }
+}
+
+/// Sets or updates a graph node by overwriting its dependencies.
+///
+/// \param Node is a graph node to be updated.
+/// \param dep is a vector of graph nodes the to be updated node depends on.
+void graph::update(node &Node, const std::vector<node> &dep) {
+  if (!dep.empty()) {
+    for (auto n : dep)
+      this->make_edge(n, Node);
+  } else {
+    Node.set_root();
+  }
+}
+
+/// Sets or updates a graph node by overwriting its parameters.
+///
+/// \param Node is a graph node to be updated.
+/// \param cgf is a function object containing command group.
+/// \param dep is a vector of graph nodes the to be updated node depends on.
+template <typename T>
+void graph::update(node &Node, T cgf, const std::vector<node> &dep) {
+  Node.my_node->my_body = cgf;
+  if (!dep.empty()) {
+    for (auto n : dep)
+      this->make_edge(n, Node);
+  } else {
+    Node.set_root();
+  }
+}
+
 /// Fills the specified memory with the specified pattern.
 ///
 /// \param Ptr is the pointer to the memory to fill.
@@ -314,6 +432,23 @@ node graph::fill(void *Ptr, const T &Pattern, size_t Count,
   return graph::submit([=](sycl::handler &h) { h.fill(Ptr, Pattern, Count); },
                        dep);
 }
+
+/// Fills the specified memory with the specified pattern.
+///
+/// \param Node is the graph node to be used for the fill. This overwrites
+/// the node parameters.
+/// \param Ptr is the pointer to the memory to fill.
+/// \param Pattern is the pattern to fill into the memory.  T should be
+/// trivially copyable.
+/// \param Count is the number of times to fill Pattern into Ptr.
+/// \param dep is a vector of graph nodes the fill depends on.
+template <typename T>
+void graph::fill(node &Node, void *Ptr, const T &Pattern, size_t Count,
+                 const std::vector<node> &dep) {
+  graph::update(
+      Node, [=](sycl::handler &h) { h.fill(Ptr, Pattern, Count); }, dep);
+}
+
 /// Copies data from one memory region to another, both pointed by
 /// USM pointers.
 /// No operations is done if \param Count is zero. An exception is thrown
@@ -329,6 +464,24 @@ node graph::memset(void *Ptr, int Value, size_t Count,
   return graph::submit([=](sycl::handler &h) { h.memset(Ptr, Value, Count); },
                        dep);
 }
+
+/// Copies data from one memory region to another, both pointed by
+/// USM pointers.
+/// No operations is done if \param Count is zero. An exception is thrown
+/// if either \param Dest or \param Src is nullptr. The behavior is undefined
+/// if any of the pointer parameters is invalid.
+///
+/// \param Node is the graph node to be used for the memset. This overwrites
+/// the node parameters.
+/// \param Dest is a USM pointer to the destination memory.
+/// \param Src is a USM pointer to the source memory.
+/// \param dep is a vector of graph nodes the memset depends on.
+void graph::memset(node &Node, void *Ptr, int Value, size_t Count,
+                   const std::vector<node> &dep) {
+  graph::update(
+      Node, [=](sycl::handler &h) { h.memset(Ptr, Value, Count); }, dep);
+}
+
 /// Copies data from one memory region to another, both pointed by
 /// USM pointers.
 /// No operations is done if \param Count is zero. An exception is thrown
@@ -345,6 +498,25 @@ node graph::memcpy(void *Dest, const void *Src, size_t Count,
   return graph::submit([=](sycl::handler &h) { h.memcpy(Dest, Src, Count); },
                        dep);
 }
+
+/// Copies data from one memory region to another, both pointed by
+/// USM pointers.
+/// No operations is done if \param Count is zero. An exception is thrown
+/// if either \param Dest or \param Src is nullptr. The behavior is undefined
+/// if any of the pointer parameters is invalid.
+///
+/// \param Node is the graph node to be used for the memcpy. This overwrites
+/// the node parameters.
+/// \param Dest is a USM pointer to the destination memory.
+/// \param Src is a USM pointer to the source memory.
+/// \param Count is a number of bytes to copy.
+/// \param dep is a vector of graph nodes the memcpy depends on.
+void graph::memcpy(node &Node, void *Dest, const void *Src, size_t Count,
+                   const std::vector<node> &dep) {
+  graph::update(
+      Node, [=](sycl::handler &h) { h.memcpy(Dest, Src, Count); }, dep);
+}
+
 /// Copies data from one memory region to another, both pointed by
 /// USM pointers.
 /// No operations is done if \param Count is zero. An exception is thrown
@@ -362,6 +534,27 @@ node graph::copy(const T *Src, T *Dest, size_t Count,
   return graph::submit(
       [=](sycl::handler &h) { h.memcpy(Dest, Src, Count * sizeof(T)); }, dep);
 }
+
+/// Copies data from one memory region to another, both pointed by
+/// USM pointers.
+/// No operations is done if \param Count is zero. An exception is thrown
+/// if either \param Dest or \param Src is nullptr. The behavior is undefined
+/// if any of the pointer parameters is invalid.
+///
+/// \param Node is the graph node to be used for the copy. This overwrites
+/// the node parameters.
+/// \param Src is a USM pointer to the source memory.
+/// \param Dest is a USM pointer to the destination memory.
+/// \param Count is a number of elements of type T to copy.
+/// \param dep is a vector of graph nodes the copy depends on.
+template <typename T>
+void graph::copy(node &Node, const T *Src, T *Dest, size_t Count,
+                 const std::vector<node> &dep) {
+  graph::update(
+      Node, [=](sycl::handler &h) { h.memcpy(Dest, Src, Count * sizeof(T)); },
+      dep);
+}
+
 /// Provides additional information to the underlying runtime about how
 /// different allocations are used.
 ///
@@ -375,6 +568,22 @@ node graph::mem_advise(const void *Ptr, size_t Length, int Advice,
   return graph::submit(
       [=](sycl::handler &h) { h.mem_advise(Ptr, Length, Advice); }, dep);
 }
+
+/// Provides additional information to the underlying runtime about how
+/// different allocations are used.
+///
+/// \param Node is the graph node to be used for the mem_advise. This overwrites
+/// the node parameters.
+/// \param Ptr is a USM pointer to the allocation.
+/// \param Length is a number of bytes in the allocation.
+/// \param Advice is a device-defined advice for the specified allocation.
+/// \param dep is a vector of graph nodes the mem_advise depends on.
+void graph::mem_advise(node &Node, const void *Ptr, size_t Length, int Advice,
+                       const std::vector<node> &dep) {
+  graph::update(
+      Node, [=](sycl::handler &h) { h.mem_advise(Ptr, Length, Advice); }, dep);
+}
+
 /// Provides hints to the runtime library that data should be made available
 /// on a device earlier than Unified Shared Memory would normally require it
 /// to be available.
@@ -387,6 +596,22 @@ node graph::prefetch(const void *Ptr, size_t Count,
                      const std::vector<node> &dep) {
   return graph::submit([=](sycl::handler &h) { h.prefetch(Ptr, Count); }, dep);
 }
+
+/// Provides hints to the runtime library that data should be made available
+/// on a device earlier than Unified Shared Memory would normally require it
+/// to be available.
+///
+/// \param Node is the graph node to be used for the prefetch. This overwrites
+/// the node parameters.
+/// \param Ptr is a USM pointer to the memory to be prefetched to the device.
+/// \param Count is a number of bytes to be prefetched.
+/// \param dep is a vector of graph nodes the prefetch depends on.
+void graph::prefetch(node &Node, const void *Ptr, size_t Count,
+                     const std::vector<node> &dep) {
+  graph::update(
+      Node, [=](sycl::handler &h) { h.prefetch(Ptr, Count); }, dep);
+}
+
 /// single_task version with a kernel represented as a lambda.
 ///
 /// \param KernelFunc is the Kernel functor or lambda
@@ -401,6 +626,24 @@ node graph::single_task(const KernelType &(KernelFunc),
       },
       dep);
 }
+
+/// single_task version with a kernel represented as a lambda.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the single_task depends on.
+template <typename KernelName, typename KernelType>
+void graph::single_task(node &Node, const KernelType &(KernelFunc),
+                        const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template single_task<KernelName, KernelType>(KernelFunc);
+      },
+      dep);
+}
+
 /// parallel_for version with a kernel represented as a lambda + range that
 /// specifies global size only.
 ///
@@ -418,6 +661,28 @@ node graph::parallel_for(range<1> NumWorkItems, const KernelType &(KernelFunc),
       },
       dep);
 }
+
+/// parallel_for version with a kernel represented as a lambda + range that
+/// specifies global size only.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param NumWorkItems is a range that specifies the work space of the kernel
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the parallel_for depends on
+template <typename KernelName, typename KernelType>
+void graph::parallel_for(node &Node, range<1> NumWorkItems,
+                         const KernelType &(KernelFunc),
+                         const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template parallel_for<KernelName, KernelType>(NumWorkItems,
+                                                        KernelFunc);
+      },
+      dep);
+}
+
 /// parallel_for version with a kernel represented as a lambda + range that
 /// specifies global size only.
 ///
@@ -435,6 +700,28 @@ node graph::parallel_for(range<2> NumWorkItems, const KernelType &(KernelFunc),
       },
       dep);
 }
+
+/// parallel_for version with a kernel represented as a lambda + range that
+/// specifies global size only.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param NumWorkItems is a range that specifies the work space of the kernel
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the parallel_for depends on
+template <typename KernelName, typename KernelType>
+void graph::parallel_for(node &Node, range<2> NumWorkItems,
+                         const KernelType &(KernelFunc),
+                         const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template parallel_for<KernelName, KernelType>(NumWorkItems,
+                                                        KernelFunc);
+      },
+      dep);
+}
+
 /// parallel_for version with a kernel represented as a lambda + range that
 /// specifies global size only.
 ///
@@ -452,6 +739,28 @@ node graph::parallel_for(range<3> NumWorkItems, const KernelType &(KernelFunc),
       },
       dep);
 }
+
+/// parallel_for version with a kernel represented as a lambda + range that
+/// specifies global size only.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param NumWorkItems is a range that specifies the work space of the kernel
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the parallel_for depends on
+template <typename KernelName, typename KernelType>
+void graph::parallel_for(node &Node, range<3> NumWorkItems,
+                         const KernelType &(KernelFunc),
+                         const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template parallel_for<KernelName, KernelType>(NumWorkItems,
+                                                        KernelFunc);
+      },
+      dep);
+}
+
 /// parallel_for version with a kernel represented as a lambda + range that
 /// specifies global size only.
 ///
@@ -470,6 +779,28 @@ node graph::parallel_for(range<Dims> NumWorkItems,
       },
       dep);
 }
+
+/// parallel_for version with a kernel represented as a lambda + range that
+/// specifies global size only.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param NumWorkItems is a range that specifies the work space of the kernel
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the parallel_for depends on
+template <typename KernelName, typename KernelType, int Dims>
+void graph::parallel_for(node &Node, range<Dims> NumWorkItems,
+                         const KernelType &(KernelFunc),
+                         const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template parallel_for<KernelName, KernelType>(NumWorkItems,
+                                                        KernelFunc);
+      },
+      dep);
+}
+
 /// parallel_for version with a kernel represented as a lambda + range and
 /// offset that specify global size and global offset correspondingly.
 ///
@@ -489,6 +820,30 @@ node graph::parallel_for(range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
       },
       dep);
 }
+
+/// parallel_for version with a kernel represented as a lambda + range and
+/// offset that specify global size and global offset correspondingly.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param NumWorkItems is a range that specifies the work space of the kernel
+/// \param WorkItemOffset specifies the offset for each work item id
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the parallel_for depends on
+template <typename KernelName, typename KernelType, int Dims>
+void graph::parallel_for(node &Node, range<Dims> NumWorkItems,
+                         id<Dims> WorkItemOffset,
+                         const KernelType &(KernelFunc),
+                         const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template parallel_for<KernelName, KernelType>(
+            NumWorkItems, WorkItemOffset, KernelFunc);
+      },
+      dep);
+}
+
 /// parallel_for version with a kernel represented as a lambda + nd_range that
 /// specifies global, local sizes and offset.
 ///
@@ -508,6 +863,29 @@ node graph::parallel_for(nd_range<Dims> ExecutionRange,
       },
       dep);
 }
+
+/// parallel_for version with a kernel represented as a lambda + nd_range that
+/// specifies global, local sizes and offset.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param ExecutionRange is a range that specifies the work space of the
+/// kernel
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the parallel_for depends on
+template <typename KernelName, typename KernelType, int Dims>
+void graph::parallel_for(node &Node, nd_range<Dims> ExecutionRange,
+                         const KernelType &(KernelFunc),
+                         const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template parallel_for<KernelName, KernelType>(ExecutionRange,
+                                                        KernelFunc);
+      },
+      dep);
+}
+
 /// parallel_for version with a kernel represented as a lambda + range that
 /// specifies global, local sizes and offset.
 ///
@@ -528,6 +906,30 @@ node graph::parallel_for(range<Dims> NumWorkItems, Reduction Redu,
       },
       dep);
 }
+
+/// parallel_for version with a kernel represented as a lambda + range that
+/// specifies global, local sizes and offset.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param NumWorkItems is a range that specifies the work space of the kernel
+/// \param Redu is a reduction operation
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the parallel_for depends on
+template <typename KernelName, typename KernelType, int Dims,
+          typename Reduction>
+void graph::parallel_for(node &Node, range<Dims> NumWorkItems, Reduction Redu,
+                         const KernelType &(KernelFunc),
+                         const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template parallel_for<KernelName, KernelType, Dims, Reduction>(
+            NumWorkItems, Redu, KernelFunc);
+      },
+      dep);
+}
+
 /// parallel_for version with a kernel represented as a lambda + nd_range that
 /// specifies global, local sizes and offset.
 ///
@@ -549,6 +951,31 @@ node graph::parallel_for(nd_range<Dims> ExecutionRange, Reduction Redu,
       },
       dep);
 }
+
+/// parallel_for version with a kernel represented as a lambda + nd_range that
+/// specifies global, local sizes and offset.
+///
+/// \param Node is the graph node to be used for the single_task. This
+/// overwrites the node parameters.
+/// \param ExecutionRange is a range that specifies the work space of the
+/// kernel
+/// \param Redu is a reduction operation
+/// \param KernelFunc is the Kernel functor or lambda
+/// \param dep is a vector of graph nodes the parallel_for depends on
+template <typename KernelName, typename KernelType, int Dims,
+          typename Reduction>
+void graph::parallel_for(node &Node, nd_range<Dims> ExecutionRange,
+                         Reduction Redu, const KernelType &(KernelFunc),
+                         const std::vector<node> &dep) {
+  graph::update(
+      Node,
+      [=](sycl::handler &h) {
+        h.template parallel_for<KernelName, KernelType, Dims, Reduction>(
+            ExecutionRange, Redu, KernelFunc);
+      },
+      dep);
+}
+
 void graph::make_edge(node sender, node receiver) {
   sender.register_successor(receiver);     // register successor
   my_graph->remove_root(receiver.my_node); // remove receiver from root node
