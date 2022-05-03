@@ -162,8 +162,8 @@ public:
 
 class graph {
 public:
-  // Adding empty node with [0..n] predecessors:
-  node add_empty_node(const std::vector<node> &dep = {});
+  // Adds a node
+  template <typename T> node submit(T cgf, const std::vector<node> &dep = {});
 
   // Adding node for host task
   template <typename T>
@@ -196,8 +196,12 @@ private:
 
 void executable_graph::exec_and_wait() { my_queue.wait(); }
 
-template <typename T>
-node graph::add_device_node(T cgf, const std::vector<node> &dep) {
+/// Submits a node to the graph, in order to be executed upon graph execution.
+///
+/// \param cgf is a function object containing command group.
+/// \param dep is a vector of graph nodes the to be submitted node depends on.
+/// \return a graph node representing the command group operation.
+template <typename T> node graph::submit(T cgf, const std::vector<node> &dep) {
   node _node(my_graph, cgf);
   if (!dep.empty()) {
     for (auto n : dep)
