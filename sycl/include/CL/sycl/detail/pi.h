@@ -602,6 +602,7 @@ constexpr pi_queue_properties PI_QUEUE_PROFILING_ENABLE =
 constexpr pi_queue_properties PI_QUEUE_ON_DEVICE = CL_QUEUE_ON_DEVICE;
 constexpr pi_queue_properties PI_QUEUE_ON_DEVICE_DEFAULT =
     CL_QUEUE_ON_DEVICE_DEFAULT;
+constexpr pi_queue_properties PI_QUEUE_LAZY_EXECUTION = 1 << 10;
 
 using pi_result = _pi_result;
 using pi_platform_info = _pi_platform_info;
