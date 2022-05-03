@@ -58,7 +58,10 @@ struct node_impl {
     std::vector<sycl::event> __deps;
     for (auto i : my_predecessors)
       __deps.push_back(i->get_event());
-    my_event = q.submit(wrapper{my_body, __deps});
+    if (my_body)
+      my_event = q.submit(wrapper{my_body, __deps});
+    else
+      my_event = sycl::event();
   }
 
   void register_successor(node_ptr n) {
@@ -69,6 +72,10 @@ struct node_impl {
   void register_predecessor(node_ptr n) { my_predecessors.push_back(n); }
 
   sycl::event get_event(void) { return my_event; }
+
+  node_impl() : is_scheduled(false) {}
+
+  node_impl(graph_ptr g) : is_scheduled(false), my_graph(g) {}
 
   template <typename T>
   node_impl(graph_ptr g, T cgf)
@@ -136,6 +143,10 @@ struct node {
   detail::node_ptr my_node;
   detail::graph_ptr my_graph;
 
+  node() : my_node(new detail::node_impl()) {}
+
+  node(detail::graph_ptr g) : my_graph(g), my_node(new detail::node_impl(g)){};
+
   template <typename T>
   node(detail::graph_ptr g, T cgf)
       : my_graph(g), my_node(new detail::node_impl(g, cgf)){};
@@ -168,6 +179,8 @@ public:
   // Adding node for host task
   template <typename T>
   node add_host_node(T hostTaskCallable, const std::vector<node> &dep = {});
+  // Adds an empty node
+  node submit(const std::vector<node> &dep = {});
 
   // Adding device node:
   template <typename T>
@@ -212,6 +225,22 @@ template <typename T> node graph::submit(T cgf, const std::vector<node> &dep) {
   return _node;
 }
 
+/// Submits an empty node to the graph, in order to be executed upon graph
+/// execution.
+///
+/// \param dep is a vector of graph nodes the to be submitted node depends on.
+/// \return a graph node representing no operations but potentially node
+/// dependencies.
+node graph::submit(const std::vector<node> &dep) {
+  node _node(my_graph);
+  if (!dep.empty()) {
+    for (auto n : dep)
+      this->make_edge(n, _node);
+  } else {
+    _node.set_root();
+  }
+  return _node;
+}
 void graph::make_edge(node sender, node receiver) {
   sender.register_successor(receiver);     // register successor
   my_graph->remove_root(receiver.my_node); // remove receiver from root node
