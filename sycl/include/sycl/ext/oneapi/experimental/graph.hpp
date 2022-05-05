@@ -380,6 +380,8 @@ node graph::submit(const std::vector<node> &dep) {
 /// \param dep is a vector of graph nodes the to be submitted node depends on.
 template <typename T>
 void graph::submit(node &Node, T cgf, const std::vector<node> &dep) {
+  Node.my_graph = this->my_graph;
+  Node.my_node->my_graph = this->my_graph;
   Node.my_node->my_body = cgf;
   if (!dep.empty()) {
     for (auto n : dep)
@@ -394,6 +396,8 @@ void graph::submit(node &Node, T cgf, const std::vector<node> &dep) {
 /// \param Node is a graph node to be updated.
 /// \param dep is a vector of graph nodes the to be updated node depends on.
 void graph::update(node &Node, const std::vector<node> &dep) {
+  Node.my_graph = this->my_graph;
+  Node.my_node->my_graph = this->my_graph;
   if (!dep.empty()) {
     for (auto n : dep)
       this->make_edge(n, Node);
@@ -409,6 +413,8 @@ void graph::update(node &Node, const std::vector<node> &dep) {
 /// \param dep is a vector of graph nodes the to be updated node depends on.
 template <typename T>
 void graph::update(node &Node, T cgf, const std::vector<node> &dep) {
+  Node.my_graph = this->my_graph;
+  Node.my_node->my_graph = this->my_graph;
   Node.my_node->my_body = cgf;
   if (!dep.empty()) {
     for (auto n : dep)
