@@ -11,9 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef STANDARD_OPS
-#define STANDARD_OPS
+#ifndef MLIR_DIALECTS_CONTROLFLOW_IR_CONTROLFLOWOPS_TD
+#define MLIR_DIALECTS_CONTROLFLOW_IR_CONTROLFLOWOPS_TD
 
+include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
@@ -310,4 +311,4 @@ def SwitchOp : CF_Op<"switch",
   let hasVerifier = 1;
 }
 
-#endif // STANDARD_OPS
+#endif // MLIR_DIALECTS_CONTROLFLOW_IR_CONTROLFLOWOPS_TD

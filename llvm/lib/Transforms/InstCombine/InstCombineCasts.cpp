@@ -13,13 +13,10 @@
 #include "InstCombineInternal.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
-#include <numeric>
 using namespace llvm;
 using namespace PatternMatch;
 
@@ -2288,6 +2285,8 @@ static bool collectInsertionElements(Value *V, unsigned Shift,
   switch (I->getOpcode()) {
   default: return false; // Unhandled case.
   case Instruction::BitCast:
+    if (I->getOperand(0)->getType()->isVectorTy())
+      return false;
     return collectInsertionElements(I->getOperand(0), Shift, Elements, VecEltTy,
                                     isBigEndian);
   case Instruction::ZExt:

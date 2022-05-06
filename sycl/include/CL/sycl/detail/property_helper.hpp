@@ -34,9 +34,10 @@ enum DataLessPropKind {
   InitializeToIdentity = 7,
   UseDefaultStream = 8,
   DiscardEvents = 9,
-  LazyExecution = 10,
+  DeviceReadOnly = 10,
+  LazyExecution = 11,
   // Indicates the last known dataless property.
-  LastKnownDataLessPropKind = 10,
+  LastKnownDataLessPropKind = 11,
   // Exceeding 32 may cause ABI breaking change on some of OSes.
   DataLessPropKindSize = 32
 };
@@ -48,7 +49,8 @@ enum PropWithDataKind {
   ImageUseMutex = 2,
   ImageContextBound = 3,
   BufferMemChannel = 4,
-  PropWithDataKindSize = 5
+  AccPropBufferLocation = 5,
+  PropWithDataKindSize = 6,
 };
 
 // Base class for dataless properties, needed to check that the type of an

@@ -211,7 +211,7 @@ class BinaryContext {
   std::map<unsigned, DwarfLineTable> DwarfLineTablesCUMap;
 
 public:
-  static std::unique_ptr<BinaryContext>
+  static Expected<std::unique_ptr<BinaryContext>>
   createBinaryContext(const ObjectFile *File, bool IsPIC,
                       std::unique_ptr<DWARFContext> DwCtx);
 
@@ -489,7 +489,9 @@ public:
   void adjustCodePadding();
 
   /// Regular page size.
-  static constexpr unsigned RegularPageSize = 0x1000;
+  unsigned RegularPageSize{0x1000};
+  static constexpr unsigned RegularPageSizeX86 = 0x1000;
+  static constexpr unsigned RegularPageSizeAArch64 = 0x10000;
 
   /// Huge page size to use.
   static constexpr unsigned HugePageSize = 0x200000;
@@ -772,6 +774,22 @@ public:
     return Itr != GlobalSymbols.end() ? Itr->second : nullptr;
   }
 
+  /// Return registered PLT entry BinaryData with the given \p Name
+  /// or nullptr if no global PLT symbol with that name exists.
+  const BinaryData *getPLTBinaryDataByName(StringRef Name) const {
+    if (const BinaryData *Data = getBinaryDataByName(Name.str() + "@PLT"))
+      return Data;
+
+    // The symbol name might contain versioning information e.g
+    // memcpy@@GLIBC_2.17. Remove it and try to locate binary data
+    // without it.
+    size_t At = Name.find("@");
+    if (At != std::string::npos)
+      return getBinaryDataByName(Name.str().substr(0, At) + "@PLT");
+
+    return nullptr;
+  }
+
   /// Return true if \p SymbolName was generated internally and was not present
   /// in the input binary.
   bool isInternalSymbolName(const StringRef Name) {
@@ -951,6 +969,15 @@ public:
                       FilteredSectionIterator(isAllocatableRela, Sections.end(),
                                               Sections.end()));
   }
+
+  /// Return base address for the shared object or PIE based on the segment
+  /// mapping information. \p MMapAddress is an address where one of the
+  /// segments was mapped. \p FileOffset is the offset in the file of the
+  /// mapping. Note that \p FileOffset should be page-aligned and could be
+  /// different from the file offset of the segment which could be unaligned.
+  /// If no segment is found that matches \p FileOffset, return NoneType().
+  Optional<uint64_t> getBaseAddressForMapping(uint64_t MMapAddress,
+                                              uint64_t FileOffset) const;
 
   /// Check if the address belongs to this binary's static allocation space.
   bool containsAddress(uint64_t Address) const {
@@ -1192,14 +1219,14 @@ public:
                                           /*PIC=*/!HasFixedLoadAddress));
     MCEInstance.LocalCtx->setObjectFileInfo(MCEInstance.LocalMOFI.get());
     MCEInstance.MCE.reset(
-        TheTarget->createMCCodeEmitter(*MII, *MRI, *MCEInstance.LocalCtx));
+        TheTarget->createMCCodeEmitter(*MII, *MCEInstance.LocalCtx));
     return MCEInstance;
   }
 
   /// Creating MCStreamer instance.
   std::unique_ptr<MCStreamer>
   createStreamer(llvm::raw_pwrite_stream &OS) const {
-    MCCodeEmitter *MCE = TheTarget->createMCCodeEmitter(*MII, *MRI, *Ctx);
+    MCCodeEmitter *MCE = TheTarget->createMCCodeEmitter(*MII, *Ctx);
     MCAsmBackend *MAB =
         TheTarget->createMCAsmBackend(*STI, *MRI, MCTargetOptions());
     std::unique_ptr<MCObjectWriter> OW = MAB->createObjectWriter(OS);

@@ -13,6 +13,7 @@
 #include "flang/Common/Fortran.h"
 #include "flang/Common/enum-set.h"
 #include "flang/Common/reference.h"
+#include "flang/Common/visit.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include <array>
 #include <functional>
@@ -23,6 +24,9 @@
 
 namespace llvm {
 class raw_ostream;
+}
+namespace Fortran::parser {
+struct Expr;
 }
 
 namespace Fortran::semantics {
@@ -94,6 +98,9 @@ public:
   void add_alternateReturn() { dummyArgs_.push_back(nullptr); }
   const MaybeExpr &stmtFunction() const { return stmtFunction_; }
   void set_stmtFunction(SomeExpr &&expr) { stmtFunction_ = std::move(expr); }
+  Symbol *moduleInterface() { return moduleInterface_; }
+  const Symbol *moduleInterface() const { return moduleInterface_; }
+  void set_moduleInterface(Symbol &);
 
 private:
   bool isInterface_{false}; // true if this represents an interface-body
@@ -102,6 +109,11 @@ private:
   Symbol *result_{nullptr};
   Scope *entryScope_{nullptr}; // if ENTRY, points to subprogram's scope
   MaybeExpr stmtFunction_;
+  // For MODULE FUNCTION or SUBROUTINE, this is the symbol of its declared
+  // interface.  For MODULE PROCEDURE, this is the declared interface if it
+  // appeared in an ancestor (sub)module.
+  Symbol *moduleInterface_{nullptr};
+
   friend llvm::raw_ostream &operator<<(
       llvm::raw_ostream &, const SubprogramDetails &);
 };
@@ -182,6 +194,12 @@ public:
   MaybeExpr &init() { return init_; }
   const MaybeExpr &init() const { return init_; }
   void set_init(MaybeExpr &&expr) { init_ = std::move(expr); }
+  const parser::Expr *unanalyzedPDTComponentInit() const {
+    return unanalyzedPDTComponentInit_;
+  }
+  void set_unanalyzedPDTComponentInit(const parser::Expr *expr) {
+    unanalyzedPDTComponentInit_ = expr;
+  }
   ArraySpec &shape() { return shape_; }
   const ArraySpec &shape() const { return shape_; }
   ArraySpec &coshape() { return coshape_; }
@@ -203,6 +221,7 @@ public:
 
 private:
   MaybeExpr init_;
+  const parser::Expr *unanalyzedPDTComponentInit_{nullptr};
   ArraySpec shape_;
   ArraySpec coshape_;
   const Symbol *commonBlock_{nullptr}; // common block this object is in
@@ -423,6 +442,7 @@ struct GenericKind {
   bool IsIntrinsicOperator() const;
   bool IsOperator() const;
   std::string ToString() const;
+  static SourceName AsFortran(DefinedIo);
   std::variant<OtherKind, common::NumericOperator, common::LogicalOperator,
       common::RelationalOperator, DefinedIo>
       u;
@@ -506,7 +526,10 @@ public:
       LocalityShared, // named in SHARED locality-spec
       InDataStmt, // initialized in a DATA statement, =>object, or /init/
       InNamelist, // in a Namelist group
-      CompilerCreated,
+      CompilerCreated, // A compiler created symbol
+      // For compiler created symbols that are constant but cannot legally have
+      // the PARAMETER attribute.
+      ReadOnly,
       // OpenACC data-sharing attribute
       AccPrivate, AccFirstPrivate, AccShared,
       // OpenACC data-mapping attribute
@@ -590,24 +613,24 @@ public:
   bool IsSubprogram() const;
   bool IsFromModFile() const;
   bool HasExplicitInterface() const {
-    return std::visit(common::visitors{
-                          [](const SubprogramDetails &) { return true; },
-                          [](const SubprogramNameDetails &) { return true; },
-                          [&](const ProcEntityDetails &x) {
-                            return attrs_.test(Attr::INTRINSIC) ||
-                                x.HasExplicitInterface();
-                          },
-                          [](const ProcBindingDetails &x) {
-                            return x.symbol().HasExplicitInterface();
-                          },
-                          [](const UseDetails &x) {
-                            return x.symbol().HasExplicitInterface();
-                          },
-                          [](const HostAssocDetails &x) {
-                            return x.symbol().HasExplicitInterface();
-                          },
-                          [](const auto &) { return false; },
-                      },
+    return common::visit(common::visitors{
+                             [](const SubprogramDetails &) { return true; },
+                             [](const SubprogramNameDetails &) { return true; },
+                             [&](const ProcEntityDetails &x) {
+                               return attrs_.test(Attr::INTRINSIC) ||
+                                   x.HasExplicitInterface();
+                             },
+                             [](const ProcBindingDetails &x) {
+                               return x.symbol().HasExplicitInterface();
+                             },
+                             [](const UseDetails &x) {
+                               return x.symbol().HasExplicitInterface();
+                             },
+                             [](const HostAssocDetails &x) {
+                               return x.symbol().HasExplicitInterface();
+                             },
+                             [](const auto &) { return false; },
+                         },
         details_);
   }
 
@@ -615,7 +638,7 @@ public:
   bool operator!=(const Symbol &that) const { return !(*this == that); }
 
   int Rank() const {
-    return std::visit(
+    return common::visit(
         common::visitors{
             [](const SubprogramDetails &sd) {
               return sd.isFunction() ? sd.result().Rank() : 0;
@@ -627,6 +650,10 @@ public:
             [](const UseDetails &x) { return x.symbol().Rank(); },
             [](const HostAssocDetails &x) { return x.symbol().Rank(); },
             [](const ObjectEntityDetails &oed) { return oed.shape().Rank(); },
+            [](const ProcEntityDetails &ped) {
+              const Symbol *iface{ped.interface().symbol()};
+              return iface ? iface->Rank() : 0;
+            },
             [](const AssocEntityDetails &aed) {
               if (const auto &expr{aed.expr()}) {
                 if (auto assocRank{aed.rank()}) {
@@ -644,7 +671,7 @@ public:
   }
 
   int Corank() const {
-    return std::visit(
+    return common::visit(
         common::visitors{
             [](const SubprogramDetails &sd) {
               return sd.isFunction() ? sd.result().Corank() : 0;
@@ -760,7 +787,7 @@ inline DeclTypeSpec *Symbol::GetType() {
       const_cast<const Symbol *>(this)->GetType());
 }
 inline const DeclTypeSpec *Symbol::GetType() const {
-  return std::visit(
+  return common::visit(
       common::visitors{
           [](const EntityDetails &x) { return x.type(); },
           [](const ObjectEntityDetails &x) { return x.type(); },

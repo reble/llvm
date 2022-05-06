@@ -17,6 +17,7 @@
 #include "bolt/Utils/Utils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Errc.h"
 #include <map>
 
 #undef  DEBUG_TYPE
@@ -46,6 +47,8 @@ Optional<StringRef> getLTOCommonName(const StringRef Name) {
     return Name.substr(0, LTOSuffixPos + 10);
   if ((LTOSuffixPos = Name.find(".constprop.")) != StringRef::npos)
     return Name.substr(0, LTOSuffixPos + 11);
+  if ((LTOSuffixPos = Name.find(".llvm.")) != StringRef::npos)
+    return Name.substr(0, LTOSuffixPos + 6);
   return NoneType();
 }
 

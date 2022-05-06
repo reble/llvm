@@ -18,6 +18,7 @@
 #include "Target.h"
 #include "flang/Lower/Todo.h"
 #include "flang/Optimizer/Builder/Character.h"
+#include "flang/Optimizer/Builder/FIRBuilder.h"
 #include "flang/Optimizer/CodeGen/CodeGen.h"
 #include "flang/Optimizer/Dialect/FIRDialect.h"
 #include "flang/Optimizer/Dialect/FIROps.h"
@@ -30,6 +31,7 @@
 #include "llvm/Support/Debug.h"
 
 using namespace fir;
+using namespace mlir;
 
 #define DEBUG_TYPE "flang-target-rewrite"
 
@@ -51,16 +53,16 @@ struct FixupTy {
   FixupTy(Codes code, std::size_t index, std::size_t second = 0)
       : code{code}, index{index}, second{second} {}
   FixupTy(Codes code, std::size_t index,
-          std::function<void(mlir::FuncOp)> &&finalizer)
+          std::function<void(mlir::func::FuncOp)> &&finalizer)
       : code{code}, index{index}, finalizer{finalizer} {}
   FixupTy(Codes code, std::size_t index, std::size_t second,
-          std::function<void(mlir::FuncOp)> &&finalizer)
+          std::function<void(mlir::func::FuncOp)> &&finalizer)
       : code{code}, index{index}, second{second}, finalizer{finalizer} {}
 
   Codes code;
   std::size_t index;
   std::size_t second{};
-  llvm::Optional<std::function<void(mlir::FuncOp)>> finalizer{};
+  llvm::Optional<std::function<void(mlir::func::FuncOp)>> finalizer{};
 }; // namespace
 
 /// Target-specific rewriting of the FIR. This is a prerequisite pass to code
@@ -82,9 +84,8 @@ public:
     if (!forcedTargetTriple.empty())
       setTargetTriple(mod, forcedTargetTriple);
 
-    auto specifics = CodeGenSpecifics::get(getOperation().getContext(),
-                                           getTargetTriple(getOperation()),
-                                           getKindMapping(getOperation()));
+    auto specifics = CodeGenSpecifics::get(
+        mod.getContext(), getTargetTriple(mod), getKindMapping(mod));
     setMembers(specifics.get(), &rewriter);
 
     // Perform type conversion on signatures and call sites.
@@ -199,7 +200,7 @@ public:
     // to call.
     int dropFront = 0;
     if constexpr (std::is_same_v<std::decay_t<A>, fir::CallOp>) {
-      if (!callOp.callee().hasValue()) {
+      if (!callOp.getCallee().hasValue()) {
         newInTys.push_back(fnTy.getInput(0));
         newOpers.push_back(callOp.getOperand(0));
         dropFront = 1;
@@ -236,10 +237,10 @@ public:
           .template Case<BoxCharType>([&](BoxCharType boxTy) {
             bool sret;
             if constexpr (std::is_same_v<std::decay_t<A>, fir::CallOp>) {
-              sret = callOp.callee() &&
-                     functionArgIsSRet(index,
-                                       getModule().lookupSymbol<mlir::FuncOp>(
-                                           *callOp.callee()));
+              sret = callOp.getCallee() &&
+                     functionArgIsSRet(
+                         index, getModule().lookupSymbol<mlir::func::FuncOp>(
+                                    *callOp.getCallee()));
             } else {
               // TODO: dispatch case; how do we put arguments on a call?
               // We cannot put both an sret and the dispatch object first.
@@ -271,18 +272,18 @@ public:
             rewriteCallComplexInputType(cmplx, oper, newInTys, newOpers);
           })
           .template Case<mlir::TupleType>([&](mlir::TupleType tuple) {
-            if (factory::isCharacterProcedureTuple(tuple)) {
+            if (isCharacterProcedureTuple(tuple)) {
               mlir::ModuleOp module = getModule();
               if constexpr (std::is_same_v<std::decay_t<A>, fir::CallOp>) {
-                if (callOp.callee()) {
+                if (callOp.getCallee()) {
                   llvm::StringRef charProcAttr =
-                      fir::getCharacterProcedureDummyAttrName();
+                      getCharacterProcedureDummyAttrName();
                   // The charProcAttr attribute is only used as a safety to
                   // confirm that this is a dummy procedure and should be split.
                   // It cannot be used to match because attributes are not
                   // available in case of indirect calls.
-                  auto funcOp =
-                      module.lookupSymbol<mlir::FuncOp>(*callOp.callee());
+                  auto funcOp = module.lookupSymbol<mlir::func::FuncOp>(
+                      *callOp.getCallee());
                   if (funcOp &&
                       !funcOp.template getArgAttrOfType<mlir::UnitAttr>(
                           index, charProcAttr))
@@ -314,8 +315,8 @@ public:
     newOpers.insert(newOpers.end(), trailingOpers.begin(), trailingOpers.end());
     if constexpr (std::is_same_v<std::decay_t<A>, fir::CallOp>) {
       fir::CallOp newCall;
-      if (callOp.callee().hasValue()) {
-        newCall = rewriter->create<A>(loc, callOp.callee().getValue(),
+      if (callOp.getCallee().hasValue()) {
+        newCall = rewriter->create<A>(loc, callOp.getCallee().getValue(),
                                       newResTys, newOpers);
       } else {
         // Force new type on the input operand.
@@ -400,7 +401,7 @@ public:
             lowerComplexSignatureArg(ty, newInTys);
           })
           .Case<mlir::TupleType>([&](mlir::TupleType tuple) {
-            if (factory::isCharacterProcedureTuple(tuple)) {
+            if (isCharacterProcedureTuple(tuple)) {
               newInTys.push_back(tuple.getType(0));
               trailingInTys.push_back(tuple.getType(1));
             } else {
@@ -414,7 +415,7 @@ public:
     // replace this op with a new one with the updated signature
     auto newTy = rewriter->getFunctionType(newInTys, newResTys);
     auto newOp =
-        rewriter->create<AddrOfOp>(addrOp.getLoc(), newTy, addrOp.symbol());
+        rewriter->create<AddrOfOp>(addrOp.getLoc(), newTy, addrOp.getSymbol());
     replaceOp(addrOp, newOp.getResult());
   }
 
@@ -422,7 +423,7 @@ public:
   /// As the type signature is being changed, this must also update the
   /// function itself to use any new arguments, etc.
   mlir::LogicalResult convertTypes(mlir::ModuleOp mod) {
-    for (auto fn : mod.getOps<mlir::FuncOp>())
+    for (auto fn : mod.getOps<mlir::func::FuncOp>())
       convertSignature(fn);
     return mlir::success();
   }
@@ -441,7 +442,7 @@ public:
         return false;
       }
     for (auto ty : func.getInputs())
-      if (((ty.isa<BoxCharType>() || factory::isCharacterProcedureTuple(ty)) &&
+      if (((ty.isa<BoxCharType>() || isCharacterProcedureTuple(ty)) &&
            !noCharacterConversion) ||
           (isa_complex(ty) && !noComplexConversion)) {
         LLVM_DEBUG(llvm::dbgs() << "rewrite " << signature << " for target\n");
@@ -450,11 +451,21 @@ public:
     return true;
   }
 
+  /// Determine if the signature has host associations. The host association
+  /// argument may need special target specific rewriting.
+  static bool hasHostAssociations(mlir::func::FuncOp func) {
+    std::size_t end = func.getFunctionType().getInputs().size();
+    for (std::size_t i = 0; i < end; ++i)
+      if (func.getArgAttrOfType<mlir::UnitAttr>(i, getHostAssocAttrName()))
+        return true;
+    return false;
+  }
+
   /// Rewrite the signatures and body of the `FuncOp`s in the module for
   /// the immediately subsequent target code gen.
-  void convertSignature(mlir::FuncOp func) {
-    auto funcTy = func.getType().cast<mlir::FunctionType>();
-    if (hasPortableSignature(funcTy))
+  void convertSignature(mlir::func::FuncOp func) {
+    auto funcTy = func.getFunctionType().cast<mlir::FunctionType>();
+    if (hasPortableSignature(funcTy) && !hasHostAssociations(func))
       return;
     llvm::SmallVector<mlir::Type> newResTys;
     llvm::SmallVector<mlir::Type> newInTys;
@@ -525,7 +536,7 @@ public:
               doComplexArg(func, cmplx, newInTys, fixups);
           })
           .Case<mlir::TupleType>([&](mlir::TupleType tuple) {
-            if (factory::isCharacterProcedureTuple(tuple)) {
+            if (isCharacterProcedureTuple(tuple)) {
               fixups.emplace_back(FixupTy::Codes::TrailingCharProc,
                                   newInTys.size(), trailingTys.size());
               newInTys.push_back(tuple.getType(0));
@@ -535,6 +546,10 @@ public:
             }
           })
           .Default([&](mlir::Type ty) { newInTys.push_back(ty); });
+      if (func.getArgAttrOfType<mlir::UnitAttr>(index,
+                                                getHostAssocAttrName())) {
+        func.setArgAttr(index, "llvm.nest", rewriter->getUnitAttr());
+      }
     }
 
     if (!func.empty()) {
@@ -542,7 +557,7 @@ public:
       // return ops as required. These fixups are done in place.
       auto loc = func.getLoc();
       const auto fixupSize = fixups.size();
-      const auto oldArgTys = func.getType().getInputs();
+      const auto oldArgTys = func.getFunctionType().getInputs();
       int offset = 0;
       for (std::remove_const_t<decltype(fixupSize)> i = 0; i < fixupSize; ++i) {
         const auto &fixup = fixups[i];
@@ -599,20 +614,20 @@ public:
           auto newArg = func.front().insertArgument(fixup.index,
                                                     newInTys[fixup.index], loc);
           offset++;
-          func.walk([&](mlir::ReturnOp ret) {
+          func.walk([&](mlir::func::ReturnOp ret) {
             rewriter->setInsertionPoint(ret);
             auto oldOper = ret.getOperand(0);
             auto oldOperTy = ReferenceType::get(oldOper.getType());
             auto cast = rewriter->create<ConvertOp>(loc, oldOperTy, newArg);
             rewriter->create<fir::StoreOp>(loc, oldOper, cast);
-            rewriter->create<mlir::ReturnOp>(loc);
+            rewriter->create<mlir::func::ReturnOp>(loc);
             ret.erase();
           });
         } break;
         case FixupTy::Codes::ReturnType: {
           // The function is still returning a value, but its type has likely
           // changed to suit the target ABI convention.
-          func.walk([&](mlir::ReturnOp ret) {
+          func.walk([&](mlir::func::ReturnOp ret) {
             rewriter->setInsertionPoint(ret);
             auto oldOper = ret.getOperand(0);
             auto oldOperTy = ReferenceType::get(oldOper.getType());
@@ -621,7 +636,7 @@ public:
             auto cast = rewriter->create<ConvertOp>(loc, oldOperTy, mem);
             rewriter->create<fir::StoreOp>(loc, oldOper, cast);
             mlir::Value load = rewriter->create<fir::LoadOp>(loc, mem);
-            rewriter->create<mlir::ReturnOp>(loc, load);
+            rewriter->create<mlir::func::ReturnOp>(loc, load);
             ret.erase();
           });
         } break;
@@ -664,7 +679,7 @@ public:
           func.front().eraseArgument(fixup.index + 1);
         } break;
         case FixupTy::Codes::TrailingCharProc: {
-          // The FIR character procedure argument tuple has been split into a
+          // The FIR character procedure argument tuple must be split into a
           // pair of distinct arguments. The first part of the pair appears in
           // the original argument position. The second part of the pair is
           // appended after all the original arguments.
@@ -696,7 +711,7 @@ public:
         (*fixup.finalizer)(func);
   }
 
-  inline bool functionArgIsSRet(unsigned index, mlir::FuncOp func) {
+  inline bool functionArgIsSRet(unsigned index, mlir::func::FuncOp func) {
     if (auto attr = func.getArgAttrOfType<mlir::UnitAttr>(index, "llvm.sret"))
       return true;
     return false;
@@ -706,8 +721,8 @@ public:
   /// value to a "hidden" first argument or packing the complex into a wide
   /// GPR.
   template <typename A, typename B, typename C>
-  void doComplexReturn(mlir::FuncOp func, A cmplx, B &newResTys, B &newInTys,
-                       C &fixups) {
+  void doComplexReturn(mlir::func::FuncOp func, A cmplx, B &newResTys,
+                       B &newInTys, C &fixups) {
     if (noComplexConversion) {
       newResTys.push_back(cmplx);
       return;
@@ -720,7 +735,7 @@ public:
     if (attr.isSRet()) {
       unsigned argNo = newInTys.size();
       fixups.emplace_back(
-          FixupTy::Codes::ReturnAsStore, argNo, [=](mlir::FuncOp func) {
+          FixupTy::Codes::ReturnAsStore, argNo, [=](mlir::func::FuncOp func) {
             func.setArgAttr(argNo, "llvm.sret", rewriter->getUnitAttr());
           });
       newInTys.push_back(argTy);
@@ -734,7 +749,7 @@ public:
   /// a temporary memory location or factoring the value into two distinct
   /// arguments.
   template <typename A, typename B, typename C>
-  void doComplexArg(mlir::FuncOp func, A cmplx, B &newInTys, C &fixups) {
+  void doComplexArg(mlir::func::FuncOp func, A cmplx, B &newInTys, C &fixups) {
     if (noComplexConversion) {
       newInTys.push_back(cmplx);
       return;
@@ -751,7 +766,8 @@ public:
       if (attr.isByVal()) {
         if (auto align = attr.getAlignment())
           fixups.emplace_back(
-              FixupTy::Codes::ArgumentAsLoad, argNo, [=](mlir::FuncOp func) {
+              FixupTy::Codes::ArgumentAsLoad, argNo,
+              [=](mlir::func::FuncOp func) {
                 func.setArgAttr(argNo, "llvm.byval", rewriter->getUnitAttr());
                 func.setArgAttr(argNo, "llvm.align",
                                 rewriter->getIntegerAttr(
@@ -759,17 +775,18 @@ public:
               });
         else
           fixups.emplace_back(FixupTy::Codes::ArgumentAsLoad, newInTys.size(),
-                              [=](mlir::FuncOp func) {
+                              [=](mlir::func::FuncOp func) {
                                 func.setArgAttr(argNo, "llvm.byval",
                                                 rewriter->getUnitAttr());
                               });
       } else {
         if (auto align = attr.getAlignment())
-          fixups.emplace_back(fixupCode, argNo, index, [=](mlir::FuncOp func) {
-            func.setArgAttr(
-                argNo, "llvm.align",
-                rewriter->getIntegerAttr(rewriter->getIntegerType(32), align));
-          });
+          fixups.emplace_back(
+              fixupCode, argNo, index, [=](mlir::func::FuncOp func) {
+                func.setArgAttr(argNo, "llvm.align",
+                                rewriter->getIntegerAttr(
+                                    rewriter->getIntegerType(32), align));
+              });
         else
           fixups.emplace_back(fixupCode, argNo, index);
       }

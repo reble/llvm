@@ -146,9 +146,12 @@ public:
     /// Takes the max of the two values, which are required to be integers.
     Max = 7,
 
+    /// Takes the min of the two values, which are required to be integers.
+    Min = 8,
+
     // Markers:
     ModFlagBehaviorFirstVal = Error,
-    ModFlagBehaviorLastVal = Max
+    ModFlagBehaviorLastVal = Min
   };
 
   /// Checks if Metadata represents a valid ModFlagBehavior, and stores the
@@ -888,8 +891,8 @@ public:
   void setRtLibUseGOT();
 
   /// Get/set whether synthesized functions should get the uwtable attribute.
-  bool getUwtable() const;
-  void setUwtable();
+  UWTableKind getUwtable() const;
+  void setUwtable(UWTableKind Kind);
 
   /// Get/set whether synthesized functions should get the "frame-pointer"
   /// attribute.

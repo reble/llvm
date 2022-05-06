@@ -499,7 +499,18 @@ bool FileExists(const char *filename) {
   return S_ISREG(st.st_mode);
 }
 
-#if !SANITIZER_NETBSD
+bool DirExists(const char *path) {
+  struct stat st;
+#  if SANITIZER_USES_CANONICAL_LINUX_SYSCALLS
+  if (internal_syscall(SYSCALL(newfstatat), AT_FDCWD, path, &st, 0))
+#  else
+  if (internal_stat(path, &st))
+#  endif
+    return false;
+  return S_ISDIR(st.st_mode);
+}
+
+#  if !SANITIZER_NETBSD
 tid_t GetTid() {
 #if SANITIZER_FREEBSD
   long Tid;
@@ -2080,12 +2091,19 @@ static void GetPcSpBp(void *context, uptr *pc, uptr *sp, uptr *bp) {
   *sp = ucontext->uc_mcontext.gregs[REG_UESP];
 # endif
 #elif defined(__powerpc__) || defined(__powerpc64__)
+#    if SANITIZER_FREEBSD
+  ucontext_t *ucontext = (ucontext_t *)context;
+  *pc = ucontext->uc_mcontext.mc_srr0;
+  *sp = ucontext->uc_mcontext.mc_frame[1];
+  *bp = ucontext->uc_mcontext.mc_frame[31];
+#    else
   ucontext_t *ucontext = (ucontext_t*)context;
   *pc = ucontext->uc_mcontext.regs->nip;
   *sp = ucontext->uc_mcontext.regs->gpr[PT_R1];
   // The powerpc{,64}-linux ABIs do not specify r31 as the frame
   // pointer, but GCC always uses r31 when we need a frame pointer.
   *bp = ucontext->uc_mcontext.regs->gpr[PT_R31];
+#    endif
 #elif defined(__sparc__)
 #if defined(__arch64__) || defined(__sparcv9)
 #define STACK_BIAS 2047
@@ -2174,17 +2192,6 @@ void CheckASLR() {
            GetArgv()[0]);
     Die();
   }
-#elif SANITIZER_PPC64V2
-  // Disable ASLR for Linux PPC64LE.
-  int old_personality = personality(0xffffffff);
-  if (old_personality != -1 && (old_personality & ADDR_NO_RANDOMIZE) == 0) {
-    VReport(1, "WARNING: Program is being run with address space layout "
-               "randomization (ASLR) enabled which prevents the thread and "
-               "memory sanitizers from working on powerpc64le.\n"
-               "ASLR will be disabled and the program re-executed.\n");
-    CHECK_NE(personality(old_personality | ADDR_NO_RANDOMIZE), -1);
-    ReExec();
-  }
 #elif SANITIZER_FREEBSD
   int aslr_status;
   if (UNLIKELY(procctl(P_PID, 0, PROC_ASLR_STATUS, &aslr_status) == -1)) {
@@ -2198,9 +2205,21 @@ void CheckASLR() {
            "and binaries compiled with PIE\n");
     Die();
   }
-#else
+#  elif SANITIZER_PPC64V2
+  // Disable ASLR for Linux PPC64LE.
+  int old_personality = personality(0xffffffff);
+  if (old_personality != -1 && (old_personality & ADDR_NO_RANDOMIZE) == 0) {
+    VReport(1,
+            "WARNING: Program is being run with address space layout "
+            "randomization (ASLR) enabled which prevents the thread and "
+            "memory sanitizers from working on powerpc64le.\n"
+            "ASLR will be disabled and the program re-executed.\n");
+    CHECK_NE(personality(old_personality | ADDR_NO_RANDOMIZE), -1);
+    ReExec();
+  }
+#  else
   // Do nothing
-#endif
+#  endif
 }
 
 void CheckMPROTECT() {

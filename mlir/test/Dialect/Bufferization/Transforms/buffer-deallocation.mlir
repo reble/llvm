@@ -1092,6 +1092,24 @@ func @loop_nested_alloc(
 
 // -----
 
+// CHECK-LABEL: func @affine_loop
+func @affine_loop() {
+  %buffer = memref.alloc() : memref<1024xf32>
+  %sum_init_0 = arith.constant 0.0 : f32
+  %res = affine.for %i = 0 to 10 step 2 iter_args(%sum_iter = %sum_init_0) -> f32 {
+    %t = affine.load %buffer[%i] : memref<1024xf32>
+    %sum_next = arith.addf %sum_iter, %t : f32
+    affine.yield %sum_next : f32
+  }
+  // CHECK: %[[M:.*]] = memref.alloc
+  // CHECK: affine.for
+  // CHECK: }
+  // CHECK-NEXT: memref.dealloc %[[M]]
+  return
+}
+
+// -----
+
 // Test Case: explicit control-flow loop with a dynamically allocated buffer.
 // The BufferDeallocation transformation should fail on this explicit
 // control-flow loop since they are not supported.
@@ -1221,4 +1239,62 @@ func @dealloc_existing_clones(%arg0: memref<?x?xf64>, %arg1: memref<?x?xf64>) ->
   %0 = bufferization.clone %arg0 : memref<?x?xf64> to memref<?x?xf64>
   %1 = bufferization.clone %arg1 : memref<?x?xf64> to memref<?x?xf64>
   return %0 : memref<?x?xf64>
+}
+
+// -----
+
+// CHECK-LABEL: func @while_two_arg
+func @while_two_arg(%arg0: index) {
+  %a = memref.alloc(%arg0) : memref<?xf32>
+// CHECK: %[[WHILE:.*]]:2 = scf.while (%[[ARG1:.*]] = %[[ALLOC:.*]], %[[ARG2:.*]] = %[[CLONE:.*]])
+  scf.while (%arg1 = %a, %arg2 = %a) : (memref<?xf32>, memref<?xf32>) -> (memref<?xf32>, memref<?xf32>) {
+// CHECK-NEXT: make_condition
+    %0 = "test.make_condition"() : () -> i1
+// CHECK-NEXT: bufferization.clone %[[ARG2]]
+// CHECK-NEXT: memref.dealloc %[[ARG2]]
+    scf.condition(%0) %arg1, %arg2 : memref<?xf32>, memref<?xf32>
+  } do {
+  ^bb0(%arg1: memref<?xf32>, %arg2: memref<?xf32>):
+// CHECK: %[[ALLOC2:.*]] = memref.alloc
+    %b = memref.alloc(%arg0) : memref<?xf32>
+// CHECK: memref.dealloc %[[ARG2]]
+// CHECK: %[[CLONE2:.*]] = bufferization.clone %[[ALLOC2]]
+// CHECK: memref.dealloc %[[ALLOC2]]
+    scf.yield %arg1, %b : memref<?xf32>, memref<?xf32>
+  }
+// CHECK: }
+// CHECK-NEXT: memref.dealloc %[[WHILE]]#1
+// CHECK-NEXT: memref.dealloc %[[ALLOC]]
+// CHECK-NEXT: return
+  return
+}
+
+// -----
+
+func @while_three_arg(%arg0: index) {
+// CHECK: %[[ALLOC:.*]] = memref.alloc
+  %a = memref.alloc(%arg0) : memref<?xf32>
+// CHECK-NEXT: %[[CLONE1:.*]] = bufferization.clone %[[ALLOC]]
+// CHECK-NEXT: %[[CLONE2:.*]] = bufferization.clone %[[ALLOC]]
+// CHECK-NEXT: %[[CLONE3:.*]] = bufferization.clone %[[ALLOC]]
+// CHECK-NEXT: memref.dealloc %[[ALLOC]]
+// CHECK-NEXT: %[[WHILE:.*]]:3 = scf.while
+// FIXME: This is non-deterministic
+// CHECK-SAME-DAG: [[CLONE1]]
+// CHECK-SAME-DAG: [[CLONE2]]
+// CHECK-SAME-DAG: [[CLONE3]]
+  scf.while (%arg1 = %a, %arg2 = %a, %arg3 = %a) : (memref<?xf32>, memref<?xf32>, memref<?xf32>) -> (memref<?xf32>, memref<?xf32>, memref<?xf32>) {
+    %0 = "test.make_condition"() : () -> i1
+    scf.condition(%0) %arg1, %arg2, %arg3 : memref<?xf32>, memref<?xf32>, memref<?xf32>
+  } do {
+  ^bb0(%arg1: memref<?xf32>, %arg2: memref<?xf32>, %arg3: memref<?xf32>):
+    %b = memref.alloc(%arg0) : memref<?xf32>
+    %q = memref.alloc(%arg0) : memref<?xf32>
+    scf.yield %q, %b, %arg2: memref<?xf32>, memref<?xf32>, memref<?xf32>
+  }
+// CHECK-DAG: memref.dealloc %[[WHILE]]#0
+// CHECK-DAG: memref.dealloc %[[WHILE]]#1
+// CHECK-DAG: memref.dealloc %[[WHILE]]#2
+// CHECK-NEXT: return
+  return
 }

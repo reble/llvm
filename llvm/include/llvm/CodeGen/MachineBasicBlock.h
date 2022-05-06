@@ -14,9 +14,9 @@
 #define LLVM_CODEGEN_MACHINEBASICBLOCK_H
 
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/ADT/SparseBitVector.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/iterator_range.h"
-#include "llvm/ADT/SparseBitVector.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBundleIterator.h"
 #include "llvm/IR/DebugLoc.h"
@@ -24,7 +24,6 @@
 #include "llvm/Support/BranchProbability.h"
 #include <cassert>
 #include <cstdint>
-#include <functional>
 #include <iterator>
 #include <string>
 #include <vector>
@@ -110,10 +109,10 @@ public:
 private:
   using Instructions = ilist<MachineInstr, ilist_sentinel_tracking<true>>;
 
-  Instructions Insts;
   const BasicBlock *BB;
   int Number;
   MachineFunction *xParent;
+  Instructions Insts;
 
   /// Keep track of the predecessor / successor basic blocks.
   std::vector<MachineBasicBlock *> Predecessors;
@@ -1087,6 +1086,11 @@ public:
     IrrLoopHeaderWeight = Weight;
   }
 
+  /// Return probability of the edge from this block to MBB. This method should
+  /// NOT be called directly, but by using getEdgeProbability method from
+  /// MachineBranchProbabilityInfo class.
+  BranchProbability getSuccProbability(const_succ_iterator Succ) const;
+
 private:
   /// Return probability iterator corresponding to the I successor iterator.
   probability_iterator getProbabilityIterator(succ_iterator I);
@@ -1095,11 +1099,6 @@ private:
 
   friend class MachineBranchProbabilityInfo;
   friend class MIPrinter;
-
-  /// Return probability of the edge from this block to MBB. This method should
-  /// NOT be called directly, but by using getEdgeProbability method from
-  /// MachineBranchProbabilityInfo class.
-  BranchProbability getSuccProbability(const_succ_iterator Succ) const;
 
   // Methods used to maintain doubly linked list of blocks...
   friend struct ilist_callback_traits<MachineBasicBlock>;

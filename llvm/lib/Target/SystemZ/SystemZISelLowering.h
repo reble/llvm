@@ -497,6 +497,19 @@ public:
       case 'T':
         return InlineAsm::Constraint_T;
       }
+    } else if (ConstraintCode.size() == 2 && ConstraintCode[0] == 'Z') {
+      switch (ConstraintCode[1]) {
+      default:
+        break;
+      case 'Q':
+        return InlineAsm::Constraint_ZQ;
+      case 'R':
+        return InlineAsm::Constraint_ZR;
+      case 'S':
+        return InlineAsm::Constraint_ZS;
+      case 'T':
+        return InlineAsm::Constraint_ZT;
+      }
     }
     return TargetLowering::getInlineAsmMemConstraint(ConstraintCode);
   }
@@ -552,6 +565,12 @@ public:
                                SmallVectorImpl<SDValue> &InVals) const override;
   SDValue LowerCall(CallLoweringInfo &CLI,
                     SmallVectorImpl<SDValue> &InVals) const override;
+
+  std::pair<SDValue, SDValue>
+  makeExternalCall(SDValue Chain, SelectionDAG &DAG, const char *CalleeName,
+                   EVT RetVT, ArrayRef<SDValue> Ops, CallingConv::ID CallConv,
+                   bool IsSigned, SDLoc DL, bool DoesNotReturn,
+                   bool IsReturnValueUsed) const;
 
   bool CanLowerReturn(CallingConv::ID CallConv, MachineFunction &MF,
                       bool isVarArg,
@@ -622,8 +641,12 @@ private:
   SDValue lowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerVASTART_ELF(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerVASTART_XPLINK(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerVACOPY(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerDYNAMIC_STACKALLOC_ELF(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerDYNAMIC_STACKALLOC_XPLINK(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerGET_DYNAMIC_AREA_OFFSET(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerSMUL_LOHI(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerUMUL_LOHI(SDValue Op, SelectionDAG &DAG) const;

@@ -13,18 +13,12 @@
 
 #include "CoroInstr.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Coroutines.h"
 
 namespace llvm {
 
 class CallGraph;
 class CallGraphSCC;
 class PassRegistry;
-
-void initializeCoroEarlyLegacyPass(PassRegistry &);
-void initializeCoroSplitLegacyPass(PassRegistry &);
-void initializeCoroElideLegacyPass(PassRegistry &);
-void initializeCoroCleanupLegacyPass(PassRegistry &);
 
 // CoroEarly pass marks every function that has coro.begin with a string
 // attribute "coroutine.presplit"="0". CoroSplit pass processes the coroutine
@@ -50,11 +44,11 @@ void initializeCoroCleanupLegacyPass(PassRegistry &);
 
 namespace coro {
 
+bool declaresAnyIntrinsic(const Module &M);
 bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide);
-void updateCallGraph(Function &Caller, ArrayRef<Function *> Funcs,
-                     CallGraph &CG, CallGraphSCC &SCC);
+
 /// Recover a dbg.declare prepared by the frontend and emit an alloca
 /// holding a pointer to the coroutine frame.
 void salvageDebugInfo(
@@ -128,7 +122,7 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
   StructType *FrameTy;
   Align FrameAlign;
   uint64_t FrameSize;
-  Instruction *FramePtr;
+  Value *FramePtr;
   BasicBlock *AllocaSpillBlock;
 
   /// This would only be true if optimization are enabled.
@@ -210,10 +204,9 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
 
   FunctionType *getResumeFunctionType() const {
     switch (ABI) {
-    case coro::ABI::Switch: {
-      auto *FnPtrTy = getSwitchResumePointerType();
-      return cast<FunctionType>(FnPtrTy->getPointerElementType());
-    }
+    case coro::ABI::Switch:
+      return FunctionType::get(Type::getVoidTy(FrameTy->getContext()),
+                               FrameTy->getPointerTo(), /*IsVarArg*/false);
     case coro::ABI::Retcon:
     case coro::ABI::RetconOnce:
       return RetconLowering.ResumePrototype->getFunctionType();
@@ -265,6 +258,12 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
     if (ABI == coro::ABI::Switch)
       return SwitchLowering.PromiseAlloca;
     return nullptr;
+  }
+
+  Instruction *getInsertPtAfterFramePtr() const {
+    if (auto *I = dyn_cast<Instruction>(FramePtr))
+      return I->getNextNode();
+    return &cast<Argument>(FramePtr)->getParent()->getEntryBlock().front();
   }
 
   /// Allocate memory according to the rules of the active lowering.

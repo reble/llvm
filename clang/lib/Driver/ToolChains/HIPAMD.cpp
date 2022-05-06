@@ -47,7 +47,7 @@ static bool shouldSkipSanitizeOption(const ToolChain &TC,
     return false;
 
   if (!DriverArgs.hasFlag(options::OPT_fgpu_sanitize,
-                          -options::OPT_fno_gpu_sanitize))
+                          options::OPT_fno_gpu_sanitize, true))
     return true;
 
   auto &Diags = TC.getDriver().getDiags();
@@ -78,12 +78,8 @@ void AMDGCN::Linker::constructLldCommand(Compilation &C, const JobAction &JA,
                                          const llvm::opt::ArgList &Args) const {
   // Construct lld command.
   // The output from ld.lld is an HSA code object file.
-  ArgStringList LldArgs{"-flavor",
-                        "gnu",
-                        "--no-undefined",
-                        "-shared",
-                        "-plugin-opt=-amdgpu-internalize-symbols",
-                        "-plugin-opt=-sycl-enable-local-accessor"};
+  ArgStringList LldArgs{"-flavor", "gnu", "--no-undefined", "-shared",
+                        "-plugin-opt=-amdgpu-internalize-symbols"};
 
   auto &TC = getToolChain();
   auto &D = TC.getDriver();
@@ -125,6 +121,14 @@ void AMDGCN::Linker::constructLldCommand(Compilation &C, const JobAction &JA,
   for (auto Input : Inputs)
     LldArgs.push_back(Input.getFilename());
 
+  // Look for archive of bundled bitcode in arguments, and add temporary files
+  // for the extracted archive of bitcode to inputs.
+  auto TargetID = Args.getLastArgValue(options::OPT_mcpu_EQ);
+  AddStaticDeviceLibsLinking(C, *this, JA, Inputs, Args, LldArgs, "amdgcn",
+                             TargetID,
+                             /*IsBitCodeSDL=*/true,
+                             /*PostClangLink=*/false);
+
   const char *Lld = Args.MakeArgString(getToolChain().GetProgramPath("lld"));
   C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                          Lld, LldArgs, Inputs, Output));
@@ -159,6 +163,9 @@ HIPAMDToolChain::HIPAMDToolChain(const Driver &D, const llvm::Triple &Triple,
   getProgramPaths().push_back(getDriver().Dir);
 
   // Diagnose unsupported sanitizer options only once.
+  if (!Args.hasFlag(options::OPT_fgpu_sanitize, options::OPT_fno_gpu_sanitize,
+                    true))
+    return;
   for (auto A : Args.filtered(options::OPT_fsanitize_EQ)) {
     SanitizerMask K = parseSanitizerValue(A->getValue(), /*AllowGroups=*/false);
     if (K != SanitizerKind::Address)
@@ -400,7 +407,7 @@ HIPAMDToolChain::getHIPDeviceLibs(
 
     // If --hip-device-lib is not set, add the default bitcode libraries.
     if (DriverArgs.hasFlag(options::OPT_fgpu_sanitize,
-                           options::OPT_fno_gpu_sanitize) &&
+                           options::OPT_fno_gpu_sanitize, true) &&
         getSanitizerArgs(DriverArgs).needsAsanRt()) {
       auto AsanRTL = RocmInstallation.getAsanRTLPath();
       if (AsanRTL.empty()) {

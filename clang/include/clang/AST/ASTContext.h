@@ -264,6 +264,7 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<PipeType> PipeTypes;
   mutable llvm::FoldingSet<BitIntType> BitIntTypes;
   mutable llvm::FoldingSet<DependentBitIntType> DependentBitIntTypes;
+  llvm::FoldingSet<BTFTagAttributedType> BTFTagAttributedTypes;
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
   mutable llvm::FoldingSet<DependentTemplateName> DependentTemplateNames;
@@ -312,6 +313,10 @@ class ASTContext : public RefCountedBase<ASTContext> {
 
   /// Mapping from GUIDs to the corresponding MSGuidDecl.
   mutable llvm::FoldingSet<MSGuidDecl> MSGuidDecls;
+
+  /// Mapping from APValues to the corresponding UnnamedGlobalConstantDecl.
+  mutable llvm::FoldingSet<UnnamedGlobalConstantDecl>
+      UnnamedGlobalConstantDecls;
 
   /// Mapping from APValues to the corresponding TemplateParamObjects.
   mutable llvm::FoldingSet<TemplateParamObjectDecl> TemplateParamObjectDecls;
@@ -1160,6 +1165,10 @@ public:
   /// Keep track of CUDA/HIP device-side variables ODR-used by host code.
   llvm::DenseSet<const VarDecl *> CUDADeviceVarODRUsedByHost;
 
+  /// Keep track of CUDA/HIP external kernels or device variables ODR-used by
+  /// host code.
+  llvm::DenseSet<const ValueDecl *> CUDAExternalDeviceDeclODRUsedByHost;
+
   ASTContext(LangOptions &LOpts, SourceManager &SM, IdentifierTable &idents,
              SelectorTable &sels, Builtin::Context &builtins,
              TranslationUnitKind TUKind);
@@ -1596,6 +1605,9 @@ public:
   QualType getAttributedType(attr::Kind attrKind,
                              QualType modifiedType,
                              QualType equivalentType);
+
+  QualType getBTFTagAttributedType(const BTFTypeTagAttr *BTFAttr,
+                                   QualType Wrapped);
 
   QualType getSubstTemplateTypeParmType(const TemplateTypeParmType *Replaced,
                                         QualType Replacement) const;
@@ -2763,14 +2775,6 @@ public:
   /// long double and double on AArch64 will return 0).
   int getFloatingTypeSemanticOrder(QualType LHS, QualType RHS) const;
 
-  /// Return a real floating point or a complex type (based on
-  /// \p typeDomain/\p typeSize).
-  ///
-  /// \param typeDomain a real floating point or complex type.
-  /// \param typeSize a real floating point or complex type.
-  QualType getFloatingTypeOfSizeWithinDomain(QualType typeSize,
-                                             QualType typeDomain) const;
-
   unsigned getTargetAddressSpace(QualType T) const;
 
   unsigned getTargetAddressSpace(Qualifiers Q) const;
@@ -3073,6 +3077,11 @@ public:
   /// GUID value.
   MSGuidDecl *getMSGuidDecl(MSGuidDeclParts Parts) const;
 
+  /// Return a declaration for a uniquified anonymous global constant
+  /// corresponding to a given APValue.
+  UnnamedGlobalConstantDecl *
+  getUnnamedGlobalConstantDecl(QualType Ty, const APValue &Value) const;
+
   /// Return the template parameter object of the given type with the given
   /// value.
   TemplateParamObjectDecl *getTemplateParamObjectDecl(QualType T,
@@ -3289,11 +3298,11 @@ public:
   /// Return a new OMPTraitInfo object owned by this context.
   OMPTraitInfo &getNewOMPTraitInfo();
 
-  /// Whether a C++ static variable may be externalized.
-  bool mayExternalizeStaticVar(const Decl *D) const;
+  /// Whether a C++ static variable or CUDA/HIP kernel may be externalized.
+  bool mayExternalize(const Decl *D) const;
 
-  /// Whether a C++ static variable should be externalized.
-  bool shouldExternalizeStaticVar(const Decl *D) const;
+  /// Whether a C++ static variable or CUDA/HIP kernel should be externalized.
+  bool shouldExternalize(const Decl *D) const;
 
   StringRef getCUIDHash() const;
 

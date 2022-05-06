@@ -68,7 +68,8 @@ class Driver {
     GXXMode,
     CPPMode,
     CLMode,
-    FlangMode
+    FlangMode,
+    DXCMode
   } Mode;
 
   enum SaveTempsMode {
@@ -194,6 +195,9 @@ public:
   /// Whether the driver should invoke flang for fortran inputs.
   /// Other modes fall back to calling gcc which in turn calls gfortran.
   bool IsFlangMode() const { return Mode == FlangMode; }
+
+  /// Whether the driver should follow dxc.exe like behavior.
+  bool IsDXCMode() const { return Mode == DXCMode; }
 
   /// Only print tool bindings, don't build any jobs.
   unsigned CCCPrintBindings : 1;
@@ -626,9 +630,9 @@ private:
   ///
   /// \param[in] HostTC is the host ToolChain paired with the device
   ///
-  /// \param[in] Action (e.g. OFK_Cuda/OFK_OpenMP/OFK_SYCL) is an Offloading
-  /// action that is optionally passed to a ToolChain (used by CUDA, to specify
-  /// if it's used in conjunction with OpenMP)
+  /// \param[in] TargetDeviceOffloadKind (e.g. OFK_Cuda/OFK_OpenMP/OFK_SYCL) is
+  /// an Offloading action that is optionally passed to a ToolChain (used by
+  /// CUDA, to specify if it's used in conjunction with OpenMP)
   ///
   /// Will cache ToolChains for the life of the driver object, and create them
   /// on-demand.

@@ -13,11 +13,12 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # commit a9bb6d8040c43404c5fbe3694e59c503d179d19a
-    # Author: Nikita Rudenko <nikita.rudenko@intel.com>
-    # Date:   Tue Feb 1 14:57:43 2022 +0000
-    #  Fix attributes are not forwarded for call inst with SEV
-    set(LLVMGenXIntrinsics_GIT_TAG a9bb6d8040c43404c5fbe3694e59c503d179d19a)
+    # commit 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f (master)
+    # Author: Konstantin Vladimirov <konstantin.vladimirov@intel.com>
+    # Date:   Tue Feb 8 10:47:03 2022 +0000
+    # introducing named barrier support in adaptor pass
+    # named barrier required for DPC++ and other customers
+    set(LLVMGenXIntrinsics_GIT_TAG 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f)
 
     message(STATUS "vc-intrinsics repo is missing. Will try to download it from ${LLVMGenXIntrinsics_GIT_REPO}")
     include(FetchContent)
@@ -52,11 +53,14 @@ add_llvm_component_library(LLVMSYCLLowerIR
   ESIMD/LowerESIMDVLoadVStore.cpp
   ESIMD/LowerESIMDVecArg.cpp
   ESIMD/ESIMDVerifier.cpp
+  LowerInvokeSimd.cpp
   LowerWGScope.cpp
   LowerWGLocalMemory.cpp
   MutatePrintfAddrspace.cpp
 
   LocalAccessorToSharedMemory.cpp
+  GlobalOffset.cpp
+  TargetHelpers.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/SYCLLowerIR
