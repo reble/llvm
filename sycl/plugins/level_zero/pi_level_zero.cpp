@@ -874,7 +874,7 @@ bool _pi_queue::isInOrderQueue() const {
 
 bool _pi_queue::isEagerExec() const {
   // If lazy exec queue property is not set, then it's an eager queue.
-  return ((this->Properties & (1<<11) ) == 0);
+  return ((this->Properties & (1 << 11)) == 0);
 }
 
 pi_result _pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
@@ -1140,10 +1140,9 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
 }
 
 // Retrieve an available command list to be used in a PI call.
-pi_result
-_pi_context::getAvailableCommandList(pi_queue Queue,
-                                     pi_command_list_ptr_t &CommandList,
-                                     bool UseCopyEngine, bool AllowBatching, bool Graph) {
+pi_result _pi_context::getAvailableCommandList(
+    pi_queue Queue, pi_command_list_ptr_t &CommandList, bool UseCopyEngine,
+    bool AllowBatching, bool Graph) {
   // Immediate commandlists have been pre-allocated and are always available.
   if (UseImmediateCommandLists) {
     CommandList = Queue->getQueueGroup(UseCopyEngine).getImmCmdList();
@@ -1269,13 +1268,13 @@ _pi_context::getAvailableCommandList(pi_queue Queue,
             ZeCommandList, {ZeFence, true, ZeCommandQueue, QueueGroupOrdinal}));
     pi_result = PI_SUCCESS;
   }
-
-} else {
+}
+else {
   CommandList = Queue->CommandListMap.begin();
   pi_result = PI_SUCCESS;
 }
 
-  return pi_result;
+return pi_result;
 }
 
 void _pi_queue::adjustBatchSizeForFullBatch(bool IsCopy) {
@@ -1356,8 +1355,7 @@ void _pi_queue::CaptureIndirectAccesses() {
 }
 
 pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
-                                        bool IsBlocking,
-                                        bool OKToBatchCommand, 
+                                        bool IsBlocking, bool OKToBatchCommand,
                                         bool Graph) {
   bool UseCopyEngine = CommandList->second.isCopy(this);
 
@@ -1477,7 +1475,8 @@ pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
     }
 
     // Close the command list and have it ready for dispatch.
-    // TODO: Close command list only once before initial execution, but works as is.
+    // TODO: Close command list only once before initial execution, but works as
+    // is.
     ZE_CALL(zeCommandListClose, (CommandList->first));
     // Offload command list to the GPU for asynchronous execution
     auto ZeCommandList = CommandList->first;
@@ -2063,10 +2062,11 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
   }
 
   zePrint("Using events scope: %s\n",
-          EventsScope == AllHostVisible ? "all host-visible"
-          : EventsScope == OnDemandHostVisibleProxy
-              ? "on demand host-visible proxy"
-              : "only last command in a batch is host-visible");
+          EventsScope == AllHostVisible
+              ? "all host-visible"
+              : EventsScope == OnDemandHostVisibleProxy
+                    ? "on demand host-visible proxy"
+                    : "only last command in a batch is host-visible");
   return PI_SUCCESS;
 }
 
@@ -4942,12 +4942,12 @@ pi_result piKernelRelease(pi_kernel Kernel) {
   return PI_SUCCESS;
 }
 
-pi_result
-piEnqueueKernel(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
-                      const size_t *GlobalWorkOffset,
-                      const size_t *GlobalWorkSize, const size_t *LocalWorkSize,
-                      pi_uint32 NumEventsInWaitList,
-                      const pi_event *EventWaitList, pi_event *Event) {
+pi_result piEnqueueKernel(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
+                          const size_t *GlobalWorkOffset,
+                          const size_t *GlobalWorkSize,
+                          const size_t *LocalWorkSize,
+                          pi_uint32 NumEventsInWaitList,
+                          const pi_event *EventWaitList, pi_event *Event) {
   PI_ASSERT(Kernel, PI_INVALID_KERNEL);
   PI_ASSERT(Queue, PI_INVALID_QUEUE);
   PI_ASSERT(Event, PI_INVALID_EVENT);
@@ -5122,27 +5122,26 @@ piEnqueueKernel(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
   return PI_SUCCESS;
 }
 
-pi_result
-piKernelLaunch(pi_queue Queue) {
-   
-    const bool Graph = !(Queue->isEagerExec());
-    //const bool Graph = true;
- 
-    //TODO: Make sure (re-)execute specific command list.
+pi_result piKernelLaunch(pi_queue Queue) {
 
-    // Get a new command list to be used on this call
-      pi_command_list_ptr_t CommandList{};
-      if (auto Res = Queue->Context->getAvailableCommandList(
-              Queue, CommandList, false /* PreferCopyEngine */,
-              true /* AllowBatching */, Graph /* Shortcut for Graph */))
-        return Res;
-    
-    // Execute command list asynchronously, as the event will be used
-    // to track down its completion.
-    if (auto Res = Queue->executeCommandList(CommandList, false, true, Graph))
-      return Res;
+  const bool Graph = !(Queue->isEagerExec());
+  // const bool Graph = true;
 
-    return PI_SUCCESS;
+  // TODO: Make sure (re-)execute specific command list.
+
+  // Get a new command list to be used on this call
+  pi_command_list_ptr_t CommandList{};
+  if (auto Res = Queue->Context->getAvailableCommandList(
+          Queue, CommandList, false /* PreferCopyEngine */,
+          true /* AllowBatching */, Graph /* Shortcut for Graph */))
+    return Res;
+
+  // Execute command list asynchronously, as the event will be used
+  // to track down its completion.
+  if (auto Res = Queue->executeCommandList(CommandList, false, true, Graph))
+    return Res;
+
+  return PI_SUCCESS;
 }
 
 pi_result
@@ -5151,14 +5150,15 @@ piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
                       const size_t *GlobalWorkSize, const size_t *LocalWorkSize,
                       pi_uint32 NumEventsInWaitList,
                       const pi_event *EventWaitList, pi_event *Event) {
-    auto Res =
-    piEnqueueKernel(Queue,Kernel,WorkDim,GlobalWorkOffset,GlobalWorkSize,LocalWorkSize,NumEventsInWaitList,EventWaitList,Event);
+  auto Res =
+      piEnqueueKernel(Queue, Kernel, WorkDim, GlobalWorkOffset, GlobalWorkSize,
+                      LocalWorkSize, NumEventsInWaitList, EventWaitList, Event);
 #if 1
-    if(Res == PI_SUCCESS && Queue->isEagerExec()) {
-        return piKernelLaunch(Queue);
-    }
+  if (Res == PI_SUCCESS && Queue->isEagerExec()) {
+    return piKernelLaunch(Queue);
+  }
 #endif
-    return Res;
+  return Res;
 }
 
 pi_result piextKernelCreateWithNativeHandle(pi_native_handle NativeHandle,
