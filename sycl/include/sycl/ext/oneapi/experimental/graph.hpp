@@ -45,6 +45,7 @@ public:
 
 struct node_impl {
   bool is_scheduled;
+  bool is_empty;
 
   graph_ptr my_graph;
   sycl::event my_event;
@@ -56,12 +57,19 @@ struct node_impl {
 
   void exec(sycl::queue q) {
     std::vector<sycl::event> __deps;
-    for (auto i : my_predecessors)
-      __deps.push_back(i->get_event());
+    std::vector<node_ptr> pred_nodes = my_predecessors;
+    while (!pred_nodes.empty()) {
+      node_ptr curr_node = pred_nodes.back();
+      pred_nodes.pop_back();
+      // Add predecessors to dependence list if node is empty
+      if (curr_node->is_empty)
+        for (auto i : curr_node->my_predecessors)
+          pred_nodes.push_back(i);
+      else
+        __deps.push_back(curr_node->get_event());
+    }
     if (my_body)
       my_event = q.submit(wrapper{my_body, __deps});
-    else
-      my_event = sycl::event();
   }
 
   void register_successor(node_ptr n) {
@@ -73,13 +81,13 @@ struct node_impl {
 
   sycl::event get_event(void) { return my_event; }
 
-  node_impl() : is_scheduled(false) {}
+  node_impl() : is_scheduled(false), is_empty(true) {}
 
-  node_impl(graph_ptr g) : is_scheduled(false), my_graph(g) {}
+  node_impl(graph_ptr g) : is_scheduled(false), is_empty(true), my_graph(g) {}
 
   template <typename T>
   node_impl(graph_ptr g, T cgf)
-      : is_scheduled(false), my_graph(g), my_body(cgf) {}
+      : is_scheduled(false), is_empty(false), my_graph(g), my_body(cgf) {}
 
   // Recursively adding nodes to execution stack:
   void topology_sort(std::list<node_ptr> &schedule) {
@@ -383,6 +391,7 @@ void graph::submit(node &Node, T cgf, const std::vector<node> &dep) {
   Node.my_graph = this->my_graph;
   Node.my_node->my_graph = this->my_graph;
   Node.my_node->my_body = cgf;
+  Node.my_node->is_empty = false;
   if (!dep.empty()) {
     for (auto n : dep)
       this->make_edge(n, Node);
@@ -398,6 +407,7 @@ void graph::submit(node &Node, T cgf, const std::vector<node> &dep) {
 void graph::update(node &Node, const std::vector<node> &dep) {
   Node.my_graph = this->my_graph;
   Node.my_node->my_graph = this->my_graph;
+  Node.my_node->is_empty = true;
   if (!dep.empty()) {
     for (auto n : dep)
       this->make_edge(n, Node);
@@ -416,6 +426,7 @@ void graph::update(node &Node, T cgf, const std::vector<node> &dep) {
   Node.my_graph = this->my_graph;
   Node.my_node->my_graph = this->my_graph;
   Node.my_node->my_body = cgf;
+  Node.my_node->is_empty = false;
   if (!dep.empty()) {
     for (auto n : dep)
       this->make_edge(n, Node);
