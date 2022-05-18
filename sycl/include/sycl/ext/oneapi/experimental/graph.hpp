@@ -182,18 +182,18 @@ public:
 class graph {
 public:
   // Adds a node
-  template <typename T> node submit(T cgf, const std::vector<node> &dep = {});
+  template <typename T> node add_node(T cgf, const std::vector<node> &dep = {});
 
   template <typename T>
-  void submit(node &Node, T cgf, const std::vector<node> &dep = {});
+  void add_node(node &Node, T cgf, const std::vector<node> &dep = {});
 
   // Adds an empty node
-  node submit(const std::vector<node> &dep = {});
+  node add_node(const std::vector<node> &dep = {});
 
   // Updates a node
-  void update(node &Node, const std::vector<node> &dep = {});
+  void update_node(node &Node, const std::vector<node> &dep = {});
   template <typename T>
-  void update(node &Node, T cgf, const std::vector<node> &dep = {});
+  void update_node(node &Node, T cgf, const std::vector<node> &dep = {});
 
   // Shortcuts to add graph nodes
 
@@ -347,12 +347,13 @@ private:
 
 void executable_graph::exec_and_wait() { my_queue.wait(); }
 
-/// Submits a node to the graph, in order to be executed upon graph execution.
+/// Adds a node to the graph, in order to be executed upon graph execution.
 ///
 /// \param cgf is a function object containing command group.
-/// \param dep is a vector of graph nodes the to be submitted node depends on.
+/// \param dep is a vector of graph nodes the to be added node depends on.
 /// \return a graph node representing the command group operation.
-template <typename T> node graph::submit(T cgf, const std::vector<node> &dep) {
+template <typename T>
+node graph::add_node(T cgf, const std::vector<node> &dep) {
   node _node(my_graph, cgf);
   if (!dep.empty()) {
     for (auto n : dep)
@@ -363,13 +364,13 @@ template <typename T> node graph::submit(T cgf, const std::vector<node> &dep) {
   return _node;
 }
 
-/// Submits an empty node to the graph, in order to be executed upon graph
+/// Adds an empty node to the graph, in order to be executed upon graph
 /// execution.
 ///
-/// \param dep is a vector of graph nodes the to be submitted node depends on.
+/// \param dep is a vector of graph nodes the to be added node depends on.
 /// \return a graph node representing no operations but potentially node
 /// dependencies.
-node graph::submit(const std::vector<node> &dep) {
+node graph::add_node(const std::vector<node> &dep) {
   node _node(my_graph);
   if (!dep.empty()) {
     for (auto n : dep)
@@ -380,14 +381,14 @@ node graph::submit(const std::vector<node> &dep) {
   return _node;
 }
 
-/// Submits a node to the graph, in order to be executed upon graph execution.
+/// Adds a node to the graph, in order to be executed upon graph execution.
 ///
 /// \param Node is the graph node to be used. This overwrites the node
 /// parameters.
 /// \param cgf is a function object containing command group.
-/// \param dep is a vector of graph nodes the to be submitted node depends on.
+/// \param dep is a vector of graph nodes the to be added node depends on.
 template <typename T>
-void graph::submit(node &Node, T cgf, const std::vector<node> &dep) {
+void graph::add_node(node &Node, T cgf, const std::vector<node> &dep) {
   Node.my_graph = this->my_graph;
   Node.my_node->my_graph = this->my_graph;
   Node.my_node->my_body = cgf;
@@ -404,7 +405,7 @@ void graph::submit(node &Node, T cgf, const std::vector<node> &dep) {
 ///
 /// \param Node is a graph node to be updated.
 /// \param dep is a vector of graph nodes the to be updated node depends on.
-void graph::update(node &Node, const std::vector<node> &dep) {
+void graph::update_node(node &Node, const std::vector<node> &dep) {
   Node.my_graph = this->my_graph;
   Node.my_node->my_graph = this->my_graph;
   Node.my_node->is_empty = true;
@@ -422,7 +423,7 @@ void graph::update(node &Node, const std::vector<node> &dep) {
 /// \param cgf is a function object containing command group.
 /// \param dep is a vector of graph nodes the to be updated node depends on.
 template <typename T>
-void graph::update(node &Node, T cgf, const std::vector<node> &dep) {
+void graph::update_node(node &Node, T cgf, const std::vector<node> &dep) {
   Node.my_graph = this->my_graph;
   Node.my_node->my_graph = this->my_graph;
   Node.my_node->my_body = cgf;
@@ -446,8 +447,8 @@ void graph::update(node &Node, T cgf, const std::vector<node> &dep) {
 template <typename T>
 node graph::fill(void *Ptr, const T &Pattern, size_t Count,
                  const std::vector<node> &dep) {
-  return graph::submit([=](sycl::handler &h) { h.fill(Ptr, Pattern, Count); },
-                       dep);
+  return graph::add_node([=](sycl::handler &h) { h.fill(Ptr, Pattern, Count); },
+                         dep);
 }
 
 /// Fills the specified memory with the specified pattern.
@@ -462,7 +463,7 @@ node graph::fill(void *Ptr, const T &Pattern, size_t Count,
 template <typename T>
 void graph::fill(node &Node, void *Ptr, const T &Pattern, size_t Count,
                  const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node, [=](sycl::handler &h) { h.fill(Ptr, Pattern, Count); }, dep);
 }
 
@@ -478,8 +479,8 @@ void graph::fill(node &Node, void *Ptr, const T &Pattern, size_t Count,
 /// \return a graph node representing the memset operation.
 node graph::memset(void *Ptr, int Value, size_t Count,
                    const std::vector<node> &dep) {
-  return graph::submit([=](sycl::handler &h) { h.memset(Ptr, Value, Count); },
-                       dep);
+  return graph::add_node([=](sycl::handler &h) { h.memset(Ptr, Value, Count); },
+                         dep);
 }
 
 /// Copies data from one memory region to another, both pointed by
@@ -495,7 +496,7 @@ node graph::memset(void *Ptr, int Value, size_t Count,
 /// \param dep is a vector of graph nodes the memset depends on.
 void graph::memset(node &Node, void *Ptr, int Value, size_t Count,
                    const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node, [=](sycl::handler &h) { h.memset(Ptr, Value, Count); }, dep);
 }
 
@@ -512,8 +513,8 @@ void graph::memset(node &Node, void *Ptr, int Value, size_t Count,
 /// \return a graph node representing the memcpy operation.
 node graph::memcpy(void *Dest, const void *Src, size_t Count,
                    const std::vector<node> &dep) {
-  return graph::submit([=](sycl::handler &h) { h.memcpy(Dest, Src, Count); },
-                       dep);
+  return graph::add_node([=](sycl::handler &h) { h.memcpy(Dest, Src, Count); },
+                         dep);
 }
 
 /// Copies data from one memory region to another, both pointed by
@@ -530,7 +531,7 @@ node graph::memcpy(void *Dest, const void *Src, size_t Count,
 /// \param dep is a vector of graph nodes the memcpy depends on.
 void graph::memcpy(node &Node, void *Dest, const void *Src, size_t Count,
                    const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node, [=](sycl::handler &h) { h.memcpy(Dest, Src, Count); }, dep);
 }
 
@@ -548,7 +549,7 @@ void graph::memcpy(node &Node, void *Dest, const void *Src, size_t Count,
 template <typename T>
 node graph::copy(const T *Src, T *Dest, size_t Count,
                  const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) { h.memcpy(Dest, Src, Count * sizeof(T)); }, dep);
 }
 
@@ -567,7 +568,7 @@ node graph::copy(const T *Src, T *Dest, size_t Count,
 template <typename T>
 void graph::copy(node &Node, const T *Src, T *Dest, size_t Count,
                  const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node, [=](sycl::handler &h) { h.memcpy(Dest, Src, Count * sizeof(T)); },
       dep);
 }
@@ -582,7 +583,7 @@ void graph::copy(node &Node, const T *Src, T *Dest, size_t Count,
 /// \return a graph node representing the mem_advise operation.
 node graph::mem_advise(const void *Ptr, size_t Length, int Advice,
                        const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) { h.mem_advise(Ptr, Length, Advice); }, dep);
 }
 
@@ -597,7 +598,7 @@ node graph::mem_advise(const void *Ptr, size_t Length, int Advice,
 /// \param dep is a vector of graph nodes the mem_advise depends on.
 void graph::mem_advise(node &Node, const void *Ptr, size_t Length, int Advice,
                        const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node, [=](sycl::handler &h) { h.mem_advise(Ptr, Length, Advice); }, dep);
 }
 
@@ -611,7 +612,8 @@ void graph::mem_advise(node &Node, const void *Ptr, size_t Length, int Advice,
 /// \return a graph node representing the prefetch operation.
 node graph::prefetch(const void *Ptr, size_t Count,
                      const std::vector<node> &dep) {
-  return graph::submit([=](sycl::handler &h) { h.prefetch(Ptr, Count); }, dep);
+  return graph::add_node([=](sycl::handler &h) { h.prefetch(Ptr, Count); },
+                         dep);
 }
 
 /// Provides hints to the runtime library that data should be made available
@@ -625,7 +627,7 @@ node graph::prefetch(const void *Ptr, size_t Count,
 /// \param dep is a vector of graph nodes the prefetch depends on.
 void graph::prefetch(node &Node, const void *Ptr, size_t Count,
                      const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node, [=](sycl::handler &h) { h.prefetch(Ptr, Count); }, dep);
 }
 
@@ -637,7 +639,7 @@ void graph::prefetch(node &Node, const void *Ptr, size_t Count,
 template <typename KernelName, typename KernelType>
 node graph::single_task(const KernelType &(KernelFunc),
                         const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template single_task<KernelName, KernelType>(KernelFunc);
       },
@@ -653,7 +655,7 @@ node graph::single_task(const KernelType &(KernelFunc),
 template <typename KernelName, typename KernelType>
 void graph::single_task(node &Node, const KernelType &(KernelFunc),
                         const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template single_task<KernelName, KernelType>(KernelFunc);
@@ -671,7 +673,7 @@ void graph::single_task(node &Node, const KernelType &(KernelFunc),
 template <typename KernelName, typename KernelType>
 node graph::parallel_for(range<1> NumWorkItems, const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
                                                         KernelFunc);
@@ -691,7 +693,7 @@ template <typename KernelName, typename KernelType>
 void graph::parallel_for(node &Node, range<1> NumWorkItems,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
@@ -710,7 +712,7 @@ void graph::parallel_for(node &Node, range<1> NumWorkItems,
 template <typename KernelName, typename KernelType>
 node graph::parallel_for(range<2> NumWorkItems, const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
                                                         KernelFunc);
@@ -730,7 +732,7 @@ template <typename KernelName, typename KernelType>
 void graph::parallel_for(node &Node, range<2> NumWorkItems,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
@@ -749,7 +751,7 @@ void graph::parallel_for(node &Node, range<2> NumWorkItems,
 template <typename KernelName, typename KernelType>
 node graph::parallel_for(range<3> NumWorkItems, const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
                                                         KernelFunc);
@@ -769,7 +771,7 @@ template <typename KernelName, typename KernelType>
 void graph::parallel_for(node &Node, range<3> NumWorkItems,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
@@ -789,7 +791,7 @@ template <typename KernelName, typename KernelType, int Dims>
 node graph::parallel_for(range<Dims> NumWorkItems,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
                                                         KernelFunc);
@@ -809,7 +811,7 @@ template <typename KernelName, typename KernelType, int Dims>
 void graph::parallel_for(node &Node, range<Dims> NumWorkItems,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
@@ -830,7 +832,7 @@ template <typename KernelName, typename KernelType, int Dims>
 node graph::parallel_for(range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(
             NumWorkItems, WorkItemOffset, KernelFunc);
@@ -852,7 +854,7 @@ void graph::parallel_for(node &Node, range<Dims> NumWorkItems,
                          id<Dims> WorkItemOffset,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(
@@ -873,7 +875,7 @@ template <typename KernelName, typename KernelType, int Dims>
 node graph::parallel_for(nd_range<Dims> ExecutionRange,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(ExecutionRange,
                                                         KernelFunc);
@@ -894,7 +896,7 @@ template <typename KernelName, typename KernelType, int Dims>
 void graph::parallel_for(node &Node, nd_range<Dims> ExecutionRange,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(ExecutionRange,
@@ -916,7 +918,7 @@ template <typename KernelName, typename KernelType, int Dims,
 node graph::parallel_for(range<Dims> NumWorkItems, Reduction Redu,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType, Dims, Reduction>(
             NumWorkItems, Redu, KernelFunc);
@@ -938,7 +940,7 @@ template <typename KernelName, typename KernelType, int Dims,
 void graph::parallel_for(node &Node, range<Dims> NumWorkItems, Reduction Redu,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType, Dims, Reduction>(
@@ -961,7 +963,7 @@ template <typename KernelName, typename KernelType, int Dims,
 node graph::parallel_for(nd_range<Dims> ExecutionRange, Reduction Redu,
                          const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  return graph::submit(
+  return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType, Dims, Reduction>(
             ExecutionRange, Redu, KernelFunc);
@@ -984,7 +986,7 @@ template <typename KernelName, typename KernelType, int Dims,
 void graph::parallel_for(node &Node, nd_range<Dims> ExecutionRange,
                          Reduction Redu, const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  graph::update(
+  graph::update_node(
       Node,
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType, Dims, Reduction>(
