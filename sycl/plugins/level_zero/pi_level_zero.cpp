@@ -4921,12 +4921,12 @@ piEnqueueKernel(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
   if (IndirectAccessTrackingEnabled)
     Queue->KernelsToBeSubmitted.push_back(Kernel);
 
-#if 0
+  if (Queue->isEagerExec()) {
   // Execute command list asynchronously, as the event will be used
   // to track down its completion.
-  if (auto Res = Queue->executeCommandList(CommandList, false, true))
+  if (auto Res = Queue->executeCommandList(CommandList, false, true, false))
     return Res;
-#endif
+  }
 
   return PI_SUCCESS;
 }
@@ -4963,11 +4963,13 @@ piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
     if (auto Res =
     piEnqueueKernel(Queue,Kernel,WorkDim,GlobalWorkOffset,GlobalWorkSize,LocalWorkSize,NumEventsInWaitList,EventWaitList,Event))
         return Res;
+#if 0
     if(Queue->isEagerExec()) {
       if(auto Res = piKernelLaunch(Queue))
         return Res;
     }
-
+#endif
+  
     return PI_SUCCESS;
 }
 
