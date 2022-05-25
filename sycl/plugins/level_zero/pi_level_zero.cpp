@@ -4960,14 +4960,15 @@ piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
                       const size_t *GlobalWorkSize, const size_t *LocalWorkSize,
                       pi_uint32 NumEventsInWaitList,
                       const pi_event *EventWaitList, pi_event *Event) {
-    auto Res =
-    piEnqueueKernel(Queue,Kernel,WorkDim,GlobalWorkOffset,GlobalWorkSize,LocalWorkSize,NumEventsInWaitList,EventWaitList,Event);
-#if 1
-    if(Res == PI_SUCCESS && Queue->isEagerExec()) {
-        return piKernelLaunch(Queue);
+    if (auto Res =
+    piEnqueueKernel(Queue,Kernel,WorkDim,GlobalWorkOffset,GlobalWorkSize,LocalWorkSize,NumEventsInWaitList,EventWaitList,Event))
+        return Res;
+    if(Queue->isEagerExec()) {
+      if(auto Res = piKernelLaunch(Queue))
+        return Res;
     }
-#endif
-    return Res;
+
+    return PI_SUCCESS;
 }
 
 pi_result piextKernelCreateWithNativeHandle(pi_native_handle NativeHandle,
