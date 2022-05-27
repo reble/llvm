@@ -840,7 +840,7 @@ bool _pi_queue::isInOrderQueue() const {
 
 bool _pi_queue::isEagerExec() const {
   // If lazy exec queue property is not set, then it's an eager queue.
-  return ((this->Properties & (1 << 10)) == 0);
+  return ((this->Properties & PI_QUEUE_LAZY_EXECUTION ) == 0);
 }
 
 pi_result _pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
@@ -4922,12 +4922,12 @@ pi_result piEnqueueKernel(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
   if (IndirectAccessTrackingEnabled)
     Queue->KernelsToBeSubmitted.push_back(Kernel);
 
-#if 0
+  if (Queue->isEagerExec()) {
   // Execute command list asynchronously, as the event will be used
   // to track down its completion.
-  if (auto Res = Queue->executeCommandList(CommandList, false, true))
+  if (auto Res = Queue->executeCommandList(CommandList, false, true, false))
     return Res;
-#endif
+  }
 
   return PI_SUCCESS;
 }
@@ -4960,15 +4960,17 @@ piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
                       const size_t *GlobalWorkSize, const size_t *LocalWorkSize,
                       pi_uint32 NumEventsInWaitList,
                       const pi_event *EventWaitList, pi_event *Event) {
-  auto Res =
-      piEnqueueKernel(Queue, Kernel, WorkDim, GlobalWorkOffset, GlobalWorkSize,
-                      LocalWorkSize, NumEventsInWaitList, EventWaitList, Event);
-#if 1
-  if (Res == PI_SUCCESS && Queue->isEagerExec()) {
-    return piKernelLaunch(Queue);
-  }
+    if (auto Res =
+    piEnqueueKernel(Queue,Kernel,WorkDim,GlobalWorkOffset,GlobalWorkSize,LocalWorkSize,NumEventsInWaitList,EventWaitList,Event))
+        return Res;
+#if 0
+    if(Queue->isEagerExec()) {
+      if(auto Res = piKernelLaunch(Queue))
+        return Res;
+    }
 #endif
-  return Res;
+  
+    return PI_SUCCESS;
 }
 
 pi_result piextKernelCreateWithNativeHandle(pi_native_handle NativeHandle,
