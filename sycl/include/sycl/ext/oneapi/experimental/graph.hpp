@@ -158,6 +158,13 @@ struct node {
   template <typename T>
   node(detail::graph_ptr g, T cgf)
       : my_graph(g), my_node(new detail::node_impl(g, cgf)){};
+
+  template <typename T> void update(T cgf) {
+    my_node->is_scheduled = false;
+    my_node->is_empty = false;
+    my_node->my_body = cgf;
+  };
+
   void register_successor(node n) { my_node->register_successor(n.my_node); }
   void exec(sycl::queue q, sycl::event = sycl::event()) { my_node->exec(q); }
 
@@ -186,6 +193,8 @@ public:
 
   template <typename T>
   void add_node(node &Node, T cgf, const std::vector<node> &dep = {});
+
+  void add_node(node &Node, const std::vector<node> &dep = {});
 
   // Adds an empty node
   node add_node(const std::vector<node> &dep = {});
@@ -379,6 +388,23 @@ node graph::add_node(const std::vector<node> &dep) {
     _node.set_root();
   }
   return _node;
+}
+
+/// Adds a node to the graph, in order to be executed upon graph execution.
+///
+/// \param Node is the graph node to be used. This overwrites the node
+/// parameters.
+/// \param dep is a vector of graph nodes the to be added node depends on.
+void graph::add_node(node &Node, const std::vector<node> &dep) {
+  Node.my_graph = this->my_graph;
+  Node.my_node->my_graph = this->my_graph;
+  Node.my_node->is_empty = false;
+  if (!dep.empty()) {
+    for (auto n : dep)
+      this->make_edge(n, Node);
+  } else {
+    Node.set_root();
+  }
 }
 
 /// Adds a node to the graph, in order to be executed upon graph execution.
