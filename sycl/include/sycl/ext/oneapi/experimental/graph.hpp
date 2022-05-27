@@ -68,7 +68,7 @@ struct node_impl {
       else
         __deps.push_back(curr_node->get_event());
     }
-    if (my_body)
+    if (my_body && !is_empty)
       my_event = q.submit(wrapper{my_body, __deps});
   }
 
