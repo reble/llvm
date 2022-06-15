@@ -81,6 +81,14 @@ class context;
 class device;
 class queue;
 
+namespace ext{
+namespace oneapi{
+namespace experimental{
+class executable_graph;
+}
+}
+}
+
 namespace detail {
 class queue_impl;
 #if __SYCL_USE_FALLBACK_ASSERT
@@ -242,6 +250,10 @@ public:
   bool device_has(aspect Aspect) const;
 
 public:
+
+  void submit(sycl::ext::oneapi::experimental::executable_graph&);
+
+
   /// Submits a command group function object to the queue, in order to be
   /// scheduled for execution on the device.
   ///
