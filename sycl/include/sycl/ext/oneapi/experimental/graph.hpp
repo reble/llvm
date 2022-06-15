@@ -1032,5 +1032,16 @@ void graph::exec_and_wait(sycl::queue q) { my_graph->exec_and_wait(q); };
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
+
+
+void sycl::queue::submit(sycl::ext::oneapi::experimental::executable_graph& g) {
+  g.exec_and_wait();
+}
+
+
+
+
+
+
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)
