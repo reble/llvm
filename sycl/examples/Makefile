@@ -44,7 +44,7 @@ SRCS = $(wildcard *.cpp) $(wildcard *.hpp) $(wildcard *.cu)
 
 #SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture 1Dheat-sycl-usm-graph-unroll accessors-sycl-usm-graph apsp-sycl-usm-graph apsp-sycl-usm-graph-capture apsp-sycl-usm-graph-unroll dotp-sycl-usm-graph dotp-sycl-usm-graph-capture iso2dfd-sycl-usm-graph iso2dfd-sycl-usm-graph-capture iso2dfd-sycl-usm-graph-unroll nn-sycl-usm-graph nn-sycl-usm-graph-unroll
 #SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture iso2dfd-sycl-usm-graph accessors-sycl-usm-graph apsp-sycl-usm-graph dotp-sycl-usm-graph nn-sycl-usm-graph
-SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph
+SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture
 
 #SYCL-BUFFER-GRAPH-OBJECTS = 1Dheat-sycl-buffer-graph accessors-sycl-buffer-graph apsp-sycl-buffer-graph dotp-sycl-buffer-graph iso2dfd-sycl-buffer-graph
 
@@ -107,7 +107,7 @@ run-sycl-usm-graph: $(addprefix run-,$(SYCL-USM-GRAPH-OBJECTS))
 #	$(ENVGRAPH) ./$< 10000 1000
 #
 run-1Dheat-sycl-usm-graph: 1Dheat-sycl-usm-graph
-	./$< 100 10
+	$(ENVGRAPH) ./$< 100 10
 #	$(ENVGRAPH) ./$< 10000 1000
 
 run-1Dheat-sycl-usm-graph-capture: 1Dheat-sycl-usm-graph-capture
