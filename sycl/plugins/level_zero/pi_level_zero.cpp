@@ -839,8 +839,10 @@ bool _pi_queue::isInOrderQueue() const {
 }
 
 bool _pi_queue::isEagerExec() const {
-  // If lazy exec queue property is not set, then it's an eager queue.
-  return ((this->Properties & PI_QUEUE_LAZY_EXECUTION ) == 0);
+  // If neither lazy exec nor capture mode 
+  // queue property is set, then it's an eager queue.
+  return (((this->Properties & PI_QUEUE_LAZY_EXECUTION) == 0) || 
+          ((this->Properties & PI_QUEUE_CAPTURE_MODE) == 0));
 }
 
 pi_result _pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
@@ -3091,7 +3093,8 @@ pi_result piQueueCreate(pi_context Context, pi_device Device,
   PI_ASSERT(
       !(Properties & ~(PI_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE |
                        PI_QUEUE_PROFILING_ENABLE | PI_QUEUE_ON_DEVICE |
-                       PI_QUEUE_ON_DEVICE_DEFAULT | PI_QUEUE_LAZY_EXECUTION)),
+                       PI_QUEUE_ON_DEVICE_DEFAULT | PI_QUEUE_LAZY_EXECUTION |
+                       PI_QUEUE_CAPTURE_MODE)),
       PI_INVALID_VALUE);
 
   ze_device_handle_t ZeDevice;

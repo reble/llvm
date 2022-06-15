@@ -308,6 +308,9 @@ public:
     if (has_property<ext::oneapi::property::queue::lazy_execution>()) {
       CreationFlags |= PI_QUEUE_LAZY_EXECUTION;
     }
+    if (has_property<ext::oneapi::property::queue::capture_mode>()) {
+      CreationFlags |= PI_QUEUE_CAPTURE_MODE;
+    }
     RT::PiQueue Queue{};
     RT::PiContext Context = MContext->getHandleRef();
     RT::PiDevice Device = MDevice->getHandleRef();

@@ -275,7 +275,8 @@ void queue_impl::wait(const detail::code_location &CodeLoc) {
 #endif
 
 #if 1
-  if(has_property<ext::oneapi::property::queue::lazy_execution>()){
+  if(has_property<ext::oneapi::property::queue::lazy_execution>() ||
+     has_property<ext::oneapi::property::queue::capture_mode>()){
     const detail::plugin &Plugin = getPlugin();
     if (Plugin.getBackend() == backend::ext_oneapi_level_zero)
         Plugin.call<detail::PiApiKind::piKernelLaunch>(getHandleRef());
