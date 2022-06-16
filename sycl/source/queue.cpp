@@ -194,6 +194,14 @@ bool queue::is_in_order() const {
   return impl->has_property<property::queue::in_order>();
 }
 
+bool queue::is_lazy() const {
+  return impl->has_property<ext::oneapi::property::queue::lazy_execution>();
+}
+
+bool queue::is_capture() const {
+  return impl->has_property<ext::oneapi::property::queue::capture_mode>();
+}
+
 backend queue::get_backend() const noexcept { return getImplBackend(impl); }
 
 pi_native_handle queue::getNative() const { return impl->getNative(); }

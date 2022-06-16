@@ -1064,6 +1064,10 @@ public:
   /// Equivalent to has_property<property::queue::in_order>()
   bool is_in_order() const;
 
+  bool is_lazy() const;
+  bool is_capture() const;
+
+
   /// Returns the backend associated with this queue.
   ///
   /// \return the backend associated with this queue.
