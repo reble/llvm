@@ -841,7 +841,7 @@ bool _pi_queue::isInOrderQueue() const {
 bool _pi_queue::isEagerExec() const {
   // If neither lazy exec nor capture mode 
   // queue property is set, then it's an eager queue.
-  return (((this->Properties & PI_QUEUE_LAZY_EXECUTION) == 0) || 
+  return (((this->Properties & PI_QUEUE_LAZY_EXECUTION) == 0) && 
           ((this->Properties & PI_QUEUE_CAPTURE_MODE) == 0));
 }
 
