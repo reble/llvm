@@ -1038,8 +1038,11 @@ void sycl::queue::submit(sycl::ext::oneapi::experimental::executable_graph& g) {
   g.exec_and_wait();
 }
 
+void sycl::queue::begin_capture(sycl::ext::oneapi::experimental::graph* ptr) {
+  my_graph_ptr = ptr;
+}
 
-
+void sycl::queue::end_capture() const {}
 
 
 

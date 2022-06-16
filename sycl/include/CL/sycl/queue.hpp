@@ -85,6 +85,7 @@ namespace ext{
 namespace oneapi{
 namespace experimental{
 class executable_graph;
+class graph;
 }
 }
 }
@@ -251,7 +252,10 @@ public:
 
 public:
 
+  sycl::ext::oneapi::experimental::graph* my_graph_ptr;
   void submit(sycl::ext::oneapi::experimental::executable_graph&);
+  void begin_capture(sycl::ext::oneapi::experimental::graph*);
+  void end_capture() const;
 
 
   /// Submits a command group function object to the queue, in order to be
