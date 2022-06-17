@@ -256,6 +256,9 @@ public:
   void submit(sycl::ext::oneapi::experimental::executable_graph&);
   void begin_capture(sycl::ext::oneapi::experimental::graph*);
   void end_capture() const;
+  
+  template <typename KernelName = detail::auto_name, typename KernelType>
+  void capture_parallel_for(range<1> NumWorkItems, KernelType);
 
 
   /// Submits a command group function object to the queue, in order to be
@@ -776,7 +779,17 @@ public:
   event parallel_for(range<1> NumWorkItems,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
-    return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc, CodeLoc);
+    if (!is_capture()) {
+      std::cout << "in queue, use this parallel_for\n\n\n\n\n";
+      return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc, CodeLoc);
+    }
+    
+    //else {
+    //  my_graph_ptr->add_node([=](sycl::handler& h){
+    //    h.template parallel_for<KernelName, KernelType>(NumWorkItems,
+    //                                                    KernelFunc);}, {});
+    //  return sycl::event{};
+    //}
   }
 
   /// parallel_for version with a kernel represented as a lambda + range that
@@ -816,6 +829,7 @@ public:
   event parallel_for(range<1> NumWorkItems, event DepEvent,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    std::cout << "in queue, parallel for with events\n\n";
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc,
                                          CodeLoc);
   }
@@ -862,6 +876,7 @@ public:
   event parallel_for(range<1> NumWorkItems, const std::vector<event> &DepEvents,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    std::cout << "in queue, parallel for with vector of events\n\n";
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc,
                                          CodeLoc);
   }
@@ -1296,5 +1311,16 @@ template <> struct hash<cl::sycl::queue> {
   }
 };
 } // namespace std
+
+#include <sycl/ext/oneapi/experimental/graph.hpp>
+inline void sycl::queue::submit(sycl::ext::oneapi::experimental::executable_graph& g) {
+  g.exec_and_wait();
+}
+
+inline void sycl::queue::begin_capture(sycl::ext::oneapi::experimental::graph* g) {
+  my_graph_ptr = g;
+}
+
+inline void sycl::queue::end_capture() const {}
 
 #undef __SYCL_USE_FALLBACK_ASSERT
