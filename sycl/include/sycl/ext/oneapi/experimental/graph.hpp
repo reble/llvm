@@ -189,7 +189,7 @@ public:
 class graph {
 public:
   // Adds a node
-  template <typename T> node add_node(T cgf, const std::vector<node> &dep = {});
+  template <typename T> node add_node(T cgf, const std::vector<node> &dep = {}, const bool capture=false);
 
   template <typename T>
   void add_node(node &Node, T cgf, const std::vector<node> &dep = {});
@@ -343,7 +343,7 @@ public:
     return executable_graph{my_graph, q};
   };
 
-  graph() : my_graph(new detail::graph_impl()) {}
+  graph() : my_graph(new detail::graph_impl()), ptr_prev_node(nullptr) {}
 
   // Creates a subgraph (with predecessors)
   graph(graph &parent, const std::vector<node> &dep = {}) {}
@@ -355,6 +355,7 @@ public:
 
 private:
   detail::graph_ptr my_graph;
+  detail::node_ptr ptr_prev_node;
 };
 
 inline void executable_graph::exec_and_wait() { my_queue.wait(); }
@@ -365,13 +366,30 @@ inline void executable_graph::exec_and_wait() { my_queue.wait(); }
 /// \param dep is a vector of graph nodes the to be added node depends on.
 /// \return a graph node representing the command group operation.
 template <typename T>
-inline node graph::add_node(T cgf, const std::vector<node> &dep) {
+inline node graph::add_node(T cgf, const std::vector<node> &dep, const bool capture) {
   node _node(my_graph, cgf);
-  if (!dep.empty()) {
-    for (auto n : dep)
-      this->make_edge(n, _node);
-  } else {
-    _node.set_root();
+  if (!capture) {
+    if (!dep.empty()) {
+      for (auto n : dep)
+        this->make_edge(n, _node);
+    } else {
+      _node.set_root();
+    }
+  }
+  else {
+    // first node ever
+    if (!ptr_prev_node) {
+      std::cout << "ptr_prev_node = " << ptr_prev_node << '\n';
+      _node.set_root();
+      ptr_prev_node = _node.my_node;
+      std::cout << "finish if\n";
+    }
+    else {
+      std::cout << "ptr_prev_node = " << ptr_prev_node << '\n';
+      ptr_prev_node->register_successor(_node.my_node);
+      ptr_prev_node = _node.my_node;
+      std::cout << "finish else\n";
+    }
   }
   return _node;
 }

@@ -258,7 +258,7 @@ public:
   void end_capture() const;
   
   template <typename KernelName = detail::auto_name, typename KernelType>
-  void capture_parallel_for(range<1> NumWorkItems, KernelType);
+  event parallel_for(range<1> NumWorkItems, const KernelType& KernelFunc);
 
 
   /// Submits a command group function object to the queue, in order to be
@@ -769,6 +769,7 @@ public:
         CodeLoc);
   }
 
+  /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
   ///
@@ -791,6 +792,7 @@ public:
     //  return sycl::event{};
     //}
   }
+  */
 
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
@@ -1323,4 +1325,20 @@ inline void sycl::queue::begin_capture(sycl::ext::oneapi::experimental::graph* g
 
 inline void sycl::queue::end_capture() const {}
 
+template <typename KernelName, typename KernelType>
+sycl::event sycl::queue::parallel_for(range<1> NumWorkItems,
+                   const KernelType& KernelFunc) {
+  if (!is_capture()) {
+    std::cout << "in queue, not use capture mode\n\n";
+    return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc);
+  }
+  
+  else {
+    std::cout << "in queue, use capture mode\n\n";
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType>(NumWorkItems,
+                                                      KernelFunc);}, {}, true);
+    return sycl::event{};
+  }
+}
 #undef __SYCL_USE_FALLBACK_ASSERT
