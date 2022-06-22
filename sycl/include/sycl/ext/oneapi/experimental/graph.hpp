@@ -350,6 +350,9 @@ public:
 
   bool is_subgraph();
 
+  size_t num_nodes() const;
+  size_t num_edges() const;
+
 private:
   detail::graph_ptr my_graph;
 };
@@ -1029,6 +1032,18 @@ inline void graph::make_edge(node sender, node receiver) {
 }
 
 inline void graph::exec_and_wait(sycl::queue q) { my_graph->exec_and_wait(q); }
+
+inline size_t graph::num_nodes() const {
+  return my_graph->my_schedule.size();
+}
+
+inline size_t graph::num_edges() const {
+  size_t num_edges = 0;
+  for (auto& root: my_graph->my_roots) {
+    num_edges += root->my_successors.size();
+  }
+  return num_edges;
+}
 
 } // namespace experimental
 } // namespace oneapi
