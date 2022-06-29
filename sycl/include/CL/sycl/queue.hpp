@@ -263,6 +263,9 @@ public:
   template <typename KernelName = detail::auto_name, typename KernelType>
   event parallel_for(range<1> NumWorkItems, event DepEvent, const KernelType& KernelFunc);
 
+  template <typename KernelName = detail::auto_name, typename KernelType>
+  event parallel_for(range<1> NumWorkItems, const std::vector<event>& DepEvents, const KernelType& KernelFunc);
+  
   /// Submits a command group function object to the queue, in order to be
   /// scheduled for execution on the device.
   ///
@@ -870,6 +873,7 @@ public:
                                          CodeLoc);
   }
 
+  /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
   ///
@@ -886,6 +890,7 @@ public:
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc,
                                          CodeLoc);
   }
+  */
 
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
@@ -1378,6 +1383,37 @@ sycl::event sycl::queue::parallel_for(
       true
     );
     //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
+    
+    return sycl::event{};
+  }
+}
+
+template <typename KernelName, typename KernelType>
+sycl::event sycl::queue::parallel_for(
+  sycl::range<1> NumWorkItems,
+  const std::vector<sycl::event> &DepEvents,
+  const KernelType& KernelFunc) {
+  
+  if (!is_capture()) {
+    std::cout << "in queue with events, not use capture mode\n\n";
+    return parallel_for_impl<KernelName>(
+      NumWorkItems, 
+      DepEvents, 
+      KernelFunc,
+      detail::code_location::current());
+  }
+
+  else {
+    std::cout << "in queue with events, use capture mode\n\n";
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.depends_on(DepEvents);
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, KernelFunc);
+      }, 
+      {},
+      true
+    );
+    //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc);
     
     return sycl::event{};
   }
