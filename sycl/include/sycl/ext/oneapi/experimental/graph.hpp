@@ -12,6 +12,7 @@
 
 #include <list>
 #include <set>
+#include <map>
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
@@ -188,6 +189,7 @@ public:
 
 class graph {
 public:
+  
   // Adds a node
   template <typename T> node add_node(T cgf, const std::vector<node> &dep = {}, const bool capture=false);
 
@@ -1062,6 +1064,7 @@ inline size_t graph::num_edges() const {
   }
   return num_edges;
 }
+
 
 } // namespace experimental
 } // namespace oneapi
