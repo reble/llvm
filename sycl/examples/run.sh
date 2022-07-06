@@ -18,20 +18,32 @@ export LD_LIBRARY_PATH=$LLVMBUILDDIR/lib:$LD_LIBRARY_PATH
 # clean all the executable and output texts
 make clean
 
-# compile *-sycl-usm-graph source code
-make sycl-usm-graph
+## compile *-sycl-usm-graph source code
+#make sycl-usm-graph
+#
+## execute *-sycl-usm-graph executables
+#echo ""
+#echo "------ Start  running executables ------"
+#echo ""
+#make run-sycl-usm-graph
+#echo ""
+#echo "------ Finish running executables ------"
+#echo ""
+ 
+##compile *dpl-usm-pointer source code
+#make dpl-usm-pointer-graph-capture
+#
+## execute *-dpl-usm-pointer executables
+#echo ""
+#echo "------ Start  running executables ------"
+#echo ""
+#make run-dpl-usm-pointer-graph-capture
+#echo ""
+#echo "------ Finish running executables ------"
+#echo ""
 
-# execute *-sycl-usm-graph executables
-echo ""
-echo "------ Start  running executables ------"
-echo ""
-make run-sycl-usm-graph
-echo ""
-echo "------ Finish running executables ------"
-echo ""
-
-
-
+make test
+./unittest
 
 #export LD_LIBRARY_PATH=$LLVMBUILDDIR/lib:$LD_LIBRARY_PATH
 #rm -rf ./a.out

@@ -7,9 +7,13 @@
 
 CXX = clang++
 #CPPFLAGS = -fsycl -std=c++17 -O3 -fsycl-device-code-split=off -fsycl-early-optimizations -fsycl-dead-args-optimization -Wall -Wpedantic -v
-CPPFLAGS = -fsycl -std=c++17 -g -fsycl-unnamed-lambda
+CPPFLAGS = -fsycl -std=c++17 -g -fsycl-unnamed-lambda -v
 CPPFLAGSGRAPH = -D SYCL_EXT_ONEAPI_LAZY_QUEUE=1
-CPPINCLUDEPATH = -I${DPCPP_HOME}/llvm/sycl/include -I${DPCPP_HOME}/llvm/include
+#CPPINCLUDEPATH = -I${DPCPP_HOME}/llvm/sycl/include -I${DPCPP_HOME}/llvm/include
+CPPINCLUDEPATH = -I${DPCPP_HOME}/llvm/sycl/include
+GTESTINCLUDEPATH = -I${DPCPP_HOME}/../../googletest/googletest/include
+GTESTLIB = -lgtest_main -lgtest -lpthread -L${DPCPP_HOME}/../../googletest/build/lib
+
 # Enables AOT compilation. Specify the target device. Disable AOT and use JIT by setting DEVICE to an empty string.
 CPPFLAGSAOT = -fsycl-targets=spir64_gen -Xs "-device Gen9"  # Intel Gen9 GPU
 # CPPFLAGSAOT = -fsycl-targets=nvptx64-nvidia-cuda  # NVIDIA GPU
@@ -26,7 +30,7 @@ NVFLAGS = -O3 -lineinfo -arch=sm_75
 
 SRCS = $(wildcard *.cpp) $(wildcard *.hpp) $(wildcard *.cu)
 
-#1DHEAT-OBJECTS = 1Dheat-sycl-buffer 1Dheat-sycl-usm 1Dheat-sycl-buffer-graph 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture 1Dheat-sycl-usm-graph-unroll
+#1DHEAT-OBJECTS = 1Dheat-sycl-buffer 1Dheat-sycl-usm 1Dheat-sycl-buffer-graph 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture 1Dheat-sycl-usm-graph-unroll 1Dheat-sycl-usm-graph-capture-test
 
 #ACCESSORS-OBJECTS = accessors-sycl-buffer accessors-sycl-usm accessors-sycl-buffer-graph accessors-sycl-usm-graph
 
@@ -44,11 +48,14 @@ SRCS = $(wildcard *.cpp) $(wildcard *.hpp) $(wildcard *.cu)
 
 #SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture 1Dheat-sycl-usm-graph-unroll accessors-sycl-usm-graph apsp-sycl-usm-graph apsp-sycl-usm-graph-capture apsp-sycl-usm-graph-unroll dotp-sycl-usm-graph dotp-sycl-usm-graph-capture iso2dfd-sycl-usm-graph iso2dfd-sycl-usm-graph-capture iso2dfd-sycl-usm-graph-unroll nn-sycl-usm-graph nn-sycl-usm-graph-unroll
 #SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture iso2dfd-sycl-usm-graph accessors-sycl-usm-graph apsp-sycl-usm-graph dotp-sycl-usm-graph nn-sycl-usm-graph
-SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture
+SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph-capture-test
+#SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph
+
+DPL-USM-POINTER-OBJECTS = dpl-usm-pointer
 
 #SYCL-BUFFER-GRAPH-OBJECTS = 1Dheat-sycl-buffer-graph accessors-sycl-buffer-graph apsp-sycl-buffer-graph dotp-sycl-buffer-graph iso2dfd-sycl-buffer-graph
 
-.PHONY: all 1Dheat accessors apsp dotp iso2dfd nn sycl-graph sycl-usm-graph sycl-buffer-graph run run-1Dheat run-accessors run-apsp run-dotp run-iso2dfd run-nn run-sycl-usm-graph run-sycl-buffer-graph format tidy clean
+.PHONY: all 1Dheat accessors apsp dotp iso2dfd nn sycl-graph sycl-usm-graph sycl-buffer-graph run run-1Dheat run-accessors run-apsp run-dotp run-iso2dfd run-nn run-sycl-usm-graph run-sycl-buffer-graph format tidy clean dpl-usm-pointer-graph-capture run-dpl-usm-pointer-graph-capture
 
 #all: 1Dheat accessors apsp dotp iso2dfd nn
 #1Dheat: $(1DHEAT-OBJECTS)
@@ -64,6 +71,7 @@ SYCL-USM-GRAPH-OBJECTS = 1Dheat-sycl-usm-graph 1Dheat-sycl-usm-graph-capture
 #
 #sycl-graph: sycl-usm-graph sycl-buffer-graph
 sycl-usm-graph: $(SYCL-USM-GRAPH-OBJECTS)
+dpl-usm-pointer-graph-capture: $(DPL-USM-POINTER-OBJECTS)
 #sycl-buffer-graph: $(SYCL-BUFFER-GRAPH-OBJECTS)
 #
 #run: run-1Dheat run-accessors run-apsp run-dotp run-iso2dfd run-nn
@@ -80,19 +88,27 @@ sycl-usm-graph: $(SYCL-USM-GRAPH-OBJECTS)
 #
 #run-sycl-graph: run-sycl-usm-graph run-sycl-buffer-graph
 run-sycl-usm-graph: $(addprefix run-,$(SYCL-USM-GRAPH-OBJECTS))
+run-dpl-usm-pointer-graph-capture: $(addprefix run-,$(DPL-USM-POINTER-OBJECTS))
 #run-sycl-buffer-graph: $(addprefix run-,$(SYCL-BUFFER-GRAPH-OBJECTS))
 #
 #%-sycl-buffer: %-sycl-buffer.cpp
 #	$(CXX) $(CPPFLAGS) $(CPPFLAGSAOT) $< -o $@
 #
-#%-sycl-usm: %-sycl-usm.cpp
-#	$(CXX) $(CPPFLAGS) $(CPPFLAGSAOT) $< -o $@
-#
+%-sycl-usm: %-sycl-usm.cpp
+	$(CXX) $(CPPFLAGS) $(CPPINCLUDEPATH) $< -o $@
+
 %-sycl-usm-graph: %-sycl-usm-graph.cpp
 	$(CXX) $(CPPFLAGS) $(CPPINCLUDEPATH) $< -o $@
 
 %-sycl-usm-graph-capture: %-sycl-usm-graph-capture.cpp
 	$(CXX) $(CPPFLAGS) $(CPPINCLUDEPATH) $< -o $@
+
+%-sycl-usm-graph-capture-test: %-sycl-usm-graph-capture-test.cpp
+	$(CXX) $(CPPFLAGS) $(CPPINCLUDEPATH) $< -o $@
+
+dpl-usm-pointer: dpl-usm-pointer.cpp
+	$(CXX) $(CPPFLAGS) $(CPPINCLUDEPATH) $< -o $@
+
 #
 #%-sycl-usm-graph-unroll: %-sycl-usm-graph-unroll.cpp
 #	$(CXX) $(CPPFLAGS) $(CPPFLAGSAOT) $(CPPFLAGSGRAPH) $< -o $@
@@ -100,20 +116,25 @@ run-sycl-usm-graph: $(addprefix run-,$(SYCL-USM-GRAPH-OBJECTS))
 #run-1Dheat-sycl-buffer: 1Dheat-sycl-buffer
 #	./$< 10000 1000
 #
-#run-1Dheat-sycl-usm: 1Dheat-sycl-usm
-#	./$< 10000 1000
+run-1Dheat-sycl-usm: 1Dheat-sycl-usm
+	./$< 10 3 
 #
 #run-1Dheat-sycl-buffer-graph: 1Dheat-sycl-buffer-graph
 #	$(ENVGRAPH) ./$< 10000 1000
 #
 run-1Dheat-sycl-usm-graph: 1Dheat-sycl-usm-graph
-	$(ENVGRAPH) ./$< 100 10
+	$(ENVGRAPH) ./$< 10 1
 #	$(ENVGRAPH) ./$< 10000 1000
 
 run-1Dheat-sycl-usm-graph-capture: 1Dheat-sycl-usm-graph-capture
-	$(ENVGRAPH) ./$< 1000 1
+	$(ENVGRAPH) ./$< 10 1
 
+run-1Dheat-sycl-usm-graph-capture-test: 1Dheat-sycl-usm-graph-capture-test
+	$(ENVGRAPH) ./$< 10 3
 
+run-dpl-usm-pointer: dpl-usm-pointer
+	./$<
+   
 #run-1Dheat-sycl-usm-graph-unroll: 1Dheat-sycl-usm-graph-unroll
 #	$(ENVGRAPH) ./$< 10000 1000
 #
@@ -172,6 +193,16 @@ run-%-sycl-usm-graph: %-sycl-usm-graph
 #run-%-cuda-graphs-capture: %-cuda-graphs-capture
 #	./$<
 
+test: unittest
+  
+
+#unittest: unittest.cpp
+#	$(CXX) $(CPPFLAGS) $(CPPINCLUDEPATH) -I/home/u154255/googletest/googletest/include -lgtest_main -lgtest -L/home/u154255/googletest/build/lib -lpthread $< -o $@
+  
+unittest: unittest.cpp
+	$(CXX) $(CPPFLAGS) $(CPPINCLUDEPATH) $(GTESTINCLUDEPATH) $(GTESTLIB) $< -o $@
+
+
 format:
 	clang-format -i $(SRCS)
 
@@ -179,5 +210,5 @@ tidy:
 	clang-tidy -header-filter=.* $(SRCS) -- -I${LLVMBUILDDIR}/include -I${LLVMBUILDDIR}/include/sycl
 
 clean:
-	rm -f $(1DHEAT-OBJECTS) $(ACCESSORS-OBJECTS) $(APSP-OBJECTS) $(DOTP-OBJECTS) $(ISO2DFD-OBJECTS) $(NN-OBJECTS) wavefield_snapshot.bin wavefield_snapshot_cpu.bin *_error_diff.txt
+	rm -f $(1DHEAT-OBJECTS) $(ACCESSORS-OBJECTS) $(APSP-OBJECTS) $(DOTP-OBJECTS) $(ISO2DFD-OBJECTS) $(NN-OBJECTS) $(DPL-USM-POINTER-OBJECTS) wavefield_snapshot.bin wavefield_snapshot_cpu.bin *_error_diff.txt unittest
 
