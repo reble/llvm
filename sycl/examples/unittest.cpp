@@ -258,8 +258,8 @@ TEST(CaptureGraph, one_submit) {
  * The followings capture external libraries
  */
 
-// one PSTL in the capture window
-TEST(CaptureGraph, one_PSTL) {
+// one PSTL - for_each in the capture window
+TEST(CaptureGraph, one_PSTL_for_each) {
   sycl::property_list properties{
     sycl::property::queue::in_order(),
     sycl::ext::oneapi::property::queue::capture_mode{}};
@@ -307,7 +307,7 @@ TEST(CaptureGraph, one_PSTL) {
 }
 
 
-// two PSTLs in the capture window
+// two PSTLs - "for_each and fill" in the capture window
 TEST(CaptureGraph, two_PSTLs) {
   sycl::property_list properties{
     sycl::property::queue::in_order(),
@@ -332,9 +332,7 @@ TEST(CaptureGraph, two_PSTLs) {
 
   q.begin_capture(&g);
   
-  std::for_each(make_device_policy(q), data, data + array_size, [](int& d){
-    d = d + 1;
-  });
+  std::fill(make_device_policy(q), data, data + array_size, initial_value * 2);
  
   for (int i = 0; i < array_size; ++i) {
     EXPECT_EQ(initial_value, data[i])
@@ -342,7 +340,7 @@ TEST(CaptureGraph, two_PSTLs) {
   }
   
   std::for_each(make_device_policy(q), data, data + array_size, [](int& d){
-    d = d * 2;
+    d = d + 1;
   });
  
   for (int i = 0; i < array_size; ++i) {
@@ -357,8 +355,8 @@ TEST(CaptureGraph, two_PSTLs) {
   q.submit(exec_graph);
     
   for (int i = 0; i < array_size; i++) {
-    EXPECT_EQ(2*(initial_value + 1), data[i]) 
-    << "Execution Error: data[" << i << "] != " << 2*(initial_value+1);
+    EXPECT_EQ(2*initial_value + 1, data[i]) 
+    << "Execution Error: data[" << i << "] != " << 2*initial_value+1;
   }
   
   free(data, q);
@@ -387,8 +385,15 @@ TEST(CaptureGraph, four_PSTLs) {
   }
 
   sycl::ext::oneapi::experimental::graph g;
-
+  
   q.begin_capture(&g);
+  
+  std::fill(make_device_policy(q), data, data + array_size, initial_value*2);
+ 
+  for (int i = 0; i < array_size; ++i) {
+    EXPECT_EQ(initial_value, data[i])
+    << "Error: PSTL executes in the capture window.";    
+  }
   
   std::for_each(make_device_policy(q), data, data + array_size, [](int& d){
     d = d + 1;
@@ -399,18 +404,7 @@ TEST(CaptureGraph, four_PSTLs) {
     << "Error: PSTL executes in the capture window.";    
   }
   
-  std::for_each(make_device_policy(q), data, data + array_size, [](int& d){
-    d = d * 2;
-  });
- 
-  for (int i = 0; i < array_size; ++i) {
-    EXPECT_EQ(initial_value, data[i])
-    << "Error: PSTL executes in the capture window.";    
-  }
-  
-  std::for_each(make_device_policy(q), data, data + array_size, [](int& d){
-    d = d / 3;
-  });
+  std::fill(make_device_policy(q), data, data + array_size, 10);
  
   for (int i = 0; i < array_size; ++i) {
     EXPECT_EQ(initial_value, data[i])
@@ -433,8 +427,8 @@ TEST(CaptureGraph, four_PSTLs) {
   q.submit(exec_graph);
     
   for (int i = 0; i < array_size; i++) {
-    EXPECT_EQ(2*(initial_value + 1)/3-10, data[i]) 
-    << "Execution Error: data[" << i << "] != " << 2*(initial_value+1)/3-10;
+    EXPECT_EQ(0, data[i]) 
+    << "Execution Error: data[" << i << "] != " << "0";
   }
   
   free(data, q);
