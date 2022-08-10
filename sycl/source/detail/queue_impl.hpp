@@ -254,13 +254,15 @@ public:
   ///
   /// Synchronous errors will be reported through SYCL exceptions.
   /// @param Loc is the code location of the submit call (default argument)
-  void wait(const detail::code_location &Loc = {});
+  /// @param in_caputure denotes the status of being in the capture window or not
+  void wait(const detail::code_location &Loc = {}, const bool in_capture=false);
 
   /// \return list of asynchronous exceptions occurred during execution.
   exception_list getExceptionList() const { return MExceptions; }
 
   /// @param Loc is the code location of the submit call (default argument)
   void wait_and_throw(const detail::code_location &Loc = {}) {
+    //std::cout << "wait and throw option 4\n";
     wait(Loc);
     throw_asynchronous();
   }
