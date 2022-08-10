@@ -4948,7 +4948,6 @@ piKernelLaunch(pi_queue Queue) {
               Queue, CommandList, false /* PreferCopyEngine */,
               true /* AllowBatching */, Graph /* Shortcut for Graph */))
         return Res;
-    
     // Execute command list asynchronously, as the event will be used
     // to track down its completion.
     if (auto Res = Queue->executeCommandList(CommandList, false, true, Graph))
