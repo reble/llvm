@@ -364,12 +364,22 @@ public:
 
   bool is_subgraph();
 
+  // Returns the number of nodes in the graph
   size_t num_nodes() const;
+
+  // Returns the number of edges in the graph
   size_t num_edges() const;
+
+  // The unique id of a node
   size_t uid = 0;
+
+  // Returns the uid of a node
   size_t get_id() const;
+
+  // Updates the uid of a node
   void set_id(const size_t);
 
+  // The map between event id and node id
   std::map<size_t, node> id2node;
 
   detail::node_ptr locate_node(const size_t);
@@ -388,6 +398,7 @@ inline void executable_graph::exec_and_wait() {
 ///
 /// \param cgf is a function object containing command group.
 /// \param dep is a vector of graph nodes the to be added node depends on.
+/// \param capture is a variable denoting if being in a capture mode.
 /// \return a graph node representing the command group operation.
 template <typename T>
 inline node graph::add_node(T cgf, const std::vector<node> &dep, const bool capture) {
@@ -1113,18 +1124,6 @@ inline detail::node_ptr graph::locate_node(const size_t id) {
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
-
-
-//void sycl::queue::submit(sycl::ext::oneapi::experimental::executable_graph& g) {
-//  g.exec_and_wait();
-//}
-
-//void sycl::queue::begin_capture(sycl::ext::oneapi::experimental::graph* ptr) {
-//  my_graph_ptr = ptr;
-//}
-//
-//void sycl::queue::end_capture() const {}
-//
 
 
 } // namespace sycl
