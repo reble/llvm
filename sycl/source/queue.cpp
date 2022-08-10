@@ -156,7 +156,7 @@ event queue::submit_impl_and_postprocess(
 }
 
 void queue::wait_proxy(const detail::code_location &CodeLoc) {
-  impl->wait(CodeLoc);
+  impl->wait(CodeLoc, in_capture);
 }
 
 void queue::wait_and_throw_proxy(const detail::code_location &CodeLoc) {
