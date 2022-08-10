@@ -252,19 +252,202 @@ public:
 
 public:
 
+  // A pointer to the graph object
   sycl::ext::oneapi::experimental::graph* my_graph_ptr;
-  void submit(sycl::ext::oneapi::experimental::executable_graph&);
-  void begin_capture(sycl::ext::oneapi::experimental::graph*);
-  void end_capture() const;
+
+  // A boolean denotes the queue of being in capture mode or not
+  bool in_capture = false;
+
+  // A boolean denotes a node is created in the graph for the first time
+  bool first_graph_submission = true;
   
+  /// Submits an executable graph for execution
+  /// \param g is an executable graph
+  void submit(sycl::ext::oneapi::experimental::executable_graph& g);
+
+  /// Marks the beginning of the capture window
+  /// \param g is a pointer to a graph object
+  void begin_capture(sycl::ext::oneapi::experimental::graph* g);
+  
+  /// Marks the end of the capture window
+  void end_capture();
+  
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
   template <typename KernelName = detail::auto_name, typename KernelType>
   event parallel_for(range<1> NumWorkItems, const KernelType& KernelFunc);
 
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param DepEvent is an event that specifies the kernel dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
   template <typename KernelName = detail::auto_name, typename KernelType>
   event parallel_for(range<1> NumWorkItems, event DepEvent, const KernelType& KernelFunc);
 
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param DepEvents is a vector of events that specifies the kernel
+  /// dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
   template <typename KernelName = detail::auto_name, typename KernelType>
   event parallel_for(range<1> NumWorkItems, const std::vector<event>& DepEvents, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType>
+  event parallel_for(range<2> NumWorkItems, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param DepEvent is an event that specifies the kernel dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType>
+  event parallel_for(range<2> NumWorkItems, event DepEvent, const KernelType& KernelFunc);
+
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param DepEvents is a vector of events that specifies the kernel
+  /// dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType>
+  event parallel_for(range<2> NumWorkItems, const std::vector<event>& DepEvents, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType>
+  event parallel_for(range<3> NumWorkItems, const KernelType& KernelFunc);
+ 
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param DepEvent is an event that specifies the kernel dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType>
+  event parallel_for(range<3> NumWorkItems, event DepEvent, const KernelType& KernelFunc);
+
+  /// parallel_for version with a kernel represented as a lambda + range that
+  /// specifies global size only.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param DepEvents is a vector of events that specifies the kernel
+  /// dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType>
+  event parallel_for(range<3> NumWorkItems, const std::vector<event>& DepEvents, const KernelType& KernelFunc);
+
+  /// parallel_for version with a kernel represented as a lambda + nd_range that
+  /// specifies global, local sizes and offset.
+  ///
+  /// \param ExecutionRange is a range that specifies the work space of the
+  /// kernel
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType,
+            int Dims>
+  event parallel_for(nd_range<Dims> ExecutionRange, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + nd_range that
+  /// specifies global, local sizes and offset.
+  ///
+  /// \param ExecutionRange is a range that specifies the work space of the
+  /// kernel
+  /// \param DepEvent is an event that specifies the kernel dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType,
+            int Dims>
+  event parallel_for(nd_range<Dims> ExecutionRange, event DepEvent, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + nd_range that
+  /// specifies global, local sizes and offset.
+  ///
+  /// \param ExecutionRange is a range that specifies the work space of the
+  /// kernel
+  /// \param DepEvents is a vector of events that specifies the kernel
+  /// dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType,
+            int Dims>
+  event parallel_for(nd_range<Dims> ExecutionRange, const std::vector<event>& DepEvents, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + nd_range that
+  /// specifies global, local sizes and offset.
+  ///
+  /// \param ExecutionRange is a range that specifies the work space of the
+  /// kernel
+  /// \param Redu is a reduction operation
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType,
+            int Dims, typename Reduction>
+  event parallel_for(nd_range<Dims> ExecutionRange, Reduction Redu, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + range and
+  /// offset that specify global size and global offset correspondingly.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param WorkItemOffset specifies the offset for each work item id
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType,
+            int Dims>
+  event parallel_for(range<Dims> NumWorkItems, id<Dims> WorkItemOffset, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + range and
+  /// offset that specify global size and global offset correspondingly.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param WorkItemOffset specifies the offset for each work item id
+  /// \param DepEvent is an event that specifies the kernel dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType,
+            int Dims>
+  event parallel_for(range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
+                     event DepEvent, const KernelType& KernelFunc);
+  
+  /// parallel_for version with a kernel represented as a lambda + range and
+  /// offset that specify global size and global offset correspondingly.
+  ///
+  /// \param NumWorkItems is a range that specifies the work space of the kernel
+  /// \param WorkItemOffset specifies the offset for each work item id
+  /// \param DepEvents is a vector of events that specifies the kernel
+  /// dependencies
+  /// \param KernelFunc is the Kernel functor or lambda
+  /// \return a SYCL event object for the submitted kernel.
+  template <typename KernelName = detail::auto_name, typename KernelType,
+            int Dims>
+  event parallel_for(range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
+                     const std::vector<event> &DepEvents,
+                     const KernelType& KernelFunc);
   
   /// Submits a command group function object to the queue, in order to be
   /// scheduled for execution on the device.
@@ -272,33 +455,46 @@ public:
   /// \param CGF is a function object containing command group.
   /// \param CodeLoc is the code location of the submit call (default argument)
   /// \return a SYCL event object for the submitted command group.
-  template <typename T> event submit(T CGF _CODELOCPARAM(&CodeLoc)) {
-    _CODELOCARG(&CodeLoc);
-
-#if __SYCL_USE_FALLBACK_ASSERT
-    if (!is_host()) {
-      auto PostProcess = [this, &CodeLoc](bool IsKernel, bool KernelUsesAssert,
-                                          event &E) {
-        if (IsKernel && !device_has(aspect::ext_oneapi_native_assert) &&
-            KernelUsesAssert && !device_has(aspect::accelerator)) {
-          // __devicelib_assert_fail isn't supported by Device-side Runtime
-          // Linking against fallback impl of __devicelib_assert_fail is
-          // performed by program manager class
-          // Fallback assert isn't supported for FPGA
-          submitAssertCapture(*this, E, /* SecondaryQueue = */ nullptr,
-                              CodeLoc);
-        }
-      };
-
-      auto Event = submit_impl_and_postprocess(CGF, CodeLoc, PostProcess);
-      return discard_or_return(Event);
-    } else
-#endif // __SYCL_USE_FALLBACK_ASSERT
-    {
-      auto Event = submit_impl(CGF, CodeLoc);
-      return discard_or_return(Event);
-    }
-  }
+  template <typename T> 
+  event submit(
+    T CGF,
+    const detail::code_location &CodeLoc = detail::code_location::current());
+  
+  
+  /// Submits a command group function object to the queue, in order to be
+  /// scheduled for execution on the device.
+  ///
+  /// \param CGF is a function object containing command group.
+  /// \param CodeLoc is the code location of the submit call (default argument)
+  /// \return a SYCL event object for the submitted command group.
+//  template <typename T> event submit(T CGF _CODELOCPARAM(&CodeLoc)) {
+//    _CODELOCARG(&CodeLoc);
+//
+//#if __SYCL_USE_FALLBACK_ASSERT
+//    if (!is_host()) {
+//      auto PostProcess = [this, &CodeLoc](bool IsKernel, bool KernelUsesAssert,
+//                                          event &E) {
+//        if (IsKernel && !device_has(aspect::ext_oneapi_native_assert) &&
+//            KernelUsesAssert && !device_has(aspect::accelerator)) {
+//          // __devicelib_assert_fail isn't supported by Device-side Runtime
+//          // Linking against fallback impl of __devicelib_assert_fail is
+//          // performed by program manager class
+//          // Fallback assert isn't supported for FPGA
+//          submitAssertCapture(*this, E, /* SecondaryQueue = */ nullptr,
+//                              CodeLoc);
+//        }
+//      };
+//
+//      auto Event = submit_impl_and_postprocess(CGF, CodeLoc, PostProcess);
+//      return discard_or_return(Event);
+//    } else
+//#endif // __SYCL_USE_FALLBACK_ASSERT
+//    {
+//      auto Event = submit_impl(CGF, CodeLoc);
+//      return discard_or_return(Event);
+//    }
+//  }
+//  
 
   /// Submits a command group function object to the queue, in order to be
   /// scheduled for execution on the device.
@@ -409,6 +605,7 @@ public:
   /// Synchronous errors will be reported through SYCL exceptions.
   /// @param CodeLoc is the code location of the submit call (default argument)
   void wait(_CODELOCONLYPARAM(&CodeLoc)) {
+    //std::cout << "queue.hpp, queue.wait() \n";
     _CODELOCARG(&CodeLoc);
 
     wait_proxy(CodeLoc);
@@ -424,7 +621,7 @@ public:
   /// @param CodeLoc is the code location of the submit call (default argument)
   void wait_and_throw(_CODELOCONLYPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
-
+    //std::cout << "wait and throw option 2\n";
     wait_and_throw_proxy(CodeLoc);
   }
 
@@ -798,7 +995,7 @@ public:
     //}
   }
   */
-
+  /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
   ///
@@ -809,9 +1006,11 @@ public:
   event parallel_for(range<2> NumWorkItems,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<2>\n";
     return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc, CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
   ///
@@ -822,9 +1021,10 @@ public:
   event parallel_for(range<3> NumWorkItems,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<3>\n";
     return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc, CodeLoc);
   }
-
+  */
   /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
@@ -842,7 +1042,7 @@ public:
                                          CodeLoc);
   }
   */
-
+  /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
   ///
@@ -854,10 +1054,12 @@ public:
   event parallel_for(range<2> NumWorkItems, event DepEvent,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<2>, one dep\n";
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc,
                                          CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
   ///
@@ -869,10 +1071,11 @@ public:
   event parallel_for(range<3> NumWorkItems, event DepEvent,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<3>, one dep\n";
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc,
                                          CodeLoc);
   }
-
+  */
   /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
@@ -891,7 +1094,7 @@ public:
                                          CodeLoc);
   }
   */
-
+  /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
   ///
@@ -904,10 +1107,12 @@ public:
   event parallel_for(range<2> NumWorkItems, const std::vector<event> &DepEvents,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<2>, multile deps\n";
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc,
                                          CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + range that
   /// specifies global size only.
   ///
@@ -920,10 +1125,12 @@ public:
   event parallel_for(range<3> NumWorkItems, const std::vector<event> &DepEvents,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<3>, multile deps\n";
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc,
                                          CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + range and
   /// offset that specify global size and global offset correspondingly.
   ///
@@ -936,6 +1143,7 @@ public:
   event parallel_for(range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<dims>, id<dims>\n";
     return submit(
         [&](handler &CGH) {
           CGH.template parallel_for<KernelName, KernelType>(
@@ -943,7 +1151,8 @@ public:
         },
         CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + range and
   /// offset that specify global size and global offset correspondingly.
   ///
@@ -958,6 +1167,7 @@ public:
                      event DepEvent,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<dims>, id<dims>, one dep\n";
     return submit(
         [&](handler &CGH) {
           CGH.depends_on(DepEvent);
@@ -966,7 +1176,8 @@ public:
         },
         CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + range and
   /// offset that specify global size and global offset correspondingly.
   ///
@@ -982,6 +1193,7 @@ public:
                      const std::vector<event> &DepEvents,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for range<dims>, id<dims>, multiple deps\n";
     return submit(
         [&](handler &CGH) {
           CGH.depends_on(DepEvents);
@@ -990,7 +1202,8 @@ public:
         },
         CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + nd_range that
   /// specifies global, local sizes and offset.
   ///
@@ -1003,6 +1216,7 @@ public:
   event parallel_for(nd_range<Dims> ExecutionRange,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for nd_range<dims>\n";
     return submit(
         [&](handler &CGH) {
           CGH.template parallel_for<KernelName, KernelType>(ExecutionRange,
@@ -1010,7 +1224,8 @@ public:
         },
         CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + nd_range that
   /// specifies global, local sizes and offset.
   ///
@@ -1024,6 +1239,7 @@ public:
   event parallel_for(nd_range<Dims> ExecutionRange, event DepEvent,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for nd_range<dims>, one dep\n";
     return submit(
         [&](handler &CGH) {
           CGH.depends_on(DepEvent);
@@ -1032,7 +1248,8 @@ public:
         },
         CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + nd_range that
   /// specifies global, local sizes and offset.
   ///
@@ -1048,6 +1265,7 @@ public:
                      const std::vector<event> &DepEvents,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for nd_range<dims>, multiple deps\n";
     return submit(
         [&](handler &CGH) {
           CGH.depends_on(DepEvents);
@@ -1056,7 +1274,8 @@ public:
         },
         CodeLoc);
   }
-
+  */
+  /*
   /// parallel_for version with a kernel represented as a lambda + nd_range that
   /// specifies global, local sizes and offset.
   ///
@@ -1070,6 +1289,7 @@ public:
   event parallel_for(nd_range<Dims> ExecutionRange, Reduction Redu,
                      _KERNELFUNCPARAM(KernelFunc) _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
+    //std::cout << "parallel_for nd_range<dims>, redu\n";
     return submit(
         [&](handler &CGH) {
           CGH.template parallel_for<KernelName, KernelType, Dims, Reduction>(
@@ -1077,6 +1297,7 @@ public:
         },
         CodeLoc);
   }
+  */
 
 // Clean up CODELOC and KERNELFUNC macros.
 #undef _CODELOCPARAM
@@ -1327,27 +1548,32 @@ template <> struct hash<cl::sycl::queue> {
 inline void sycl::queue::submit(
   sycl::ext::oneapi::experimental::executable_graph& g) {
   g.exec_and_wait();
+  first_graph_submission = false;
 }
 
 inline void sycl::queue::begin_capture(
   sycl::ext::oneapi::experimental::graph* g) {
   my_graph_ptr = g;
+  in_capture = true;
 }
 
-inline void sycl::queue::end_capture() const {}
+inline void sycl::queue::end_capture() {
+  in_capture = false;
+}
 
 template <typename KernelName, typename KernelType>
 sycl::event sycl::queue::parallel_for(
   range<1> NumWorkItems,
   const KernelType& KernelFunc) {
   
-  if (!is_capture()) {
-    std::cout << "in queue, not use capture mode\n\n";
+  if (!is_capture() && in_capture) {
+    //std::cout << "in queue, not use capture mode\n\n";
     return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc);
   }
   
   else {
-    std::cout << "in queue, use capture mode\n\n";
+    //std::cout << "in queue, use capture mode\n\n";
+    auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
       h.template parallel_for<KernelName, KernelType>(
         NumWorkItems, KernelFunc);
@@ -1355,8 +1581,17 @@ sycl::event sycl::queue::parallel_for(
       {},
       true
     );
-   
-    return sycl::event{};
+    
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
   }
 }
 
@@ -1368,23 +1603,33 @@ sycl::event sycl::queue::parallel_for(
   const KernelType& KernelFunc) {
 
   if (!is_capture()) {
-    std::cout << "in queue with one event, not use capture mode\n\n";
+    //std::cout << "in queue with one event, not use capture mode\n\n";
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
   }
   
   else {
-    std::cout << "in queue with one event, use capture mode\n\n";
+    //std::cout << "in queue with one event, use capture mode\n\n";
+    auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
+    auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
-      h.depends_on(DepEvent);
+      //h.depends_on(DepEvent);
       h.template parallel_for<KernelName, KernelType>(
         NumWorkItems, KernelFunc);
       }, 
-      {},
+      {DepNode},
       true
     );
     //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
     
-    return sycl::event{};
+    return e;
   }
 }
 
@@ -1395,7 +1640,7 @@ sycl::event sycl::queue::parallel_for(
   const KernelType& KernelFunc) {
   
   if (!is_capture()) {
-    std::cout << "in queue with events, not use capture mode\n\n";
+    //std::cout << "in queue with events, not use capture mode\n\n";
     return parallel_for_impl<KernelName>(
       NumWorkItems, 
       DepEvents, 
@@ -1404,18 +1649,603 @@ sycl::event sycl::queue::parallel_for(
   }
 
   else {
+    std::vector<sycl::ext::oneapi::experimental::node>
+      DepNodes(DepEvents.size());
+
+    for (size_t i = 0; i < DepEvents.size(); ++i) {
+      DepNodes[i] = my_graph_ptr->id2node[DepEvents[i].get_id()];
+    }
+
     std::cout << "in queue with events, use capture mode\n\n";
+    auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
-      h.depends_on(DepEvents);
+      //h.depends_on(DepEvents);
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, KernelFunc);
+      }, 
+      DepNodes,
+      true
+    );
+
+    //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc);
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename KernelName, typename KernelType>
+sycl::event sycl::queue::parallel_for(
+  range<2> NumWorkItems,
+  const KernelType& KernelFunc) {
+  
+  if (!is_capture() && in_capture) {
+    //std::cout << "in queue, not use capture mode\n\n";
+    return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc);
+  }
+  
+  else {
+    //std::cout << "in queue, use capture mode\n\n";
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
       h.template parallel_for<KernelName, KernelType>(
         NumWorkItems, KernelFunc);
       }, 
       {},
       true
     );
-    //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc);
     
-    return sycl::event{};
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename KernelName, typename KernelType>
+sycl::event sycl::queue::parallel_for(
+  sycl::range<2> NumWorkItems,
+  sycl::event DepEvent, 
+  const KernelType& KernelFunc) {
+
+  if (!is_capture()) {
+    //std::cout << "in queue with one event, not use capture mode\n\n";
+    return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
+  }
+  
+  else {
+    //std::cout << "in queue with one event, use capture mode\n\n";
+    auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      //h.depends_on(DepEvent);
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, KernelFunc);
+      }, 
+      {DepNode},
+      true
+    );
+    //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename KernelName, typename KernelType>
+sycl::event sycl::queue::parallel_for(
+  sycl::range<2> NumWorkItems,
+  const std::vector<sycl::event> &DepEvents,
+  const KernelType& KernelFunc) {
+  
+  if (!is_capture()) {
+    //std::cout << "in queue with events, not use capture mode\n\n";
+    return parallel_for_impl<KernelName>(
+      NumWorkItems, 
+      DepEvents, 
+      KernelFunc,
+      detail::code_location::current());
+  }
+
+  else {
+    std::vector<sycl::ext::oneapi::experimental::node>
+      DepNodes(DepEvents.size());
+
+    for (size_t i = 0; i < DepEvents.size(); ++i) {
+      DepNodes[i] = my_graph_ptr->id2node[DepEvents[i].get_id()];
+    }
+
+    std::cout << "in queue with events, use capture mode\n\n";
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      //h.depends_on(DepEvents);
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, KernelFunc);
+      }, 
+      DepNodes,
+      true
+    );
+
+    //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc);
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename KernelName, typename KernelType>
+sycl::event sycl::queue::parallel_for(
+  range<3> NumWorkItems,
+  const KernelType& KernelFunc) {
+  
+  if (!is_capture() && in_capture) {
+    //std::cout << "in queue, not use capture mode\n\n";
+    return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc);
+  }
+  
+  else {
+    //std::cout << "in queue, use capture mode\n\n";
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, KernelFunc);
+      }, 
+      {},
+      true
+    );
+    
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename KernelName, typename KernelType>
+sycl::event sycl::queue::parallel_for(
+  sycl::range<3> NumWorkItems,
+  sycl::event DepEvent, 
+  const KernelType& KernelFunc) {
+
+  if (!is_capture()) {
+    //std::cout << "in queue with one event, not use capture mode\n\n";
+    return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
+  }
+  
+  else {
+    //std::cout << "in queue with one event, use capture mode\n\n";
+    auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      //h.depends_on(DepEvent);
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, KernelFunc);
+      }, 
+      {DepNode},
+      true
+    );
+    //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename KernelName, typename KernelType>
+sycl::event sycl::queue::parallel_for(
+  sycl::range<3> NumWorkItems,
+  const std::vector<sycl::event> &DepEvents,
+  const KernelType& KernelFunc) {
+  
+  if (!is_capture()) {
+    //std::cout << "in queue with events, not use capture mode\n\n";
+    return parallel_for_impl<KernelName>(
+      NumWorkItems, 
+      DepEvents, 
+      KernelFunc,
+      detail::code_location::current());
+  }
+
+  else {
+    std::vector<sycl::ext::oneapi::experimental::node>
+      DepNodes(DepEvents.size());
+
+    for (size_t i = 0; i < DepEvents.size(); ++i) {
+      DepNodes[i] = my_graph_ptr->id2node[DepEvents[i].get_id()];
+    }
+
+    std::cout << "in queue with events, use capture mode\n\n";
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      //h.depends_on(DepEvents);
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, KernelFunc);
+      }, 
+      DepNodes,
+      true
+    );
+
+    //auto e = parallel_for_impl<KernelName>(NumWorkItems, DepEvents, KernelFunc);
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename KernelName, typename KernelType, int Dims>
+sycl::event sycl::queue::parallel_for(
+  sycl::nd_range<Dims> ExecutionRange,
+  const KernelType& KernelFunc) {
+  
+  //std::cout << "parallel_for nd_range<dims>\n";
+  if (!is_capture() && in_capture) {
+    return submit(
+      [&](handler &CGH) {
+        CGH.template parallel_for<KernelName, KernelType>(ExecutionRange,
+                                                          KernelFunc);
+      });
+  }
+  else {
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType>(
+        ExecutionRange, KernelFunc);
+      }, 
+      {},
+      true
+    );
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+
+  }
+}
+
+template <typename KernelName, typename KernelType, int Dims>
+sycl::event sycl::queue::parallel_for(
+  sycl::nd_range<Dims> ExecutionRange, 
+  sycl::event DepEvent,
+  const KernelType& KernelFunc) {
+
+  //std::cout << "parallel_for nd_range<dims>\n";
+  if (!is_capture() && in_capture) {
+    return submit(
+      [&](handler &CGH) {
+        CGH.depends_on(DepEvent);
+        CGH.template parallel_for<KernelName, KernelType>(ExecutionRange,
+                                                          KernelFunc);
+      });
+  }
+  else {
+    //std::cout << "in queue with one event, use capture mode\n\n";
+    auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType>(
+        ExecutionRange, KernelFunc);
+      }, 
+      {DepNode},
+      true
+    );
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+
+  }
+}
+
+template <typename KernelName, typename KernelType, int Dims>
+sycl::event sycl::queue::parallel_for(
+  sycl::nd_range<Dims> ExecutionRange,
+  const std::vector<event> &DepEvents,
+  const KernelType& KernelFunc){
+
+  //std::cout << "parallel_for nd_range<dims>\n";
+  if (!is_capture() && in_capture) {
+    return submit(
+      [&](handler &CGH) {
+        CGH.depends_on(DepEvents);
+        CGH.template parallel_for<KernelName, KernelType>(ExecutionRange,
+                                                          KernelFunc);
+      });
+  }
+  else {
+    //std::cout << "in queue with one event, use capture mode\n\n";
+    std::vector<sycl::ext::oneapi::experimental::node>
+      DepNodes(DepEvents.size());
+
+    for (size_t i = 0; i < DepEvents.size(); ++i) {
+      DepNodes[i] = my_graph_ptr->id2node[DepEvents[i].get_id()];
+    }
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType>(
+        ExecutionRange, KernelFunc);
+      }, 
+      DepNodes,
+      true
+    );
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+
+  }
+}
+
+template <typename KernelName, typename KernelType,
+          int Dims, typename Reduction>
+sycl::event sycl::queue::parallel_for(
+  sycl::nd_range<Dims> ExecutionRange, 
+  Reduction Redu,
+  const KernelType& KernelFunc) {
+  
+  //std::cout << "parallel_for nd_range<dims>, redu\n";
+  if (!is_capture() && in_capture) {
+    return submit(
+      [&](handler &CGH) {
+        CGH.template parallel_for<KernelName, KernelType, Dims, Reduction>(
+            ExecutionRange, Redu, KernelFunc);
+      }
+    );
+  }
+  else {
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType, Dims, Reduction>(
+        ExecutionRange, Redu, KernelFunc);
+      }, 
+      {},
+      true
+    );
+    
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+
+  }
+}
+
+template <typename KernelName, typename KernelType, int Dims>
+sycl::event sycl::queue::parallel_for(
+  range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
+  const KernelType& KernelFunc) {
+  
+  if (!is_capture() && in_capture) {
+    return submit(
+      [&](handler &CGH) {
+        CGH.template parallel_for<KernelName, KernelType>(
+            NumWorkItems, WorkItemOffset, KernelFunc);
+      }
+    );
+  }
+  else {
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, WorkItemOffset, KernelFunc);
+      }, 
+      {},
+      true
+    );
+  
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename KernelName, typename KernelType, int Dims>
+sycl::event sycl::queue::parallel_for(
+  range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
+  event DepEvent, const KernelType& KernelFunc) {
+  if (!is_capture() && in_capture) {
+    return submit(
+      [&](handler &CGH) {
+        CGH.depends_on(DepEvent);
+        CGH.template parallel_for<KernelName, KernelType>(
+          NumWorkItems, WorkItemOffset, KernelFunc);
+      }
+    );
+  }
+  else {
+
+    auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, WorkItemOffset, KernelFunc);
+      }, 
+      {DepNode},
+      true
+    );
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+  
+template <typename KernelName, typename KernelType, int Dims>
+sycl::event sycl::queue::parallel_for(
+  range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
+  const std::vector<event> &DepEvents,
+  const KernelType& KernelFunc) {
+  
+  if (!is_capture() && in_capture) {
+    return submit(
+      [&](handler &CGH) {
+        CGH.depends_on(DepEvents);
+        CGH.template parallel_for<KernelName, KernelType>(
+          NumWorkItems, WorkItemOffset, KernelFunc);
+      }
+    );
+  }
+  else {
+    std::vector<sycl::ext::oneapi::experimental::node>
+      DepNodes(DepEvents.size());
+
+    for (size_t i = 0; i < DepEvents.size(); ++i) {
+      DepNodes[i] = my_graph_ptr->id2node[DepEvents[i].get_id()];
+    }
+
+    auto n = 
+    my_graph_ptr->add_node([=](sycl::handler& h){
+      h.template parallel_for<KernelName, KernelType>(
+        NumWorkItems, WorkItemOffset, KernelFunc);
+      }, 
+      DepNodes,
+      true
+    );
+
+    size_t uid = my_graph_ptr->get_id();
+    auto e = sycl::event{};
+    e.set_in_capture(true);
+    e.set_id(uid);
+
+    n.my_node->nid = uid;
+    my_graph_ptr->set_id(++uid);
+    my_graph_ptr->id2node[uid] = n; 
+    
+    return e;
+  }
+}
+
+template <typename T>
+sycl::event sycl::queue::submit(
+  T CGF,
+  const detail::code_location &CodeLoc){
+
+#if __SYCL_USE_FALLBACK_ASSERT
+  if (!is_host()) {
+    auto PostProcess = [this, &CodeLoc](bool IsKernel, bool KernelUsesAssert,
+                                        event &E) {
+      if (IsKernel && !device_has(aspect::ext_oneapi_native_assert) &&
+          KernelUsesAssert && !device_has(aspect::accelerator)) {
+        // __devicelib_assert_fail isn't supported by Device-side Runtime
+        // Linking against fallback impl of __devicelib_assert_fail is
+        // performed by program manager class
+        // Fallback assert isn't supported for FPGA
+        submitAssertCapture(*this, E, /* SecondaryQueue = */ nullptr,
+                            CodeLoc);
+      }
+    };
+
+    auto Event = submit_impl_and_postprocess(CGF, CodeLoc, PostProcess);
+    return discard_or_return(Event);
+  } else
+#endif // __SYCL_USE_FALLBACK_ASSERT
+  {
+    if (!is_capture()) {
+      std::cout << "in queue submit, not use capture mode\n\n";
+      auto Event = submit_impl(CGF, CodeLoc);
+      return discard_or_return(Event);
+    }
+    else {
+      //std::cout << "in queue submit, use capture mode and "
+      //          << "in_capture = " << in_capture << "\n\n";
+      
+      //auto Event = submit_impl(CGF, CodeLoc);
+      if (in_capture) {
+        my_graph_ptr->add_node(CGF, {}, true);
+        //auto Event = submit_impl(CGF, CodeLoc);
+        auto Event = sycl::event{};
+        Event.set_in_capture(true);
+        return Event;
+      }
+      else {
+        auto Event = submit_impl(CGF, CodeLoc);
+        return discard_or_return(Event);
+      }
+      //return discard_or_return(Event);
+    }
   }
 }
 
