@@ -136,7 +136,36 @@ public:
     return reinterpret_cast<backend_return_t<Backend, event>>(getNative());
   }
 
+
+  /// Sets the in_capture variable 
+  ///
+  /// Sets the in_capture variable to be true 
+  /// if the event is created in the 
+  /// capture window. 
+  void set_in_capture(const bool);
+
+  /// Gets the in_capture variable
+  ///
+  /// \return the in_capture variable
+  bool get_in_capture() const;
+
+  /// Updates the id of an event
+  void set_id(const size_t);
+  
+  /// Gets the eid of an event
+  ///
+  /// \return the eid of an event
+  size_t get_id() const;
+
 private:
+  /// the variable of an event 
+  /// denoting the status of inside or outside the capture window
+  /// default variable is false
+  bool in_capture = false;
+
+  /// the unique id of an event
+  size_t eid = 0;
+
   event(std::shared_ptr<detail::event_impl> EventImpl);
 
   pi_native_handle getNative() const;
