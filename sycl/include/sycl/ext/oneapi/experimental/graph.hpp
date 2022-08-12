@@ -60,7 +60,6 @@ struct node_impl {
   std::function<void(sycl::handler &)> my_body;
 
   inline void exec(sycl::queue q) {
-    //std::cout << "node_imple exec\n";
     std::vector<sycl::event> __deps;
     std::vector<node_ptr> pred_nodes = my_predecessors;
     while (!pred_nodes.empty()) {
@@ -74,7 +73,6 @@ struct node_impl {
         __deps.push_back(curr_node->get_event());
     }
     if (my_body && !is_empty) {
-      //std::cout << "node_impl.exec, q.submit \n";
       my_event = q.submit(wrapper{my_body, __deps});
     }
   }
@@ -114,7 +112,6 @@ struct graph_impl {
   graph_ptr parent;
 
   inline void exec(sycl::queue q) {
-    //std::cout << "graph_impl, exec\n";
     if (my_schedule.empty()) {
       for (auto n : my_roots) {
         n->topology_sort(my_schedule);
@@ -125,7 +122,6 @@ struct graph_impl {
   }
 
   inline void exec_and_wait(sycl::queue q) {
-    //std::cout << "graph_impl, exec_and_wait\n";
     exec(q);
     q.wait();
   }
@@ -176,7 +172,6 @@ struct node {
 
   inline void register_successor(node n) { my_node->register_successor(n.my_node); }
   inline void exec(sycl::queue q, sycl::event = sycl::event()) {
-    //std::cout << "node, exec\n";
     my_node->exec(q); }
 
   inline void set_root() { my_graph->add_root(my_node); }
@@ -193,7 +188,6 @@ public:
 
   executable_graph(detail::graph_ptr g, sycl::queue q)
       : my_tag(rand()), my_queue(q) {
-    //std::cout << "executable_graph constructor\n";
     g->exec(my_queue);
   }
 };
@@ -353,7 +347,6 @@ public:
   void exec_and_wait(sycl::queue q);
 
   inline executable_graph instantiate(sycl::queue q) {
-    //std::cout << "executable_graph::instantiate \n";
     return executable_graph{my_graph, q};
   };
 
@@ -390,7 +383,6 @@ private:
 };
 
 inline void executable_graph::exec_and_wait() {
-  //std::cout << "executable_graph::exec_and_wait() \n";
   my_queue.wait();
 }
 
@@ -414,16 +406,12 @@ inline node graph::add_node(T cgf, const std::vector<node> &dep, const bool capt
   else {
     // first node ever
     if (!ptr_prev_node) {
-      //std::cout << "first node is null, ptr_prev_node = " << ptr_prev_node << '\n';
       _node.set_root();
       ptr_prev_node = _node.my_node;
-      //std::cout << "finish if\n";
     }
     else {
-      //std::cout << "first node exists, ptr_prev_node = " << ptr_prev_node << '\n';
       ptr_prev_node->register_successor(_node.my_node);
       ptr_prev_node = _node.my_node;
-      //std::cout << "finish else\n";
     }
   }
   return _node;
@@ -755,7 +743,6 @@ inline void graph::single_task(node &Node, const KernelType &(KernelFunc),
 template <typename KernelName, typename KernelType>
 inline node graph::parallel_for(range<1> NumWorkItems, const KernelType &(KernelFunc),
                          const std::vector<node> &dep) {
-  //std::cout << "in graph, use this parallel_for\n";
   return graph::add_node(
       [=](sycl::handler &h) {
         h.template parallel_for<KernelName, KernelType>(NumWorkItems,
