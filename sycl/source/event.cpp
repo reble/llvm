@@ -45,8 +45,6 @@ cl_event event::get() const { return impl->get(); }
 bool event::is_host() const { return impl->is_host(); }
 
 void event::wait() {
-  std::cout << "event::wait()\n";
-
   // if event::wait() is not called inside the capture window.
   if (!get_in_capture()) {
     impl->wait(impl); 
@@ -60,8 +58,6 @@ void event::wait(const std::vector<event> &EventList) {
 }
 
 void event::wait_and_throw() {
-  std::cout << "wait and throw option 5 and in_capture = "
-            << get_in_capture() << "\n";
   // directly returns if the event.wait_and_throw() 
   // is called inside the capture window
   if (get_in_capture()) {
@@ -71,7 +67,6 @@ void event::wait_and_throw() {
 }
 
 void event::wait_and_throw(const std::vector<event> &EventList) {
-  std::cout << "wait and throw option 6\n";
   for (auto E : EventList) {
     E.wait_and_throw();
   }
