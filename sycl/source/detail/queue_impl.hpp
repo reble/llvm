@@ -262,7 +262,6 @@ public:
 
   /// @param Loc is the code location of the submit call (default argument)
   void wait_and_throw(const detail::code_location &Loc = {}) {
-    //std::cout << "wait and throw option 4\n";
     wait(Loc);
     throw_asynchronous();
   }
