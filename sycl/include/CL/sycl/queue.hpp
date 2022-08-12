@@ -605,7 +605,6 @@ public:
   /// Synchronous errors will be reported through SYCL exceptions.
   /// @param CodeLoc is the code location of the submit call (default argument)
   void wait(_CODELOCONLYPARAM(&CodeLoc)) {
-    //std::cout << "queue.hpp, queue.wait() \n";
     _CODELOCARG(&CodeLoc);
 
     wait_proxy(CodeLoc);
@@ -621,7 +620,6 @@ public:
   /// @param CodeLoc is the code location of the submit call (default argument)
   void wait_and_throw(_CODELOCONLYPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
-    //std::cout << "wait and throw option 2\n";
     wait_and_throw_proxy(CodeLoc);
   }
 
@@ -1311,7 +1309,14 @@ public:
   /// Equivalent to has_property<property::queue::in_order>()
   bool is_in_order() const;
 
+  /// Returns a boolean if queue is in lazy execution 
+  ///  
+  /// \return a boolean if queue is in lazy execution 
   bool is_lazy() const;
+
+  /// Returns a boolean if queue is in capture mode 
+  ///  
+  /// \return a boolean if queue is in capture mode 
   bool is_capture() const;
 
 
@@ -1567,12 +1572,10 @@ sycl::event sycl::queue::parallel_for(
   const KernelType& KernelFunc) {
   
   if (!is_capture() && in_capture) {
-    //std::cout << "in queue, not use capture mode\n\n";
     return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc);
   }
   
   else {
-    //std::cout << "in queue, use capture mode\n\n";
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
       h.template parallel_for<KernelName, KernelType>(
@@ -1602,13 +1605,11 @@ sycl::event sycl::queue::parallel_for(
   sycl::event DepEvent, 
   const KernelType& KernelFunc) {
 
-  if (!is_capture()) {
-    //std::cout << "in queue with one event, not use capture mode\n\n";
+  if (!is_capture() && in_capture) {
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
   }
   
   else {
-    //std::cout << "in queue with one event, use capture mode\n\n";
     auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
@@ -1639,8 +1640,7 @@ sycl::event sycl::queue::parallel_for(
   const std::vector<sycl::event> &DepEvents,
   const KernelType& KernelFunc) {
   
-  if (!is_capture()) {
-    //std::cout << "in queue with events, not use capture mode\n\n";
+  if (!is_capture() && in_capture) {
     return parallel_for_impl<KernelName>(
       NumWorkItems, 
       DepEvents, 
@@ -1656,7 +1656,6 @@ sycl::event sycl::queue::parallel_for(
       DepNodes[i] = my_graph_ptr->id2node[DepEvents[i].get_id()];
     }
 
-    std::cout << "in queue with events, use capture mode\n\n";
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
       //h.depends_on(DepEvents);
@@ -1687,12 +1686,10 @@ sycl::event sycl::queue::parallel_for(
   const KernelType& KernelFunc) {
   
   if (!is_capture() && in_capture) {
-    //std::cout << "in queue, not use capture mode\n\n";
     return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc);
   }
   
   else {
-    //std::cout << "in queue, use capture mode\n\n";
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
       h.template parallel_for<KernelName, KernelType>(
@@ -1721,13 +1718,11 @@ sycl::event sycl::queue::parallel_for(
   sycl::event DepEvent, 
   const KernelType& KernelFunc) {
 
-  if (!is_capture()) {
-    //std::cout << "in queue with one event, not use capture mode\n\n";
+  if (!is_capture() && in_capture) {
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
   }
   
   else {
-    //std::cout << "in queue with one event, use capture mode\n\n";
     auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
@@ -1758,8 +1753,7 @@ sycl::event sycl::queue::parallel_for(
   const std::vector<sycl::event> &DepEvents,
   const KernelType& KernelFunc) {
   
-  if (!is_capture()) {
-    //std::cout << "in queue with events, not use capture mode\n\n";
+  if (!is_capture() && in_capture) {
     return parallel_for_impl<KernelName>(
       NumWorkItems, 
       DepEvents, 
@@ -1775,7 +1769,6 @@ sycl::event sycl::queue::parallel_for(
       DepNodes[i] = my_graph_ptr->id2node[DepEvents[i].get_id()];
     }
 
-    std::cout << "in queue with events, use capture mode\n\n";
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
       //h.depends_on(DepEvents);
@@ -1806,12 +1799,10 @@ sycl::event sycl::queue::parallel_for(
   const KernelType& KernelFunc) {
   
   if (!is_capture() && in_capture) {
-    //std::cout << "in queue, not use capture mode\n\n";
     return parallel_for_impl<KernelName>(NumWorkItems, KernelFunc);
   }
   
   else {
-    //std::cout << "in queue, use capture mode\n\n";
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
       h.template parallel_for<KernelName, KernelType>(
@@ -1840,13 +1831,11 @@ sycl::event sycl::queue::parallel_for(
   sycl::event DepEvent, 
   const KernelType& KernelFunc) {
 
-  if (!is_capture()) {
-    //std::cout << "in queue with one event, not use capture mode\n\n";
+  if (!is_capture() && in_capture) {
     return parallel_for_impl<KernelName>(NumWorkItems, DepEvent, KernelFunc);
   }
   
   else {
-    //std::cout << "in queue with one event, use capture mode\n\n";
     auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
@@ -1877,8 +1866,7 @@ sycl::event sycl::queue::parallel_for(
   const std::vector<sycl::event> &DepEvents,
   const KernelType& KernelFunc) {
   
-  if (!is_capture()) {
-    //std::cout << "in queue with events, not use capture mode\n\n";
+  if (!is_capture() && in_capture) {
     return parallel_for_impl<KernelName>(
       NumWorkItems, 
       DepEvents, 
@@ -1894,7 +1882,6 @@ sycl::event sycl::queue::parallel_for(
       DepNodes[i] = my_graph_ptr->id2node[DepEvents[i].get_id()];
     }
 
-    std::cout << "in queue with events, use capture mode\n\n";
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
       //h.depends_on(DepEvents);
@@ -1924,7 +1911,6 @@ sycl::event sycl::queue::parallel_for(
   sycl::nd_range<Dims> ExecutionRange,
   const KernelType& KernelFunc) {
   
-  //std::cout << "parallel_for nd_range<dims>\n";
   if (!is_capture() && in_capture) {
     return submit(
       [&](handler &CGH) {
@@ -1961,7 +1947,6 @@ sycl::event sycl::queue::parallel_for(
   sycl::event DepEvent,
   const KernelType& KernelFunc) {
 
-  //std::cout << "parallel_for nd_range<dims>\n";
   if (!is_capture() && in_capture) {
     return submit(
       [&](handler &CGH) {
@@ -1971,7 +1956,6 @@ sycl::event sycl::queue::parallel_for(
       });
   }
   else {
-    //std::cout << "in queue with one event, use capture mode\n\n";
     auto DepNode = my_graph_ptr->id2node[DepEvent.get_id()];
     auto n = 
     my_graph_ptr->add_node([=](sycl::handler& h){
@@ -2001,7 +1985,6 @@ sycl::event sycl::queue::parallel_for(
   const std::vector<event> &DepEvents,
   const KernelType& KernelFunc){
 
-  //std::cout << "parallel_for nd_range<dims>\n";
   if (!is_capture() && in_capture) {
     return submit(
       [&](handler &CGH) {
@@ -2011,7 +1994,6 @@ sycl::event sycl::queue::parallel_for(
       });
   }
   else {
-    //std::cout << "in queue with one event, use capture mode\n\n";
     std::vector<sycl::ext::oneapi::experimental::node>
       DepNodes(DepEvents.size());
 
@@ -2047,7 +2029,6 @@ sycl::event sycl::queue::parallel_for(
   Reduction Redu,
   const KernelType& KernelFunc) {
   
-  //std::cout << "parallel_for nd_range<dims>, redu\n";
   if (!is_capture() && in_capture) {
     return submit(
       [&](handler &CGH) {
@@ -2224,13 +2205,10 @@ sycl::event sycl::queue::submit(
 #endif // __SYCL_USE_FALLBACK_ASSERT
   {
     if (!is_capture()) {
-      std::cout << "in queue submit, not use capture mode\n\n";
       auto Event = submit_impl(CGF, CodeLoc);
       return discard_or_return(Event);
     }
     else {
-      //std::cout << "in queue submit, use capture mode and "
-      //          << "in_capture = " << in_capture << "\n\n";
       
       //auto Event = submit_impl(CGF, CodeLoc);
       if (in_capture) {
