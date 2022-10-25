@@ -253,7 +253,7 @@ template<>
 class command_graph<graph_state::modifiable> {
 public:
   command_graph(const property_list &propList = {});
-  command_graph<graph_state::executable> finalize(context &syclContext) const;
+  command_graph<graph_state::executable> finalize(const context &syclContext) const;
 
   node add(const std::vector<node>& dep = {});
 
@@ -440,7 +440,7 @@ Returns: The command-group function object node which has been added to the grap
 |
 [source,c++]
 ----
-command_graph<graph_state::executable> finalize(context &syclContext) const;
+command_graph<graph_state::executable> finalize(const context &syclContext) const;
 ----
 
 |Synchronous operation that creates a graph in the executable state with a
