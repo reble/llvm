@@ -23,6 +23,8 @@
 #include <sycl/property_list.hpp>
 #include <sycl/stl.hpp>
 
+#include <sycl/ext/oneapi/experimental/graph_defines.hpp>
+
 // Explicitly request format macros
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
@@ -51,6 +53,16 @@
 #define __SYCL_USE_FALLBACK_ASSERT 0
 #endif
 
+/// Forward declare graphs
+namespace sycl {
+namespace ext {
+namespace oneapi {
+namespace experimental {
+template <graph_state state> class command_graph;
+}
+} // namespace oneapi
+} // namespace ext
+} // namespace sycl
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
@@ -71,6 +83,9 @@ static event submitAssertCapture(queue &, event &, queue *,
                                  const detail::code_location &);
 #endif
 } // namespace detail
+
+// State of a queue, returned by info::queue::state
+enum class queue_state { executing, recording };
 
 /// Encapsulates a single SYCL queue which schedules kernels on a SYCL device.
 ///
@@ -1067,6 +1082,22 @@ public:
   ///
   /// \return the backend associated with this queue.
   backend get_backend() const noexcept;
+
+public:
+  /// Places the queue into command_graph recording mode.
+  /// Returns true if the queue was not already in recording mode.
+  bool begin_recording(
+      sycl::ext::oneapi::experimental::command_graph<
+          sycl::ext::oneapi::experimental::graph_state::modifiable> &graph);
+
+  /// Ends recording mode on the queue and returns to the normal state.
+  /// Returns true if the queue was already in recording mode.
+  bool end_recording();
+
+  /// Submits an executable command_graph for execution on this queue
+  event submit(sycl::ext::oneapi::experimental::command_graph<
+               sycl::ext::oneapi::experimental::graph_state::executable>
+                   graph);
 
 private:
   pi_native_handle getNative() const;
