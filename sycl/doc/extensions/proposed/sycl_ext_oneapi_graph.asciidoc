@@ -314,10 +314,6 @@ Parameters:
 
 * `receiver` - Node which will be dependent on `sender`.
 
-Exceptions:
-
-* TODO - Throw if this introduces a cycle?
-
 === Graph
 
 :crs: https://www.khronos.org/registry/SYCL/specs/sycl-2020/html/sycl-2020.html#sec:reference-semantics
@@ -503,12 +499,6 @@ Parameters:
 * `dep` - Nodes the created node will be dependent on.
 
 Returns: The memory freeing node which has been added to the graph.
-
-Exceptions:
-
-* TODO - Throw if not allocated by `add_malloc_device`?
-* TODO - Throw if already freed?
-* TODO - Throw if not valid address?
 
 |===
 
@@ -729,9 +719,6 @@ throwing an exception when in queue recording mode. This is because otherwise
 there would be no thread safe way for a user to check they could call these
 functions without throwing, as a query about the state of the queue may be
 immediately stale.
-
-* TODO - error on add_node while being recorded to a queue? or queue recording a
-  graph with explicitly build nodes?
 
 === Storage Lifetimes
 
