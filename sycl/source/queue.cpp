@@ -216,8 +216,8 @@ bool queue::device_has(aspect Aspect) const {
 }
 
 bool begin_recording(
-    sycl::ext::oneapi::experimental::command_graph<
-        sycl::ext::oneapi::experimental::graph_state::modifiable> &graph) {
+    ext::oneapi::experimental::command_graph<
+        ext::oneapi::experimental::graph_state::modifiable> &graph) {
   // Empty Implementation
   return true;
 }
@@ -227,10 +227,11 @@ bool end_recording() {
   return true;
 }
 
-event submit(sycl::ext::oneapi::experimental::command_graph<
-             sycl::ext::oneapi::experimental::graph_state::executable>
+event submit(ext::oneapi::experimental::command_graph<
+             ext::oneapi::experimental::graph_state::executable>
                  graph) {
-  return sycl::event{};
+  // Empty implementation
+  return {};
 }
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl

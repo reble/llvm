@@ -1085,18 +1085,22 @@ public:
 
 public:
   /// Places the queue into command_graph recording mode.
-  /// Returns true if the queue was not already in recording mode.
-  bool begin_recording(
-      sycl::ext::oneapi::experimental::command_graph<
-          sycl::ext::oneapi::experimental::graph_state::modifiable> &graph);
+  ///
+  /// \return true if the queue was not already in recording mode.
+  bool
+  begin_recording(ext::oneapi::experimental::command_graph<
+                  ext::oneapi::experimental::graph_state::modifiable> &graph);
 
   /// Ends recording mode on the queue and returns to the normal state.
-  /// Returns true if the queue was already in recording mode.
+  ///
+  /// \return true if the queue was already in recording mode.
   bool end_recording();
 
   /// Submits an executable command_graph for execution on this queue
-  event submit(sycl::ext::oneapi::experimental::command_graph<
-               sycl::ext::oneapi::experimental::graph_state::executable>
+  ///
+  /// \return an event representing the execution of the command_graph
+  event submit(ext::oneapi::experimental::command_graph<
+               ext::oneapi::experimental::graph_state::executable>
                    graph);
 
 private:
