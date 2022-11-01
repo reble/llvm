@@ -215,19 +215,19 @@ bool queue::device_has(aspect Aspect) const {
   return impl->getDeviceImplPtr()->has(Aspect);
 }
 
-bool begin_recording(
+bool queue::begin_recording(
     ext::oneapi::experimental::command_graph<
         ext::oneapi::experimental::graph_state::modifiable> &graph) {
   // Empty Implementation
   return true;
 }
 
-bool end_recording() {
+bool queue::end_recording() {
   // Empty Implementation
   return true;
 }
 
-event submit(ext::oneapi::experimental::command_graph<
+event queue::submit(ext::oneapi::experimental::command_graph<
              ext::oneapi::experimental::graph_state::executable>
                  graph) {
   // Empty implementation
