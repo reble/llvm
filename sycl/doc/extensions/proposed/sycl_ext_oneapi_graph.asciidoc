@@ -109,25 +109,23 @@ requirements were considered:
    built-in kernels.
 7. Ability to record a graph with commands submitted to different devices in the
    same context.
-8. A graph constructed using a device queue may be executed on another compatible
-   queue.
-9. Capability to serialize graphs to a binary format which can then be
+8. Capability to serialize graphs to a binary format which can then be
    de-serialized and executed. This is helpful for offline cases where a graph
    can be created by an offline tool to be loaded and run without the end-user
    incurring the overheads of graph creation.
-10. Backend interoperability, the ability to retrieve a native graph object from
+9. Backend interoperability, the ability to retrieve a native graph object from
     the graph and use that in a native backend API.
 
 To allow for prototype implementations of this extension to be developed
 quickly for evaluation the scope of this proposal was limited to a subset
-of these requirements. In particular, the serialization functionality (9),
-backend interoperability (10), and a profiling/debugging interface (3) were
+of these requirements. In particular, the serialization functionality (8),
+backend interoperability (9), and a profiling/debugging interface (3) were
 omitted. As these are not easy to abstract over a number of backends without
 significant investigation. It is also hoped these features can be exposed as
 additive changes to the API, and so in introduced in future versions of the
 extension.
 
-Another reason for deferring a serialize/deserialize API (9) is that its scope
+Another reason for deferring a serialize/deserialize API (8) is that its scope
 could extend from emitting the graph in a binary format, to emitting a
 standardized IR format that enables further device specific graph optimizations.
 
