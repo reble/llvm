@@ -53,16 +53,6 @@
 #define __SYCL_USE_FALLBACK_ASSERT 0
 #endif
 
-/// Forward declare graphs
-namespace sycl {
-namespace ext {
-namespace oneapi {
-namespace experimental {
-template <graph_state state> class command_graph;
-}
-} // namespace oneapi
-} // namespace ext
-} // namespace sycl
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 

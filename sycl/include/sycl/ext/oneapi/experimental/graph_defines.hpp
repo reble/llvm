@@ -16,6 +16,9 @@ enum class graph_state {
   modifiable,
   executable,
 };
+
+/// Forward declaration for command_graph
+template <graph_state State> class command_graph;
 }
 } // namespace oneapi
 } // namespace ext
