@@ -19,7 +19,7 @@
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 class queue;
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+
 namespace ext {
 namespace oneapi {
 namespace experimental {
@@ -223,5 +223,6 @@ void command_graph<graph_state::executable>::exec_and_wait(sycl::queue q) {
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
 

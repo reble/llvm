@@ -230,7 +230,7 @@ bool queue::end_recording() {
 event queue::submit(ext::oneapi::experimental::command_graph<
              ext::oneapi::experimental::graph_state::executable>
                  graph) {
-  // Empty implementation
+  graph.exec_and_wait(*this);
   return {};
 }
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
