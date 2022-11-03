@@ -88,8 +88,8 @@ As well as benefits to the SYCL runtime, there are also advantages to the user
 developing SYCL applications, as repetitive workloads no longer have to
 redundantly issue the same sequence of commands. Instead, a graph is only
 constructed once and submitted for execution as many times as is necessary, only
-changing the data in input buffers or USM allocations. For machine learning
-applications where the same command group pattern is run repeatedly for
+changing the data in input buffers or USM allocations. For applications from specific domains, such as machine learning, 
+where the same command group pattern is run repeatedly for
 different inputs, this is particularly useful.
 
 === Requirements
@@ -148,7 +148,7 @@ data dependencies of the command group.
 Each of these mechanisms for constructing a graph have their own advantages, so
 having both APIs available allows the user to pick the one which is most
 suitable for them. The queue recording API allows quicker porting of existing
-applications, and can capture work done by a library in the graph. While the
+applications, and can capture external work that is submitted to a queue, for example via library function calls. While the
 explicit API can better express what data is internal to the graph for
 optimization, and dependencies don't need to be inferred.
 
