@@ -88,9 +88,9 @@ As well as benefits to the SYCL runtime, there are also advantages to the user
 developing SYCL applications, as repetitive workloads no longer have to
 redundantly issue the same sequence of commands. Instead, a graph is only
 constructed once and submitted for execution as many times as is necessary, only
-changing the data in input buffers or USM allocations. For applications from specific domains, such as machine learning, 
-where the same command group pattern is run repeatedly for
-different inputs, this is particularly useful.
+changing the data in input buffers or USM allocations. For applications from
+specific domains, such as machine learning, where the same command group pattern
+is run repeatedly for different inputs, this is particularly useful.
 
 === Requirements
 
@@ -148,9 +148,10 @@ data dependencies of the command group.
 Each of these mechanisms for constructing a graph have their own advantages, so
 having both APIs available allows the user to pick the one which is most
 suitable for them. The queue recording API allows quicker porting of existing
-applications, and can capture external work that is submitted to a queue, for example via library function calls. While the
-explicit API can better express what data is internal to the graph for
-optimization, and dependencies don't need to be inferred.
+applications, and can capture external work that is submitted to a queue, for
+example via library function calls. While the explicit API can better express
+what data is internal to the graph for optimization, and dependencies don't need
+to be inferred.
 
 == Specification
 
@@ -181,43 +182,68 @@ Table 2. Terminology.
 | Concept | Description
 
 | Graph
-| `command_graph` class that stores structured commands and their dependencies.
-
-A SYCL graph is a collection of commands (nodes) and their dependencies (edges).
-From the SYCL perspective, this graph will be acyclic and directed (DAG) as
-users cannot express a cycle in the core SYCL API.
+| A directed and acyclic graph (DAG) of commands (nodes) and their dependencies
+(edges), represented by the `command_graph` class.
 
 | Node
 | A command, which can have different attributes.
 
-When recording a queue to construct a graph, nodes in a SYCL graph represent
-each of the command group submissions of the program. Each submission
-encompasses either one or both of a.) some data movement, b.) a single
-asynchronous kernel launch. Nodes cannot define forward edges, only backwards
-(i.e. kernels can only create dependencies on things that have already
-happened). This means that transparently a node can depend on a previously
-recorded graph (sub-graph), which works by creating edges to the individual nodes
-in the old graph. Explicit memory operations without kernels, such as a memory
-copy, are still classed as nodes under this definition, as the
-{explicit-memory-ops}[SYCL 2020 specification states] that these can be seen as
-specialized kernels executing on the device.
-
-In the explicit graph building API, nodes can also represent a memory allocation/free
-operation on the device.
-
 | Edge
 | Dependency between commands as a happens-before relationship.
 
-When recording a queue to construct a graph, an edge in the SYCL graph represents
-a data dependency between two nodes. These dependencies are expressed by the user
-code through buffer accessors. There is also the partial ability to track USM
-data dependencies provided the pointers used in the graph nodes are the same.
-With the limitation that a node taking an offset USM pointer input will not be
-identified as having an edge to another node taking a pointer input to the base
-address of the same USM allocation.
+|===
 
-In the explicit graph building API, `make_edge()` is used to define the dependency
-rather than inferring them from data dependencies.
+==== Explicit Graph Building API
+
+When using the explicit graph building API to construct a graph, nodes and
+edges are captured as follows.
+
+Table 3. Explicit Graph Definition.
+[%header,cols="1,3"]
+|===
+| Concept | Description
+
+| Node
+| In the explicit graph building API nodes are created by the user invoking
+methods on a modifiable graph. Each node represent either a command-group
+function, empty operation, or device memory allocation/free.
+
+| Edge
+| In the explicit graph building API edges are defined by the user. This is
+either through buffer accessors, the `make_edge()` free function, or by passing
+dependent nodes on creation of a new node.
+|===
+
+==== Queue Recording API
+
+When using the record & replay API to construct a graph by recording a queue,
+nodes and edges are captured as follows.
+
+Table 4. Recorded Graph Definition.
+[%header,cols="1,3"]
+|===
+| Concept | Description
+
+| Node
+| Nodes in a queue recorded graph represent each of the command group
+submissions of the program. Each submission encompasses either one or both of
+a.) some data movement, b.) a single asynchronous kernel launch. Nodes cannot
+define forward edges, only backwards (i.e. kernels can only create dependencies
+on things that have already happened). This means that transparently a node can
+depend on a previously recorded graph (sub-graph), which works by creating edges
+to the individual nodes in the old graph. Explicit memory operations without
+kernels, such as a memory copy, are still classed as nodes under this
+definition, as the {explicit-memory-ops}[SYCL 2020 specification states] that
+these can be seen as specialized kernels executing on the device.
+
+| Edge
+| An edge in a queue recorded graph represents a data dependency between two
+nodes. These dependencies are expressed by the user code through buffer
+accessors. There is also the partial ability to track USM data dependencies
+provided the pointers used in the graph nodes are the same. With the limitation
+that a node taking an offset USM pointer input will not be identified as having
+an edge to another node taking a pointer input to the base address of the same
+USM allocation.
 |===
 
 === API Modifications
@@ -365,7 +391,7 @@ create the executable graphs, with the nodes added in the same order.
 
 ==== Graph Member Functions
 
-Table 3. Constructor of the `command_graph` class.
+Table 5. Constructor of the `command_graph` class.
 [cols="2a,a"]
 |===
 |Constructor|Description
@@ -391,7 +417,7 @@ Parameters:
 
 |===
 
-Table 4. Member functions of the `command_graph` class.
+Table 6. Member functions of the `command_graph` class.
 [cols="2a,a"]
 |===
 |Member function|Description
@@ -461,7 +487,7 @@ Memory that is allocated by the following functions is owned by the specific
 graph. When freed inside the graph, the memory is only accessible before the
 `free` node is executed and after the `malloc` node is executed.
 
-Table 5. Member functions of the `command_graph` class (memory operations).
+Table 7. Member functions of the `command_graph` class (memory operations).
 [cols="2a,a"]
 |===
 |Member function|Description
@@ -500,7 +526,7 @@ Returns: The memory freeing node which has been added to the graph.
 
 |===
 
-Table 6. Member functions of the `command_graph` class (executable graph update).
+Table 8. Member functions of the `command_graph` class (executable graph update).
 [cols="2a,a"]
 |===
 |Member function|Description
@@ -568,7 +594,7 @@ The state of a queue can be queried with `queue::get_info` using template
 parameter `info::queue::state`. The following entry is added to the
 {queue-info-table}[queue info table] to define this query:
 
-Table 7. Queue info query
+Table 9. Queue info query
 [cols="2a,a,a"]
 |===
 | Queue Descriptors | Return Type | Description
