@@ -5,15 +5,15 @@
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
-const size_t n = 10;
-
 int main() {
+  const size_t n = 10;
+  const float expectedValue = 1.f;
 
   sycl::property_list properties{
       sycl::property::queue::in_order(),
       sycl::ext::oneapi::property::queue::lazy_execution{}};
 
-  sycl::queue q{sycl::gpu_selector_v, properties};
+  sycl::queue q{sycl::default_selector_v, properties};
 
   sycl::ext::oneapi::experimental::command_graph g;
 
@@ -24,23 +24,30 @@ int main() {
   q.submit([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
       size_t i = idx;
-      arr[i] = 1;
+      arr[i] = expectedValue;
     });
   });
 
   q.end_recording();
 
-  auto result_before_exec1 = arr[0];
-
   auto exec_graph = g.finalize(q.get_context());
-
-  auto result_before_exec2 = arr[0];
 
   q.submit(exec_graph);
 
-  auto result = arr[0];
+  int errors = 0;
+  // Verify results
+  for (size_t i = 0; i < n; i++) {
+    if (arr[i] != expectedValue) {
+      std::cout << "Unexpected result at index: " << i
+                << ", expected: " << expectedValue << " actual: " << arr[i]
+                << "\n";
+      errors++;
+    }
+  }
 
   std::cout << "done.\n";
 
-  return 0;
+  sycl::free(arr, q.get_context());
+
+  return errors;
 }
