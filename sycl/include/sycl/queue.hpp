@@ -74,8 +74,15 @@ static event submitAssertCapture(queue &, event &, queue *,
 #endif
 } // namespace detail
 
-// State of a queue, returned by info::queue::state
+namespace ext {
+namespace oneapi {
+namespace experimental {
+// State of a queue with regards to graph recording,
+// returned by info::queue::state
 enum class queue_state { executing, recording };
+} // namespace experimental
+} // namespace oneapi
+} // namespace ext
 
 /// Encapsulates a single SYCL queue which schedules kernels on a SYCL device.
 ///
