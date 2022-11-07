@@ -153,6 +153,11 @@ example via library function calls. While the explicit API can better express
 what data is internal to the graph for optimization, and dependencies don't need
 to be inferred.
 
+It is valid to combine these two mechanisms sequentially when constructing a
+graph, however it is not valid to concurrently use them. An error will be thrown
+if a user attempts to use the explicit API to add a node to a graph which is
+being recorded to by a queue.
+
 == Specification
 
 === Feature test macro
@@ -338,6 +343,11 @@ Parameters:
 
 * `receiver` - Node which will be dependent on `sender`.
 
+Exceptions:
+
+* Throws synchronously with error code `invalid` if a queue is recording
+  commands to any graph associated with `sender` or `receiver`.
+
 === Graph
 
 :crs: https://www.khronos.org/registry/SYCL/specs/sycl-2020/html/sycl-2020.html#sec:reference-semantics
@@ -438,6 +448,11 @@ Parameters:
 
 Returns: The empty node which has been added to the graph.
 
+Exceptions:
+
+* Throws synchronously with error code `invalid` if a queue is recording
+  commands to the graph.
+
 |
 [source,c++]
 ----
@@ -456,6 +471,11 @@ Parameters:
 * `dep` - Nodes the created node will be dependent on.
 
 Returns: The command-group function object node which has been added to the graph.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if a queue is recording
+  commands to the graph.
 
 |
 [source,c++]
@@ -509,6 +529,11 @@ Parameters:
 
 Returns: The memory allocation node which has been added to the graph
 
+Exceptions:
+
+* Throws synchronously with error code `invalid` if a queue is recording
+  commands to the graph.
+
 |
 [source,c++]
 ----
@@ -523,6 +548,11 @@ Parameters:
 * `dep` - Nodes the created node will be dependent on.
 
 Returns: The memory freeing node which has been added to the graph.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if a queue is recording
+  commands to the graph.
 
 |===
 
