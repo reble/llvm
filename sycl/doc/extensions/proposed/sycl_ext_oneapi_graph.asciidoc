@@ -244,9 +244,8 @@ these can be seen as specialized kernels executing on the device.
 | Edge
 | An edge in a queue recorded graph represents a data dependency between two
 nodes. Data dependencies can naturally be expressed in user code through buffer
-accessors. There is also the ability for the SYCL runtime to track USM
-allocation dependencies based on the pointers used in recorded command groups,
-and construct an edge between nodes where the same USM allocation is used.
+accessors. USM pointers also convey data dependencies, however offsets into
+system allocations (`malloc`/`new`) are not supported.
 |===
 
 === API Modifications
@@ -1000,7 +999,7 @@ this feature in the extension.
 
 **Outcome:** Unresolved
 
-=== Graph Submimssion Synchronization
+=== Graph Submission Synchronization
 
 Should we provide a mechanism for a graph submission to depend on other graph
 submission events or any arbitrary sycl event?
