@@ -721,7 +721,7 @@ completed is backend specific. The runtime may throw an error.
 
 Parameters:
 
-* `graph` - Graph object to start recording commands to.
+* `graph` - Graph object to execute.
 
 When the queue is in the execution state, an `event` object used to synchronize
 graph submission with other command-groups is returned. Otherwise the queue is
