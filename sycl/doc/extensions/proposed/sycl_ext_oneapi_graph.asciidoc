@@ -59,13 +59,14 @@ not rely on APIs defined in this specification.*
 
 == Introduction
 
-Through the use of command groups SYCL is already able to create a DAG of kernel
-execution at runtime, as a command group object defines a set of requisites
-(edges) which must be satisfied for kernels (nodes) to be executed. However,
-because command-group submission is tied to execution on the queue, without
-having a prior construction step before starting execution, optimization
-opportunities are missed from the runtime not knowing the complete dependency
-graph ahead of execution.
+Through the use of command groups SYCL is already able to create a dependency
+graph (in the form of a directed acyclic graph) of kernel execution at runtime,
+as a command group object defines a set of requisites (edges) which must be
+satisfied for kernels (nodes) to be executed. However, because command-group
+submission is tied to execution on the queue, without having a prior
+construction step before starting execution, optimization opportunities are
+missed from the runtime not knowing the complete dependency graph ahead of
+execution.
 
 The following benefits would become possible if the user could define a
 dependency graph to the SYCL runtime prior to execution:
@@ -105,7 +106,7 @@ requirements were considered:
 4. Integrate sub-graphs (previously constructed graphs) when constructing a new
    graph.
 5. Support the USM model of memory as well as buffer model.
-6. Compatible with other SYCL extensions and features, e.g kernel fusion &
+6. Compatible with other SYCL extensions and features, e.g. kernel fusion &
    built-in kernels.
 7. Ability to record a graph with commands submitted to different devices in the
    same context.
@@ -122,7 +123,7 @@ of these requirements. In particular, the serialization functionality (8),
 backend interoperability (9), and a profiling/debugging interface (3) were
 omitted. As these are not easy to abstract over a number of backends without
 significant investigation. It is also hoped these features can be exposed as
-additive changes to the API, and so in introduced in future versions of the
+additive changes to the API, and thus introduced in future versions of the
 extension.
 
 Another reason for deferring a serialize/deserialize API (8) is that its scope
@@ -382,6 +383,7 @@ Table 5. Constructor of the `command_graph` class.
 |
 [source,c++]
 ----
+using namespace ext::oneapi::experimental;
 command_graph(const property_list &propList = {});
 ----
 |Creates a SYCL `command_graph` object in the modifiable state.
@@ -408,12 +410,18 @@ Table 6. Member functions of the `command_graph` class.
 |
 [source,c++]
 ----
+using namespace ext::oneapi::experimental;
 node add(const std::vector<node>& dep = {});
 ----
 |This creates an empty node which is associated to no task. Its intended use is
 either a connection point inside a graph between groups of nodes, and can
 significantly reduce the number of edges ( O(n) vs. O(n^2) ). Another use-case
 is building the structure of a graph first and adding tasks later.
+
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::modifiable`.
 
 Parameters:
 
@@ -429,6 +437,7 @@ Exceptions:
 |
 [source,c++]
 ----
+using namespace ext::oneapi::experimental;
 template<typename T>
 node add(T cgf, const std::vector<node>& dep = {});
 ----
@@ -436,6 +445,11 @@ node add(T cgf, const std::vector<node>& dep = {});
 object can contain single or multiple commands such as a host task which is
 scheduled by the SYCL runtime or a SYCL function for invoking kernels with all
 restrictions that apply as described in the core specification.
+
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::modifiable`.
 
 Parameters:
 
@@ -453,6 +467,7 @@ Exceptions:
 |
 [source,c++]
 ----
+using namespace ext::oneapi::experimental;
 void make_edge(node sender, node receiver);
 ----
 
@@ -480,6 +495,7 @@ Exceptions:
 |
 [source,c++]
 ----
+using namespace ext::oneapi::experimental;
 command_graph<graph_state::executable> finalize(const context &syclContext) const;
 ----
 
@@ -515,9 +531,15 @@ Table 7. Member functions of the `command_graph` class (memory operations).
 |
 [source,c++]
 ----
+using namespace ext::oneapi::experimental;
 node add_malloc_device(void *&data, size_t numBytes, const std::vector<node>& dep = {});
 ----
-|Adding a node that encapsulates a `malloc` operation.
+|Adding a node that encapsulates a memory allocation operation.
+
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::modifiable`.
 
 Parameters:
 
@@ -537,9 +559,15 @@ Exceptions:
 |
 [source,c++]
 ----
+using namespace ext::oneapi::experimental;
 node add_free(void *data, const std::vector<node>& dep = {});
 ----
-|Adding a node that encapsulates a `free` operation.
+|Adding a node that encapsulates a memory free operation.
+
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::modifiable`.
 
 Parameters:
 
@@ -564,6 +592,7 @@ Table 8. Member functions of the `command_graph` class (executable graph update)
 |
 [source, c++]
 ----
+using namespace ext::oneapi::experimental;
 void command_graph<graph_state::executable> update(const command_graph<graph_state::modifiable> &graph);
 ----
 
@@ -572,16 +601,16 @@ identical modifiable graph. The effects of the update will be visible
 on the next submission of the executable graph without the need for additional
 user synchronization.
 
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::executable`.
+
 Parameters:
 
 * `graph` - Modifiable graph object to update graph node inputs & outputs with.
   This graph must have the same topology as the original graph used on
   executable graph creation.
-
-Preconditions:
-
-* This member function is only available when the `command_graph` state is
-  `graph_state::executable`.
 
 Exceptions:
 
@@ -697,6 +726,7 @@ Exceptions:
 |
 [source, c++]
 ----
+using namespace ext::oneapi::experimental;
 bool queue::end_recording()
 ----
 
@@ -826,33 +856,45 @@ int main() {
 
   float *dotp = sycl::malloc_shared<float>(1, q);
 
-  auto n_x = g.add_malloc_device<float>(x, n);
-  auto n_y = g.add_malloc_device<float>(y, n);
-  auto n_z = g.add_malloc_device<float>(z, n);
+  // Add commands to the graph to create the following topology.
+  //
+  //  x  y  z
+  //   \ | /
+  //     i
+  //    / \
+  //   a   b
+  //    \ / \
+  //     c  fy
+  //     |
+  //     fx
+
+  auto node_x = g.add_malloc_device(x, n * sizeof(float));
+  auto node_y = g.add_malloc_device(y, n * sizeof(float));
+  auto node_z = g.add_malloc_device(z, n * sizeof(float));
 
   /* init data on the device */
-  auto n_i = g.add([&](sycl::handler &h) {
+  auto node_i = g.add([&](sycl::handler &h) {
     h.parallel_for(n, [=](sycl::id<1> it){
       const size_t i = it[0];
       x[i] = 1.0f;
       y[i] = 2.0f;
       z[i] = 3.0f;
     });
-  }, {n_x, n_y, n_z});
+  }, {node_x, node_y, node_z});
 
   auto node_a = g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
       const size_t i = it[0];
       x[i] = alpha * x[i] + beta * y[i];
     });
-  }, {n_i});
+  }, {node_i});
 
   auto node_b = g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
       const size_t i = it[0];
       z[i] = gamma * z[i] + beta * y[i];
     });
-  }, {n_i});
+  }, {node_i});
 
   auto node_c = g.add(
       [&](sycl::handler &h) {
@@ -865,8 +907,8 @@ int main() {
       },
       {node_a, node_b});
 
-  auto node_f1 = g.add_free(x, {node_c});
-  auto node_f2 = g.add_free(y, {node_b});
+  auto node_fx = g.add_free(x, {node_c});
+  auto node_fy = g.add_free(y, {node_b});
 
   auto exec = g.finalize(q.get_context());
 
@@ -961,19 +1003,6 @@ submitted as a whole for execution via
   // Execute graph
   q.submit(exec_graph);
 ----
-
-// == Issues for later investigations
-//
-// . Explicit memory movement can cause POC to stall.
-//
-// == Non-implemented features
-// Please, note that the following features are not yet implemented:
-//
-// . Level Zero backend only
-// . Memory operation nodes not implemented
-// . Host node not implemented
-// . Submit overload of a queue. `submit(graph)` Use a combination of `executable_graph::exec_and_wait()` and queue property `sycl::ext::oneapi::property::queue::lazy_execution{}` instead.
-// . `class graph<graph_state>` Use dedicated `class graph` (equivalent to `graph_state == modifiable`) and `class executable_graph` (equivalent to `graph_state == executable`) instead.
 
 == Issues
 
