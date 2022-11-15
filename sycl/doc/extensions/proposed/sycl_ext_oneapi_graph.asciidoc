@@ -534,7 +534,7 @@ Table 7. Member functions of the `command_graph` class (memory operations).
 using namespace ext::oneapi::experimental;
 node add_malloc_device(void *&data, size_t numBytes, const std::vector<node>& dep = {});
 ----
-|Adding a node that encapsulates a memory allocation operation.
+|Adds a node that encapsulates a USM device memory allocation operation.
 
 Preconditions:
 
@@ -562,7 +562,10 @@ Exceptions:
 using namespace ext::oneapi::experimental;
 node add_free(void *data, const std::vector<node>& dep = {});
 ----
-|Adding a node that encapsulates a memory free operation.
+|Adds a node that encapsulates a memory free operation. The memory pointed to
+by `data` must be a valid address that has been allocated using one of the USM
+allocation routines. If any commands that use this memory are in-progress or
+are enqueued, then the behavior is undefined.
 
 Preconditions:
 
