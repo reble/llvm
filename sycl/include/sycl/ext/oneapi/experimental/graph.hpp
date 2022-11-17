@@ -165,10 +165,18 @@ public:
   command_graph<graph_state::executable>
   finalize(const sycl::context &syclContext) const;
 
-  command_graph() : MGraph(new detail::graph_impl()) {}
+  command_graph() : impl(new detail::graph_impl()) {}
 
 private:
-  detail::graph_ptr MGraph;
+  command_graph(detail::graph_ptr Impl) : impl(Impl) {}
+
+  template <class Obj>
+  friend decltype(Obj::impl)
+  sycl::detail::getSyclObjImpl(const Obj &SyclObject);
+  template <class T>
+  friend T sycl::detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
+
+  detail::graph_ptr impl;
 };
 
 template <> class command_graph<graph_state::executable> {
@@ -181,17 +189,18 @@ public:
   command_graph() = delete;
 
   command_graph(detail::graph_ptr g, const sycl::context &ctx)
-      : MGraph(g), MCtx(ctx), MTag(rand()) {}
+      : impl(g), MCtx(ctx), MTag(rand()) {}
 
 private:
-  detail::graph_ptr MGraph;
+  detail::graph_ptr impl;
 };
 
 template <>
 template <typename T>
-node command_graph<graph_state::modifiable>::add(T cgf,
-                                                 const std::vector<node> &dep) {
-  node ret_val(MGraph, cgf);
+inline node
+command_graph<graph_state::modifiable>::add(T cgf,
+                                            const std::vector<node> &dep) {
+  node ret_val(impl, cgf);
   if (!dep.empty()) {
     for (auto n : dep)
       this->make_edge(n, ret_val);
@@ -202,22 +211,22 @@ node command_graph<graph_state::modifiable>::add(T cgf,
 }
 
 template <>
-void command_graph<graph_state::modifiable>::make_edge(node sender,
-                                                       node receiver) {
+inline void command_graph<graph_state::modifiable>::make_edge(node sender,
+                                                              node receiver) {
   sender.register_successor(receiver);     // register successor
-  MGraph->remove_root(receiver.MNode); // remove receiver from root node
+  impl->remove_root(receiver.MNode);       // remove receiver from root node
                                            // list
 }
 
 template <>
-command_graph<graph_state::executable>
-command_graph<graph_state::modifiable>::finalize(
-    const sycl::context &ctx) const {
-  return command_graph<graph_state::executable>{this->MGraph, ctx};
+command_graph<graph_state::executable> inline command_graph<
+    graph_state::modifiable>::finalize(const sycl::context &ctx) const {
+  return command_graph<graph_state::executable>{this->impl, ctx};
 }
 
-void command_graph<graph_state::executable>::exec_and_wait(sycl::queue q) {
-  MGraph->exec_and_wait(q);
+inline void
+command_graph<graph_state::executable>::exec_and_wait(sycl::queue q) {
+  impl->exec_and_wait(q);
 };
 
 } // namespace experimental
