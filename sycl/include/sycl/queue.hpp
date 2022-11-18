@@ -73,6 +73,16 @@ static event submitAssertCapture(queue &, event &, queue *,
 #endif
 } // namespace detail
 
+namespace ext {
+namespace oneapi {
+namespace experimental {
+// State of a queue with regards to graph recording,
+// returned by info::queue::state
+enum class queue_state { executing, recording };
+} // namespace experimental
+} // namespace oneapi
+} // namespace ext
+
 /// Encapsulates a single SYCL queue which schedules kernels on a SYCL device.
 ///
 /// A SYCL queue can be used to submit command groups to be executed by the SYCL
@@ -1117,6 +1127,19 @@ public:
   ///
   /// \return the backend associated with this queue.
   backend get_backend() const noexcept;
+
+public:
+  /// Places the queue into command_graph recording mode.
+  ///
+  /// \return true if the queue was not already in recording mode.
+  bool
+  begin_recording(ext::oneapi::experimental::command_graph<
+                  ext::oneapi::experimental::graph_state::modifiable> &graph);
+
+  /// Ends recording mode on the queue and returns to the normal state.
+  ///
+  /// \return true if the queue was already in recording mode.
+  bool end_recording();
 
 private:
   pi_native_handle getNative() const;
