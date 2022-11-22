@@ -30,6 +30,8 @@
 #include <sycl/property_list.hpp>
 #include <sycl/stl.hpp>
 
+#include <sycl/ext/oneapi/experimental/graph.hpp>
+
 #include <utility>
 
 namespace sycl {
@@ -453,6 +455,14 @@ public:
     return MAssertHappenedBuffer;
   }
 
+  void setCommandGraph(ext::oneapi::experimental::detail::graph_ptr Graph) {
+    MGraph = Graph;
+  }
+
+  ext::oneapi::experimental::detail::graph_ptr getCommandGraph() const {
+    return MGraph;
+  }
+
 protected:
   // template is needed for proper unit testing
   template <typename HandlerType = handler>
@@ -525,32 +535,41 @@ private:
                     const std::shared_ptr<queue_impl> &SecondaryQueue,
                     const detail::code_location &Loc,
                     const SubmitPostProcessF *PostProcess) {
-    handler Handler(Self, PrimaryQueue, SecondaryQueue, MHostQueue);
-    Handler.saveCodeLoc(Loc);
-    CGF(Handler);
-
-    // Scheduler will later omit events, that are not required to execute tasks.
-    // Host and interop tasks, however, are not submitted to low-level runtimes
-    // and require separate dependency management.
-    const CG::CGTYPE Type = Handler.getType();
     event Event = detail::createSyclObjFromImpl<event>(
         std::make_shared<detail::event_impl>());
+    if (auto graphImpl = Self->getCommandGraph(); graphImpl != nullptr) {
+      std::vector<ext::oneapi::experimental::detail::node_ptr> deps;
+      if (auto lastNode = graphImpl->getLastNode(); lastNode != nullptr) {
+        deps.push_back(lastNode);
+      }
+      graphImpl->add(graphImpl, CGF, deps);
+    } else {
+      handler Handler(Self, PrimaryQueue, SecondaryQueue, MHostQueue);
+      Handler.saveCodeLoc(Loc);
+      CGF(Handler);
 
-    if (PostProcess) {
-      bool IsKernel = Type == CG::Kernel;
-      bool KernelUsesAssert = false;
+      // Scheduler will later omit events, that are not required to execute
+      // tasks. Host and interop tasks, however, are not submitted to low-level
+      // runtimes and require separate dependency management.
+      const CG::CGTYPE Type = Handler.getType();
 
-      if (IsKernel)
-        // Kernel only uses assert if it's non interop one
-        KernelUsesAssert = !(Handler.MKernel && Handler.MKernel->isInterop()) &&
-                           ProgramManager::getInstance().kernelUsesAssert(
-                               Handler.MOSModuleHandle, Handler.MKernelName);
+      if (PostProcess) {
+        bool IsKernel = Type == CG::Kernel;
+        bool KernelUsesAssert = false;
 
-      finalizeHandler(Handler, Type, Event);
+        if (IsKernel)
+          // Kernel only uses assert if it's non interop one
+          KernelUsesAssert =
+              !(Handler.MKernel && Handler.MKernel->isInterop()) &&
+              ProgramManager::getInstance().kernelUsesAssert(
+                  Handler.MOSModuleHandle, Handler.MKernelName);
 
-      (*PostProcess)(IsKernel, KernelUsesAssert, Event);
-    } else
-      finalizeHandler(Handler, Type, Event);
+        finalizeHandler(Handler, Type, Event);
+
+        (*PostProcess)(IsKernel, KernelUsesAssert, Event);
+      } else
+        finalizeHandler(Handler, Type, Event);
+    }
 
     addEvent(Event);
     return Event;
@@ -629,6 +648,10 @@ private:
   // able to discard events, because the final decision is made right before the
   // operation itself.
   const bool MHasDiscardEventsSupport;
+
+  // Command graph which is associated with this queue for the purposes of
+  // recording commands to it.
+  ext::oneapi::experimental::detail::graph_ptr MGraph;
 };
 
 } // namespace detail

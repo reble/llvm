@@ -91,6 +91,8 @@ struct node_impl {
 };
 
 struct graph_impl {
+  // The last node added to the graph.
+  node_ptr MLastNode;
   std::set<node_ptr> MRoots;
   std::list<node_ptr> MSchedule;
   // TODO: Change one time initialization to per executable object

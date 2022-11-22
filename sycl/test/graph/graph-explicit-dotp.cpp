@@ -66,14 +66,20 @@ int main() {
         });
     }, {n_i});
 
-    auto node_c = g.add([&](sycl::handler &h) {
-        h.parallel_for(sycl::range<1>{n},
-                       sycl::reduction(dotp, 0.0f, std::plus()),
-                       [=](sycl::id<1> it, auto &sum) {
-                           const size_t i = it[0];
-                           sum += x[i] * z[i];
-                       });
-    }, {node_a, node_b});
+    auto node_c = g.add(
+        [&](sycl::handler &h) {
+          h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
+            const size_t i = it[0];
+            // Doing a manual reduction here because reduction objects cause
+            // issues with graphs.
+            if (i == 0) {
+              for (size_t j = 0; j < n; j++) {
+                dotp[0] += x[j] * z[j];
+              }
+            }
+          });
+        },
+        {node_a, node_b});
 
     auto exec_graph = g.finalize(q.get_context());
     

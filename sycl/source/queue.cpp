@@ -218,13 +218,22 @@ bool queue::device_has(aspect Aspect) const {
 bool queue::begin_recording(
     ext::oneapi::experimental::command_graph<
         ext::oneapi::experimental::graph_state::modifiable> &graph) {
-  // Empty Implementation
+  using namespace ext::oneapi::experimental;
+  if (!impl->getCommandGraph()) {
+    impl->setCommandGraph(
+        sycl::detail::getSyclObjImpl<command_graph<graph_state::modifiable>>(
+            graph));
+    return false;
+  }
   return true;
 }
 
 bool queue::end_recording() {
-  // Empty Implementation
-  return true;
+  if (impl->getCommandGraph()) {
+    impl->setCommandGraph(nullptr);
+    return true;
+  }
+  return false;
 }
 
 event queue::submit(ext::oneapi::experimental::command_graph<
