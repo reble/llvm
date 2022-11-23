@@ -156,7 +156,7 @@ public:
   node(detail::graph_ptr g, T cgf)
       : MGraph(g), impl(new detail::node_impl(g, cgf)){};
   void register_successor(node n) { impl->register_successor(n.impl); }
-  void exec(sycl::queue q, sycl::event = sycl::event()) { impl->exec(q); }
+  void exec(sycl::queue q) { impl->exec(q); }
 
 private:
   node(detail::node_ptr Impl) : impl(Impl) {}
@@ -204,17 +204,16 @@ private:
 
 template <> class command_graph<graph_state::executable> {
 public:
-  int MTag;
-  const sycl::context &MCtx;
-
   void exec_and_wait(sycl::queue q);
 
   command_graph() = delete;
 
   command_graph(detail::graph_ptr g, const sycl::context &ctx)
-      : impl(g), MCtx(ctx), MTag(rand()) {}
+      : MTag(rand()), MCtx(ctx), impl(g) {}
 
 private:
+  int MTag;
+  const sycl::context &MCtx;
   detail::graph_ptr impl;
 };
 
