@@ -154,7 +154,7 @@ class node {
 public:
   template <typename T>
   node(detail::graph_ptr g, T cgf)
-      : MGraph(g), impl(new detail::node_impl(g, cgf)){};
+      : MGraph(g), impl(new detail::node_impl(g, cgf)) {}
   void register_successor(node n) { impl->register_successor(n.impl); }
   void exec(sycl::queue q) { impl->exec(q); }
 
