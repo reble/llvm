@@ -144,7 +144,12 @@ struct graph_impl {
     } else {
       this->add_root(nodeImpl);
     }
+    MLastNode = nodeImpl;
     return nodeImpl;
+  }
+
+  node_ptr getLastNode() const{
+    return MLastNode;
   }
 
   graph_impl() : MFirst(true) {}
