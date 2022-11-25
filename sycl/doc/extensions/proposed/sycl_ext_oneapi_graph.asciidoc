@@ -340,6 +340,26 @@ namespace sycl::ext::oneapi::experimental {
 }
 ----
 
+==== Depends-On Property
+
+The API for explicitly adding nodes to a `command_graph` includes a
+`property_list` parameter. This extension defines the `depends_on` property to
+be passed here. `depends_on` defines any `node` objects for the created node to
+be dependent on, and therefore form an edge with. These nodes are in addition to
+the dependent nodes identified from the command-group requisites of the created
+node.
+
+[source,c++]
+----
+namespace sycl::ext::oneapi::experimental::property::node
+class depends_on {
+  public:
+    template<typename... NodeTN>
+    depends_on(NodeTN... nodes);
+};
+}
+----
+
 === Graph
 
 :crs: https://www.khronos.org/registry/SYCL/specs/sycl-2020/html/sycl-2020.html#sec:reference-semantics
@@ -413,8 +433,8 @@ Preconditions:
 
 Parameters:
 
-* `propList` - Optional parameter for passing properties. No new properties are
-  defined by this extension.
+* `propList` - Optional parameter for passing properties. No `command_graph`
+  constructor properties are defined by this extension.
 
 |===
 
@@ -441,7 +461,7 @@ Preconditions:
 
 Parameters:
 
-* `propList` - Zero or more properties can be provided to the constructed node 
+* `propList` - Zero or more properties can be provided to the constructed node
   via an instance of `property_list`.
 
 Returns: The empty node which has been added to the graph.
@@ -462,7 +482,8 @@ node add(T cgf, const property_list& propList = {});
 object statically contains a group of commands, of which a single command is
 executed at runtime. A function object can be a host task which is scheduled by
 the SYCL runtime, or a SYCL function for invoking kernels with all restrictions
-that apply as described in the core specification.
+that apply as described in the core specification. The requisites of `cgf` will
+be used to identify any dependent nodes in the graph to form edges with.
 
 Preconditions:
 
@@ -471,7 +492,7 @@ Preconditions:
 
 Parameters:
 
-* `cgf` - Command group function object to be added as a node
+* `cgf` - Command group function object to be added as a node.
 
 * `propList` - Zero or more properties can be provided to the constructed node
   via an instance of `property_list`.
