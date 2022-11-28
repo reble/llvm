@@ -1,3 +1,4 @@
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 #include <CL/sycl.hpp>
 #include <iostream>
 #include <thread>
@@ -25,8 +26,6 @@ int main() {
   float beta = 2.0f;
   float gamma = 3.0f;
 
-  float *x, *y, *z;
-
   sycl::property_list properties{
       sycl::property::queue::in_order(),
       sycl::ext::oneapi::property::queue::lazy_execution{}};
@@ -37,9 +36,9 @@ int main() {
 
   float *dotp = sycl::malloc_shared<float>(1, q);
 
-  x = sycl::malloc_shared<float>(n, q);
-  y = sycl::malloc_shared<float>(n, q);
-  z = sycl::malloc_shared<float>(n, q);
+  float *x = sycl::malloc_shared<float>(n, q);
+  float *y = sycl::malloc_shared<float>(n, q);
+  float *z = sycl::malloc_shared<float>(n, q);
 
   q.begin_recording(g);
 

@@ -223,9 +223,9 @@ bool queue::begin_recording(
     impl->setCommandGraph(
         sycl::detail::getSyclObjImpl<command_graph<graph_state::modifiable>>(
             graph));
-    return false;
+    return true;
   }
-  return true;
+  return false;
 }
 
 bool queue::end_recording() {

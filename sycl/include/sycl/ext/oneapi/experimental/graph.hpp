@@ -148,9 +148,7 @@ struct graph_impl {
     return nodeImpl;
   }
 
-  node_ptr getLastNode() const{
-    return MLastNode;
-  }
+  node_ptr getLastNode() const { return MLastNode; }
 
   graph_impl() : MFirst(true) {}
 };

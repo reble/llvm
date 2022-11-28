@@ -538,6 +538,10 @@ private:
     event Event = detail::createSyclObjFromImpl<event>(
         std::make_shared<detail::event_impl>());
     if (auto graphImpl = Self->getCommandGraph(); graphImpl != nullptr) {
+
+      // TODO: Simple implementation schedules all recorded nodes in order with
+      // each having a dependency on the previous node. This should be improved
+      // to correctly determine edges and dependencies.
       std::vector<ext::oneapi::experimental::detail::node_ptr> deps;
       if (auto lastNode = graphImpl->getLastNode(); lastNode != nullptr) {
         deps.push_back(lastNode);
