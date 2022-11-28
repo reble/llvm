@@ -912,6 +912,11 @@ private:
 
   friend class handler;
 
+  friend void processArgImpl(std::vector<sycl::_V1::detail::ArgDesc> &,
+                             const detail::NDRDescT &, void *,
+                             const detail::kernel_param_kind_t &, const int,
+                             const size_t, size_t &, bool, bool);
+
   friend const stream &operator<<(const stream &, const char);
   friend const stream &operator<<(const stream &, const char *);
   template <typename ValueType>

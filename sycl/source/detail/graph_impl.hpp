@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <sycl/detail/cg_types.hpp>
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 #include <sycl/handler.hpp>
 
@@ -53,6 +54,8 @@ struct node_impl {
 
   std::function<void(sycl::handler &)> MBody;
 
+  std::vector<sycl::detail::ArgDesc> MArgs;
+
   void exec(sycl::detail::queue_ptr q);
 
   void register_successor(node_ptr n) {
@@ -65,7 +68,8 @@ struct node_impl {
   sycl::event get_event(void) const { return MEvent; }
 
   template <typename T>
-  node_impl(graph_ptr g, T cgf) : MScheduled(false), MGraph(g), MBody(cgf) {}
+  node_impl(graph_ptr g, T cgf, const std::vector<sycl::detail::ArgDesc> &args)
+      : MScheduled(false), MGraph(g), MBody(cgf), MArgs(args) {}
 
   // Recursively adding nodes to execution stack:
   void topology_sort(std::list<node_ptr> &schedule) {
@@ -75,6 +79,16 @@ struct node_impl {
         i->topology_sort(schedule);
     }
     schedule.push_front(node_ptr(this));
+  }
+
+  bool has_arg(const sycl::detail::ArgDesc &arg) {
+    for (auto &nodeArg : MArgs) {
+      if (arg.MType == nodeArg.MType && arg.MPtr == nodeArg.MPtr &&
+          arg.MSize == nodeArg.MSize) {
+        return true;
+      }
+    }
+    return false;
   }
 };
 
@@ -95,7 +109,9 @@ struct graph_impl {
   void remove_root(node_ptr n);
 
   template <typename T>
-  node_ptr add(graph_ptr impl, T cgf, const std::vector<node_ptr> &dep = {});
+  node_ptr add(graph_ptr impl, T cgf,
+               const std::vector<sycl::detail::ArgDesc> &args,
+               const std::vector<node_ptr> &dep = {});
 
   node_ptr getLastNode() const { return MLastNode; }
 

@@ -537,6 +537,9 @@ private:
                     const SubmitPostProcessF *PostProcess) {
     event Event = detail::createSyclObjFromImpl<event>(
         std::make_shared<detail::event_impl>());
+    handler Handler(Self, PrimaryQueue, SecondaryQueue, MHostQueue);
+    Handler.saveCodeLoc(Loc);
+    CGF(Handler);
     if (auto graphImpl = Self->getCommandGraph(); graphImpl != nullptr) {
 
       // TODO: Simple implementation schedules all recorded nodes in order with
@@ -546,11 +549,8 @@ private:
       if (auto lastNode = graphImpl->getLastNode(); lastNode != nullptr) {
         deps.push_back(lastNode);
       }
-      graphImpl->add(graphImpl, CGF, deps);
+      graphImpl->add(graphImpl, CGF, Handler.MArgs, deps);
     } else {
-      handler Handler(Self, PrimaryQueue, SecondaryQueue, MHostQueue);
-      Handler.saveCodeLoc(Loc);
-      CGF(Handler);
 
       // Scheduler will later omit events, that are not required to execute
       // tasks. Host and interop tasks, however, are not submitted to low-level
