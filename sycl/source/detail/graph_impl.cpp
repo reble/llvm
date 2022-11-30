@@ -67,6 +67,7 @@ node_ptr graph_impl::add(graph_ptr impl, T cgf,
   } else {
     this->add_root(nodeImpl);
   }
+  MLastNode = nodeImpl;
   return nodeImpl;
 }
 

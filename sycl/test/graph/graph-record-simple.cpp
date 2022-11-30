@@ -7,7 +7,7 @@
 
 int main() {
   const size_t n = 10;
-  const float expectedValue = 1.f;
+  const float expectedValue = 7.f;
 
   sycl::property_list properties{
       sycl::property::queue::in_order(),

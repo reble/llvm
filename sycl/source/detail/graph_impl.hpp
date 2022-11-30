@@ -79,6 +79,8 @@ struct node_impl {
 };
 
 struct graph_impl {
+  // The last node added to the graph.
+  node_ptr MLastNode;
   std::set<node_ptr> MRoots;
   std::list<node_ptr> MSchedule;
   // TODO: Change one time initialization to per executable object
@@ -94,6 +96,8 @@ struct graph_impl {
 
   template <typename T>
   node_ptr add(graph_ptr impl, T cgf, const std::vector<node_ptr> &dep = {});
+
+  node_ptr getLastNode() const { return MLastNode; }
 
   graph_impl() : MFirst(true) {}
 };
