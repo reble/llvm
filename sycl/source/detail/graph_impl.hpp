@@ -69,7 +69,16 @@ struct node_impl {
 
   template <typename T>
   node_impl(graph_ptr g, T cgf, const std::vector<sycl::detail::ArgDesc> &args)
-      : MScheduled(false), MGraph(g), MBody(cgf), MArgs(args) {}
+      : MScheduled(false), MGraph(g), MBody(cgf), MArgs(args) {
+    for (size_t i = 0; i < MArgs.size(); i++) {
+      if (MArgs[i].MType == sycl::detail::kernel_param_kind_t::kind_pointer) {
+        // Make sure we are storing the actual USM pointer for comparison
+        // purposes, note we couldn't actually submit using these copies of the
+        // args if subsequent code expects a void**.
+        MArgs[i].MPtr = *(void **)(MArgs[i].MPtr);
+      }
+    }
+  }
 
   // Recursively adding nodes to execution stack:
   void topology_sort(std::list<node_ptr> &schedule) {
@@ -81,11 +90,15 @@ struct node_impl {
     schedule.push_front(node_ptr(this));
   }
 
-  bool has_arg(const sycl::detail::ArgDesc &arg) {
+  bool has_arg(const sycl::detail::ArgDesc &arg, bool dereferencePtr = false) {
     for (auto &nodeArg : MArgs) {
-      if (arg.MType == nodeArg.MType && arg.MPtr == nodeArg.MPtr &&
-          arg.MSize == nodeArg.MSize) {
-        return true;
+      if (arg.MType == nodeArg.MType && arg.MSize == nodeArg.MSize) {
+        // Args coming directly from the handler will need to be dereferenced
+        // since they are actually void**
+        void *incomingPtr = dereferencePtr ? *(void **)arg.MPtr : arg.MPtr;
+        if (incomingPtr == nodeArg.MPtr) {
+          return true;
+        }
       }
     }
     return false;
@@ -93,8 +106,6 @@ struct node_impl {
 };
 
 struct graph_impl {
-  // The last node added to the graph.
-  node_ptr MLastNode;
   std::set<node_ptr> MRoots;
   std::list<node_ptr> MSchedule;
   // TODO: Change one time initialization to per executable object
@@ -112,8 +123,6 @@ struct graph_impl {
   node_ptr add(graph_ptr impl, T cgf,
                const std::vector<sycl::detail::ArgDesc> &args,
                const std::vector<node_ptr> &dep = {});
-
-  node_ptr getLastNode() const { return MLastNode; }
 
   graph_impl() : MFirst(true) {}
 };
