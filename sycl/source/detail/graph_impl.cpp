@@ -57,14 +57,14 @@ void graph_impl::remove_root(node_ptr n) {
 // Recursive check if a graph node or its successors contains a given kernel
 // argument.
 //
-// @param arg The kernel argument to check for.
-// @param currentNode The current graph node being checked.
-// @param deps The unique list of dependencies which have been identified for
-// this arg.
-// @param dereferencePtr if true arg comes direct from the handler in which case
-// it will need to be deferenced to check actual value.
+// @param[in] arg The kernel argument to check for.
+// @param[in] currentNode The current graph node being checked.
+// @param[in,out] deps The unique list of dependencies which have been
+// identified for this arg.
+// @param[in] dereferencePtr if true arg comes direct from the handler in which
+// case it will need to be deferenced to check actual value.
 //
-// @returns True if a dependency was added in this node of any of it's
+// @returns True if a dependency was added in this node of any of its
 // successors.
 bool check_for_arg(const sycl::detail::ArgDesc &arg, node_ptr currentNode,
                    std::set<node_ptr> &deps, bool dereferencePtr = false) {
