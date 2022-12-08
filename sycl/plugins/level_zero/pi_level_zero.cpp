@@ -3841,7 +3841,70 @@ pi_result piQueueFlush(pi_queue Queue) {
     // true).
     std::unique_lock<pi_shared_mutex> ContextsLock(
       Queue->Device->Platform->ContextsMutex, std::defer_lock);
-      
+
+    // In this mode all inner-batch events have device visibility only,
+    // and we want the last command in the batch to signal a host-visible
+    // event that anybody waiting for any event in the batch will
+    // really be using.
+    // We need to create a proxy host-visible event only if the list of events
+    // in the command list is not empty, otherwise we are going to just create
+    // and remove proxy event right away and dereference deleted object
+    // afterwards.
+    if (Queue->Device->eventsScope() == LastCommandInBatchHostVisible &&
+        !CommandList->second.EventList.empty()) {
+      // If there are only internal events in the command list then we don't
+      // need to create host proxy event.
+      auto Result =
+          std::find_if(CommandList->second.EventList.begin(),
+                       CommandList->second.EventList.end(),
+                       [](pi_event E) { return E->hasExternalRefs(); });
+      if (Result != CommandList->second.EventList.end()) {
+        // Create a "proxy" host-visible event.
+        //
+        pi_event HostVisibleEvent;
+        auto Res = createEventAndAssociateQueue(
+            Queue, &HostVisibleEvent, PI_COMMAND_TYPE_USER, CommandList,
+            /* IsInternal */ false, /* ForceHostVisible */ true);
+        if (Res)
+          return Res;
+
+        // Update each command's event in the command-list to "see" this
+        // proxy event as a host-visible counterpart.
+        for (auto &Event : CommandList->second.EventList) {
+          std::scoped_lock<pi_shared_mutex> EventLock(Event->Mutex);
+          // Internal event doesn't need host-visible proxy.
+          if (!Event->hasExternalRefs())
+            continue;
+
+          if (!Event->HostVisibleEvent) {
+            Event->HostVisibleEvent = HostVisibleEvent;
+            HostVisibleEvent->RefCount.increment();
+          }
+        }
+
+        // Decrement the reference count of the event such that all the
+        // remaining references are from the other commands in this batch and
+        // from the command-list itself. This host-visible event will not be
+        // waited/released by SYCL RT, so it must be destroyed after all events
+        // in the batch are gone. We know that refcount is more than 2 because
+        // we check that EventList of the command list is not empty above, i.e.
+        // after createEventAndAssociateQueue ref count is 2 and then +1 for
+        // each event in the EventList.
+        PI_CALL(piEventReleaseInternal(HostVisibleEvent));
+        PI_CALL(piEventReleaseInternal(HostVisibleEvent));
+
+        // Indicate no cleanup is needed for this PI event as it is special.
+        HostVisibleEvent->CleanedUp = true;
+
+        // Finally set to signal the host-visible event at the end of the
+        // command-list.
+        // TODO: see if we need a barrier here (or explicit wait for all events
+        // in the batch).
+        ZE_CALL(zeCommandListAppendSignalEvent,
+                (CommandList->first, HostVisibleEvent->ZeEvent));
+      }
+    }
+
     // Close the command list and have it ready for dispatch.
     ZE_CALL(zeCommandListClose, (CommandList->first));
     
