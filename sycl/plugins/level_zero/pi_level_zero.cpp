@@ -3842,6 +3842,10 @@ pi_result piQueueFlush(pi_queue Queue) {
     std::unique_lock<pi_shared_mutex> ContextsLock(
       Queue->Device->Platform->ContextsMutex, std::defer_lock);
 
+    // TODO: Following code is duplicated from _pi_queue::executeCommandList to
+    // ensure graph submission has a host visible event. This should be
+    // addressed in a way that such large duplication is not required in future.
+
     // In this mode all inner-batch events have device visibility only,
     // and we want the last command in the batch to signal a host-visible
     // event that anybody waiting for any event in the batch will
