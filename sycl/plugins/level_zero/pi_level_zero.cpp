@@ -1583,9 +1583,11 @@ void _pi_queue::CaptureIndirectAccesses() {
 pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
                                         bool IsBlocking,
                                         bool OKToBatchCommand) {
-  // When executing a Graph, defer execution
-  if( this->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION ) return PI_SUCCESS;
-    
+  // When executing a Graph, defer execution if this is a command
+  // which could be batched (i.e. likely a kernel submission)
+  if (this->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION && OKToBatchCommand)
+    return PI_SUCCESS;
+
   bool UseCopyEngine = CommandList->second.isCopy(this);
 
   // If the current LastCommandEvent is the nullptr, then it means
@@ -3827,98 +3829,13 @@ pi_result piQueueFinish(pi_queue Queue) {
 // so this can be left as a no-op.
 pi_result piQueueFlush(pi_queue Queue) {
   if( Queue->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION ) {
+
     pi_command_list_ptr_t CommandList{};
     // TODO: 
     CommandList = Queue->LazyCommandListMap.begin();
-      
-    auto &ZeCommandQueue = CommandList->second.ZeQueue;
-    // Scope of the lock must be till the end of the function, otherwise new mem
-    // allocs can be created between the moment when we made a snapshot and the
-    // moment when command list is closed and executed. But mutex is locked only
-    // if indirect access tracking enabled, because std::defer_lock is used.
-    // unique_lock destructor at the end of the function will unlock the mutex
-    // if it was locked (which happens only if IndirectAccessTrackingEnabled is
-    // true).
-    std::unique_lock<pi_shared_mutex> ContextsLock(
-      Queue->Device->Platform->ContextsMutex, std::defer_lock);
 
-    // TODO: Following code is duplicated from _pi_queue::executeCommandList to
-    // ensure graph submission has a host visible event. This should be
-    // addressed in a way that such large duplication is not required in future.
-
-    // In this mode all inner-batch events have device visibility only,
-    // and we want the last command in the batch to signal a host-visible
-    // event that anybody waiting for any event in the batch will
-    // really be using.
-    // We need to create a proxy host-visible event only if the list of events
-    // in the command list is not empty, otherwise we are going to just create
-    // and remove proxy event right away and dereference deleted object
-    // afterwards.
-    if (Queue->Device->eventsScope() == LastCommandInBatchHostVisible &&
-        !CommandList->second.EventList.empty()) {
-      // If there are only internal events in the command list then we don't
-      // need to create host proxy event.
-      auto Result =
-          std::find_if(CommandList->second.EventList.begin(),
-                       CommandList->second.EventList.end(),
-                       [](pi_event E) { return E->hasExternalRefs(); });
-      if (Result != CommandList->second.EventList.end()) {
-        // Create a "proxy" host-visible event.
-        //
-        pi_event HostVisibleEvent;
-        auto Res = createEventAndAssociateQueue(
-            Queue, &HostVisibleEvent, PI_COMMAND_TYPE_USER, CommandList,
-            /* IsInternal */ false, /* ForceHostVisible */ true);
-        if (Res)
-          return Res;
-
-        // Update each command's event in the command-list to "see" this
-        // proxy event as a host-visible counterpart.
-        for (auto &Event : CommandList->second.EventList) {
-          std::scoped_lock<pi_shared_mutex> EventLock(Event->Mutex);
-          // Internal event doesn't need host-visible proxy.
-          if (!Event->hasExternalRefs())
-            continue;
-
-          if (!Event->HostVisibleEvent) {
-            Event->HostVisibleEvent = HostVisibleEvent;
-            HostVisibleEvent->RefCount.increment();
-          }
-        }
-
-        // Decrement the reference count of the event such that all the
-        // remaining references are from the other commands in this batch and
-        // from the command-list itself. This host-visible event will not be
-        // waited/released by SYCL RT, so it must be destroyed after all events
-        // in the batch are gone. We know that refcount is more than 2 because
-        // we check that EventList of the command list is not empty above, i.e.
-        // after createEventAndAssociateQueue ref count is 2 and then +1 for
-        // each event in the EventList.
-        PI_CALL(piEventReleaseInternal(HostVisibleEvent));
-        PI_CALL(piEventReleaseInternal(HostVisibleEvent));
-
-        // Indicate no cleanup is needed for this PI event as it is special.
-        HostVisibleEvent->CleanedUp = true;
-
-        // Finally set to signal the host-visible event at the end of the
-        // command-list.
-        // TODO: see if we need a barrier here (or explicit wait for all events
-        // in the batch).
-        ZE_CALL(zeCommandListAppendSignalEvent,
-                (CommandList->first, HostVisibleEvent->ZeEvent));
-      }
-    }
-
-    // Close the command list and have it ready for dispatch.
-    ZE_CALL(zeCommandListClose, (CommandList->first));
-    
-    // Offload command list to the GPU for asynchronous execution
-    auto ZeCommandList = CommandList->first;
-    auto ZeResult = ZE_CALL_NOCHECK(
-        zeCommandQueueExecuteCommandLists,
-        (ZeCommandQueue, 1, &ZeCommandList, CommandList->second.ZeFence));
+    Queue->executeCommandList(CommandList, false, false);
   }
-  (void)Queue;
   return PI_SUCCESS;
 }
 
