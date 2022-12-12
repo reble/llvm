@@ -33,10 +33,7 @@ void graph_impl::exec(sycl::detail::queue_ptr q) {
 }
 
 void graph_impl::exec_and_wait(sycl::detail::queue_ptr q) {
-  if (MFirst) {
-    exec(q);
-    MFirst = false;
-  }
+  exec(q);
   q->wait();
 }
 

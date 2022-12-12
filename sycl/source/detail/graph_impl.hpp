@@ -81,8 +81,6 @@ struct node_impl {
 struct graph_impl {
   std::set<node_ptr> MRoots;
   std::list<node_ptr> MSchedule;
-  // TODO: Change one time initialization to per executable object
-  bool MFirst;
 
   graph_ptr MParent;
 
@@ -95,7 +93,7 @@ struct graph_impl {
   template <typename T>
   node_ptr add(graph_ptr impl, T cgf, const std::vector<node_ptr> &dep = {});
 
-  graph_impl() : MFirst(true) {}
+  graph_impl() {}
 };
 
 } // namespace detail

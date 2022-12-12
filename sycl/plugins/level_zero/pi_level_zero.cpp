@@ -1307,44 +1307,6 @@ pi_result _pi_context::getAvailableCommandList(
     pi_queue Queue, pi_command_list_ptr_t &CommandList, bool UseCopyEngine,
     bool AllowBatching, ze_command_queue_handle_t *ForcedCmdQueue) {
     
-  // This is a hack. TODO: Proper CommandList allocation per Executable Graph.
-  if( Queue->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION ) {
-    // TODO: Create new Command List.
-    if(Queue->LazyCommandListMap.empty()) {
-      const bool UseCopyEngine = false;
-      // Adding createCommandList() to LazyCommandListMap
-      ze_fence_handle_t ZeFence;
-      ZeStruct<ze_fence_desc_t> ZeFenceDesc;
-      ze_command_list_handle_t ZeCommandList;
-
-      uint32_t QueueGroupOrdinal;
-      auto &QGroup = Queue->getQueueGroup(UseCopyEngine);
-      auto &ZeCommandQueue =
-        //ForcedCmdQueue ? *ForcedCmdQueue : 
-        QGroup.getZeQueue(&QueueGroupOrdinal);
-      //if (ForcedCmdQueue)
-      //  QueueGroupOrdinal = QGroup.getCmdQueueOrdinal(ZeCommandQueue);
-
-      ZeStruct<ze_command_list_desc_t> ZeCommandListDesc;
-      ZeCommandListDesc.commandQueueGroupOrdinal = QueueGroupOrdinal;
-
-      ZE_CALL(zeCommandListCreate, (Queue->Context->ZeContext, Queue->Device->ZeDevice,
-                                    &ZeCommandListDesc, &ZeCommandList));
-
-      ZE_CALL(zeFenceCreate, (ZeCommandQueue, &ZeFenceDesc, &ZeFence));
-      std::tie(CommandList, std::ignore) = Queue->LazyCommandListMap.insert(
-        std::pair<ze_command_list_handle_t, pi_command_list_info_t>(
-          ZeCommandList, {ZeFence, false, ZeCommandQueue, QueueGroupOrdinal}));
-
-      Queue->insertActiveBarriers(CommandList, UseCopyEngine);
-      //
-      CommandList->second.ZeFenceInUse = true;
-    } else {
-        CommandList = Queue->LazyCommandListMap.begin();
-    }
-    return PI_SUCCESS;
-  }
-    
   // Immediate commandlists have been pre-allocated and are always available.
   if (Queue->Device->useImmediateCommandLists()) {
     CommandList = Queue->getQueueGroup(UseCopyEngine).getImmCmdList();
@@ -1583,11 +1545,6 @@ void _pi_queue::CaptureIndirectAccesses() {
 pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
                                         bool IsBlocking,
                                         bool OKToBatchCommand) {
-  // When executing a Graph, defer execution if this is a command
-  // which could be batched (i.e. likely a kernel submission)
-  if (this->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION && OKToBatchCommand)
-    return PI_SUCCESS;
-
   bool UseCopyEngine = CommandList->second.isCopy(this);
 
   // If the current LastCommandEvent is the nullptr, then it means
@@ -3828,14 +3785,7 @@ pi_result piQueueFinish(pi_queue Queue) {
 // Flushing cross-queue dependencies is covered by createAndRetainPiZeEventList,
 // so this can be left as a no-op.
 pi_result piQueueFlush(pi_queue Queue) {
-  if( Queue->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION ) {
-
-    pi_command_list_ptr_t CommandList{};
-    // TODO: 
-    CommandList = Queue->LazyCommandListMap.begin();
-
-    Queue->executeCommandList(CommandList, false, false);
-  }
+  (void)Queue;
   return PI_SUCCESS;
 }
 
