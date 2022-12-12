@@ -537,20 +537,14 @@ private:
                     const SubmitPostProcessF *PostProcess) {
     event Event = detail::createSyclObjFromImpl<event>(
         std::make_shared<detail::event_impl>());
+    handler Handler(Self, PrimaryQueue, SecondaryQueue, MHostQueue);
+    Handler.saveCodeLoc(Loc);
+    CGF(Handler);
     if (auto graphImpl = Self->getCommandGraph(); graphImpl != nullptr) {
-
-      // TODO: Simple implementation schedules all recorded nodes in order with
-      // each having a dependency on the previous node. This should be improved
-      // to correctly determine edges and dependencies.
-      std::vector<ext::oneapi::experimental::detail::node_ptr> deps;
-      if (auto lastNode = graphImpl->getLastNode(); lastNode != nullptr) {
-        deps.push_back(lastNode);
-      }
-      graphImpl->add(graphImpl, CGF, deps);
+      // Pass the args obtained by the handler to the graph to use in
+      // determining edges between this node and previously submitted nodes.
+      graphImpl->add(graphImpl, CGF, Handler.MArgs, {});
     } else {
-      handler Handler(Self, PrimaryQueue, SecondaryQueue, MHostQueue);
-      Handler.saveCodeLoc(Loc);
-      CGF(Handler);
 
       // Scheduler will later omit events, that are not required to execute
       // tasks. Host and interop tasks, however, are not submitted to low-level
