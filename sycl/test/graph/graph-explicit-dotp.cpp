@@ -83,16 +83,15 @@ int main() {
   // Using shortcut for executing a graph of commands
   q.exec_graph(executable_graph).wait();
 
-  if (*dotp != host_gold_result()) {
-    std::cout << "Error unexpected result!\n";
-  }
+  if (*dotp == host_gold_result())
+    std::cout << "Dot product explicit graph test passed." << std::endl;
+  else
+    std::cout << "Dot product explicit graph test failed." << std::endl;
 
   sycl::free(dotp, q);
   sycl::free(x, q);
   sycl::free(y, q);
   sycl::free(z, q);
-
-  std::cout << "done.\n";
 
   return 0;
 }

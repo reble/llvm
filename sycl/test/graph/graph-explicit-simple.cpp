@@ -16,6 +16,9 @@ int main() {
 
   const size_t n = 10;
   float *arr = sycl::malloc_shared<float>(n, q);
+  for (int i = 0; i < n; i++) {
+    arr[i] = 0;
+  }
 
   g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
@@ -24,19 +27,32 @@ int main() {
     });
   });
 
-  auto result_before_exec1 = arr[0];
+  bool check = true;
+  for (int i = 0; i < n; i++) {
+    if (arr[i] != 0)
+      check = false;
+  }
 
   auto executable_graph = g.finalize(q.get_context());
 
-  auto result_before_exec2 = arr[0];
+  for (int i = 0; i < n; i++) {
+    if (arr[i] != 0)
+      check = false;
+  }
 
   q.submit([&](sycl::handler &h) { h.exec_graph(executable_graph); });
 
-  auto result = arr[0];
+  for (int i = 0; i < n; i++) {
+    if (arr[i] != 1)
+      check = false;
+  }
+
+  if (check)
+    std::cout << "Simple explicit graph test passed." << std::endl;
+  else
+    std::cout << "Simple explicit graph test failed." << std::endl;
 
   sycl::free(arr, q);
-
-  std::cout << "done.\n";
 
   return 0;
 }

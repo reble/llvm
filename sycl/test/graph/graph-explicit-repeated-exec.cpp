@@ -16,31 +16,50 @@ int main() {
 
   const size_t n = 10;
   float *arr = sycl::malloc_shared<float>(n, q);
+  for (int i = 0; i < n; i++) {
+    arr[i] = 0;
+  }
 
   g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
       size_t i = idx;
-      arr[i] = 1;
+      arr[i] += 1;
     });
   });
 
+  bool check = true;
+  for (int i = 0; i < n; i++) {
+    if (arr[i] != 0)
+      check = false;
+  }
+
   auto executable_graph = g.finalize(q.get_context());
 
-  auto e1 = q.exec_graph(executable_graph);
-  auto e2 = q.exec_graph(executable_graph, e1);
-  auto e3 = q.exec_graph(executable_graph, e1);
-  q.exec_graph(executable_graph, {e2, e3}).wait();
+  for (int i = 0; i < n; i++) {
+    if (arr[i] != 0)
+      check = false;
+  }
 
-  bool check = true;
+  q.submit([&](sycl::handler &h) { h.exec_graph(executable_graph); });
+
   for (int i = 0; i < n; i++) {
     if (arr[i] != 1)
       check = false;
   }
 
+  q.submit([&](sycl::handler &h) { h.exec_graph(executable_graph); });
+
+  for (int i = 0; i < n; i++) {
+    if (arr[i] != 2)
+      check = false;
+  }
+
   if (check)
-    std::cout << "Queue shortcuts explicit graph test passed." << std::endl;
+    std::cout << "Repeated execution of an explicit graph test passed."
+              << std::endl;
   else
-    std::cout << "Queue shortcuts explicit graph test failed." << std::endl;
+    std::cout << "Repeated execution of an explicit graph test failed."
+              << std::endl;
 
   sycl::free(arr, q);
 

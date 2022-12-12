@@ -28,10 +28,13 @@ int main() {
 
   e.wait();
 
+  if (*output == 45)
+    std::cout << "Reduction explicit graph test passed." << std::endl;
+  else
+    std::cout << "Reduction explicit graph test failed." << std::endl;
+
   sycl::free(input, q);
   sycl::free(output, q);
-
-  std::cout << "done\n";
 
   return 0;
 }
