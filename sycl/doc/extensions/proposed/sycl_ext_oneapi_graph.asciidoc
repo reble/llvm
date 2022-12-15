@@ -568,7 +568,7 @@ using namespace ext::oneapi::experimental;
 command_graph<graph_state::executable> finalize(const context &syclContext) const;
 ----
 
-|Synchronous operation that creates a graph in the executable state with a
+|Synchronous operation that creates a new graph in the executable state with a
 fixed topology that can be submitted for execution on any queue sharing the
 supplied context. It is valid to call this method multiple times to create
 subsequent executable graphs. It is also valid to continue to add new nodes to
@@ -585,7 +585,7 @@ Parameters:
 * `syclContext` - The context associated with the queues to which the
   executable graph will be able to be submitted.
 
-Returns: An executable graph object which can be submitted to a queue.
+Returns: A new executable graph object which can be submitted to a queue.
 
 Exceptions:
 
