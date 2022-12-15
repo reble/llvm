@@ -321,6 +321,9 @@ public:
   command_graph(const property_list& propList = {});
   command_graph<graph_state::executable> finalize(const context& syclContext) const;
 
+  bool begin_recording(const std::vector<queue>& queues);
+  bool end_recording(const std::vector<queue>& queues = {});
+
   node add(const property_list& propList = {});
 
   template<typename T>
@@ -344,9 +347,6 @@ public:
 using namespace ext::oneapi::experimental;
 class queue {
 public:
-  bool begin_recording(command_graph<graph_state::modifiable>& graph);
-  bool end_recording();
-
   /* -- graph convenience shortcuts -- */
 
   event graph(command_graph<graph_state::executable> graph);
@@ -681,7 +681,62 @@ Exceptions:
 
 |===
 
-Table 8. Member functions of the `command_graph` class (executable graph update).
+Table 8. Member functions of the `command_graph` class for queue recording.
+[cols="2a,a"]
+|===
+|Member function|Description
+
+|
+[source, c++]
+----
+using namespace ext::oneapi::experimental;
+bool begin_recording(const std::vector<queue>& queues)
+----
+
+|Synchronously changes the state of each queue in `queues` to the
+`queue_state::recording` state.
+
+Parameters:
+
+* `queues` - List of `sycl::queue` objects to change to the
+  `queue_state::recording` state and start recording commands to the graph
+  instance.
+
+Returns: `true` if any queue in `queues` has its state changed from
+`queue_state::executing` to `queue_state::recording`, `false` otherwise.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if the any queue in `queues` is
+  already recording to a different graph.
+
+|
+[source, c++]
+----
+using namespace ext::oneapi::experimental;
+bool end_recording(const std::vector<queue>& queues = {})
+----
+
+|Synchronously changes the state of each queue in `queues` to the
+`queue_state::executing` state. If the list of queues is empty, recording
+finishes on all queues that are being recorded to the graph and their queue
+state is set to `queue_state::executing`.
+
+Parameters:
+
+* `queues` - List of `sycl::queue` objects to change to the executing state.
+
+Returns: `true` if any queue recording to the graph has its state changed from
+`queue_state::recording` to `queue_state::executing`, `false` otherwise.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if any queue in `queues` is
+  recording to a different graph.
+
+|===
+
+Table 9. Member functions of the `command_graph` class (executable graph update).
 [cols="2a,a"]
 |===
 |Member function|Description
@@ -727,8 +782,8 @@ put into a mode where command-groups are recorded to a graph rather than
 submitted immediately for execution.
 
 <<new-queue-member-functions, Three new member functions>> are also added to the
-`sycl::queue` class with this extension. Two functions for selecting the state
-of the queue, and another function for submitting a graph to the queue.
+`sycl::queue` class in this extension as queue shortcuts for
+`handler::exec_graph()`.
 
 ==== Queue State
 
@@ -756,7 +811,7 @@ The state of a queue can be queried with `queue::get_info` using template
 parameter `info::queue::state`. The following entry is added to the
 {queue-info-table}[queue info table] to define this query:
 
-Table 9. Queue info query
+Table 10. Queue info query
 [cols="2a,a,a"]
 |===
 | Queue Descriptors | Return Type | Description
@@ -799,45 +854,10 @@ property and this graph extension.
 
 ==== New Queue Member Functions
 
-Table 8. Additional member functions of the `sycl::queue` class.
+Table 11. Additional member functions of the `sycl::queue` class.
 [cols="2a,a"]
 |===
 |Member function|Description
-
-|
-[source, c++]
-----
-using namespace ext::oneapi::experimental;
-bool queue::begin_recording(command_graph<graph_state::modifiable>& graph)
-----
-
-|Synchronously changes the state of the queue to the `queue_state::recording`
-state.
-
-Parameters:
-
-* `graph` - Graph object to start recording commands to.
-
-Returns: `true` if the queue was previously in the `queue_state::executing`
-state, `false` otherwise.
-
-Exceptions:
-
-* Throws synchronously with error code `invalid` if the queue is already
-  recording to a different graph.
-
-|
-[source, c++]
-----
-using namespace ext::oneapi::experimental;
-bool queue::end_recording()
-----
-
-|Synchronously changes the state of the queue to the `queue_state::executing`
-state.
-
-Returns: `true` if the queue was previously in the `queue_state::recording`
-state, `false` otherwise.
 
 |
 [source,c++]
@@ -874,7 +894,7 @@ containing `handler::depends_on(depEvents)` and `handler::graph(graph)`.
 
 ==== New Handler Member Functions
 
-Table 10. Additional member functions of the `sycl::handler` class.
+Table 12. Additional member functions of the `sycl::handler` class.
 [cols="2a,a"]
 |===
 |Member function|Description
@@ -917,20 +937,21 @@ preemptively changed the state of the queue.
 Errors are reported through exceptions, as usual in the SYCL API. For new APIs,
 submitting a graph for execution can generate unspecified asynchronous errors,
 while `command_graph::finalize()` may throw unspecified synchronous exceptions.
-Synchronous exception errors codes are defined for both
-`queue::begin_recording()` and `command_graph::update()`.
+Synchronous exception errors codes are defined for all of
+`command_graph::begin_recording()`, `command_graph::end_recording()` and
+`command_graph::update()`.
 
 When a queue is in recording mode asynchronous exceptions will not be
-generated, as no device execution is occuring. Synchronous errors specified as
+generated, as no device execution is occurring. Synchronous errors specified as
 being thrown in the default queue executing state, will still be thrown when a
 queue is in the recording state.
 
-The `queue::begin_recording` and `queue::end_recording` entry-points return a
-`bool` value informing the user whether a state change occurred. False is
-returned rather than throwing an exception when state isn't changed. This design
-is because the queue is already in the state the user desires, so if the
-function threw an exception in this case, the application would likely swallow
-it and then proceed.
+The `command_graph::begin_recording` and `command_graph::end_recording`
+entry-points return a `bool` value informing the user whether a related queue
+state change occurred. False is returned rather than throwing an exception when
+no queue state is changed. This design is because the queues are already in
+the state the user desires, so if the function threw an exception in this case,
+the application would likely swallow it and then proceed.
 
 While a queue is in the recording state, methods performed on that queue which
 are not command submissions behave as normal. This includes waits, throws, and
@@ -1092,7 +1113,7 @@ submitted in its entirety for execution via
 
     // `q` will be put in the recording state where commands are recorded to
     // `graph` rather than submitted for execution immediately.
-    q.begin_recording(graph);
+    graph.begin_recording({q});
 
     // Record commands to `graph` with the following topology.
     //
@@ -1135,9 +1156,9 @@ submitted in its entirety for execution via
       });
     });
 
-    // queue will be returned to the executing state where commands are
+    // queue `q` will be returned to the executing state where commands are
     // submitted immediately for extension.
-    q.end_recording();
+    graph.end_recording();
   }
 
   // Finalize the modifiable graph to create an executable graph that can be
@@ -1188,4 +1209,5 @@ this feature in the extension.
 |4|2022-08-10|Pablo Reble|Adding USM shortcuts
 |5|2022-10-21|Ewan Crawford|Merge in Codeplay vendor extension
 |6|2022-11-14|Ewan Crawford|Change graph execution to be a function on the handler
+|7|2022-12-15|Ewan Crawford|Change record & replay relationship between graph and queue.
 |========================================
