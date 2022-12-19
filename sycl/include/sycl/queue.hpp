@@ -1063,11 +1063,11 @@ public:
   ///
   /// \param Graph the graph of commands to execute
   /// \return an event representing graph execution operation.
-  event exec_graph(ext::oneapi::experimental::command_graph<
+  event graph(ext::oneapi::experimental::command_graph<
                    ext::oneapi::experimental::graph_state::executable>
                        Graph) {
     const detail::code_location CodeLoc = {};
-    return submit([&](handler &CGH) { CGH.exec_graph(Graph); }, CodeLoc);
+    return submit([&](handler &CGH) { CGH.graph(Graph); }, CodeLoc);
   }
 
   /// Shortcut for executing a graph of commands.
@@ -1076,7 +1076,7 @@ public:
   /// \param DepEvent is an event that specifies the graph execution
   /// dependencies.
   /// \return an event representing graph execution operation.
-  event exec_graph(ext::oneapi::experimental::command_graph<
+  event graph(ext::oneapi::experimental::command_graph<
                        ext::oneapi::experimental::graph_state::executable>
                        Graph,
                    event DepEvent) {
@@ -1084,7 +1084,7 @@ public:
     return submit(
         [&](handler &CGH) {
           CGH.depends_on(DepEvent);
-          CGH.exec_graph(Graph);
+          CGH.graph(Graph);
         },
         CodeLoc);
   }
@@ -1095,7 +1095,7 @@ public:
   /// \param DepEvents is a vector of events that specifies the graph
   /// execution dependencies.
   /// \return an event representing graph execution operation.
-  event exec_graph(ext::oneapi::experimental::command_graph<
+  event graph(ext::oneapi::experimental::command_graph<
                        ext::oneapi::experimental::graph_state::executable>
                        Graph,
                    const std::vector<event> &DepEvents) {
@@ -1103,7 +1103,7 @@ public:
     return submit(
         [&](handler &CGH) {
           CGH.depends_on(DepEvents);
-          CGH.exec_graph(Graph);
+          CGH.graph(Graph);
         },
         CodeLoc);
   }

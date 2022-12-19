@@ -2521,7 +2521,7 @@ public:
   /// Executes a command_graph.
   ///
   /// \param Graph Executable command_graph to run
-  void exec_graph(ext::oneapi::experimental::command_graph<
+  void graph(ext::oneapi::experimental::command_graph<
                   ext::oneapi::experimental::graph_state::executable>
                       Graph);
 

@@ -699,7 +699,7 @@ void handler::depends_on(const std::vector<event> &Events) {
   }
 }
 
-void handler::exec_graph(ext::oneapi::experimental::command_graph<
+void handler::graph(ext::oneapi::experimental::command_graph<
                          ext::oneapi::experimental::graph_state::executable>
                              Graph) {
   auto GraphImpl = detail::getSyclObjImpl(Graph);
