@@ -25,7 +25,6 @@ namespace experimental {
 namespace detail {
 
 void graph_impl::exec(sycl::detail::queue_ptr q) {
-  std::cout << "Exec Graph!" << MAllocs.size() << "\n";
   for(auto i:MAllocs) {
     auto Size = std::get<1>(i);
     auto Kind = std::get<2>(i);
