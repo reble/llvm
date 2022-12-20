@@ -14,29 +14,29 @@ int main() {
 
   sycl::ext::oneapi::experimental::command_graph g;
 
-  const size_t n = 10;
-  float *arr = sycl::malloc_shared<float>(n, q);
+  const size_t n = 1000;
+  float *x;
+  //void*& x = vec;
+  
+  auto a = g.add_malloc((void*&)x,n,sycl::usm::alloc::shared);
 
-  auto a = g.add();
-
-  auto b = g.add([&](sycl::handler &h) {
-    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
-      size_t i = idx;
-      arr[i] = 1;
-    });
-  }, {a});
-
-  auto result_before_exec1 = arr[0];
+  g.add([=](sycl::handler& h){
+          h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
+              const size_t i = it[0];
+              x[i] = 1.0f;
+            });
+  });
 
   auto executable_graph = g.finalize(q.get_context());
 
-  auto result_before_exec2 = arr[0];
-
   q.submit([&](sycl::handler &h) { h.exec_graph(executable_graph); });
 
-  auto result = arr[0];
+  float v = 2.0f;
+  //auto vec = static_cast<float*>(x);
+  x[0] = v;
+  auto result = x[0];
 
-  sycl::free(arr, q);
+  //sycl::free(x, q);
 
   std::cout << "done.\n";
 

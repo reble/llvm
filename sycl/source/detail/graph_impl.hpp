@@ -66,6 +66,9 @@ struct node_impl {
 
   template <typename T>
   node_impl(graph_ptr g, T cgf) : MScheduled(false), MGraph(g), MBody(cgf) {}
+    
+  // empty or dummy node:
+  node_impl(graph_ptr g) : MScheduled(false), MGraph(g) {}
 
   // Recursively adding nodes to execution stack:
   void topology_sort(std::list<node_ptr> &schedule) {
@@ -74,13 +77,16 @@ struct node_impl {
       if (!i->MScheduled)
         i->topology_sort(schedule);
     }
-    schedule.push_front(node_ptr(this));
+    if(MBody != nullptr)
+      schedule.push_front(node_ptr(this));
   }
 };
 
 struct graph_impl {
   std::set<node_ptr> MRoots;
   std::list<node_ptr> MSchedule;
+  // TODO: Integrate allocs into the graph
+  std::list<std::tuple<void*&,size_t,usm::alloc>> MAllocs;
   // TODO: Change one time initialization to per executable object
   bool MFirst;
 
@@ -94,6 +100,13 @@ struct graph_impl {
 
   template <typename T>
   node_ptr add(graph_ptr impl, T cgf, const std::vector<node_ptr> &dep = {});
+    
+  node_ptr add(graph_ptr impl, const std::vector<node_ptr> &dep = {});
+    
+  node_ptr add_malloc(graph_ptr impl, void*& ptr, size_t count, sycl::usm::alloc kind, 
+                      const std::vector<node_ptr> &dep = {});
+    
+  //node_ptr add_free(graph_ptr impl, void* ptr, const std::vector<node_ptr> &dep = {});
 
   graph_impl() : MFirst(true) {}
 };

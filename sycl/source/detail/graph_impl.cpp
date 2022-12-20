@@ -9,6 +9,8 @@
 #include <detail/graph_impl.hpp>
 #include <detail/queue_impl.hpp>
 
+#include <sycl/usm.hpp>
+
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
@@ -23,6 +25,15 @@ namespace experimental {
 namespace detail {
 
 void graph_impl::exec(sycl::detail::queue_ptr q) {
+  std::cout << "Exec Graph!" << MAllocs.size() << "\n";
+  for(auto i:MAllocs) {
+    auto Size = std::get<1>(i);
+    auto Kind = std::get<2>(i);
+    auto Ctxt = q->get_context();
+    auto Dev = q->get_device();
+    std::get<0>(i) = sycl::aligned_alloc(0, Size, Dev, Ctxt, Kind,
+                                        sycl::property_list{});
+  }
   if (MSchedule.empty()) {
     for (auto n : MRoots) {
       n->topology_sort(MSchedule);
@@ -54,6 +65,21 @@ void graph_impl::remove_root(node_ptr n) {
   MSchedule.clear();
 }
 
+node_ptr graph_impl::add(graph_ptr impl,
+                         const std::vector<node_ptr> &dep) {
+  node_ptr nodeImpl = std::make_shared<node_impl>(impl);
+  if (!dep.empty()) {
+    for (auto n : dep) {
+      n->register_successor(nodeImpl); // register successor
+      this->remove_root(nodeImpl);     // remove receiver from root node
+                                       // list
+    }
+  } else {
+    this->add_root(nodeImpl);
+  }
+  return nodeImpl;
+}    
+    
 template <typename T>
 node_ptr graph_impl::add(graph_ptr impl, T cgf,
                          const std::vector<node_ptr> &dep) {
@@ -68,6 +94,16 @@ node_ptr graph_impl::add(graph_ptr impl, T cgf,
     this->add_root(nodeImpl);
   }
   return nodeImpl;
+}
+    
+node_ptr graph_impl::add_malloc(graph_ptr impl, 
+                                void*& ptr, size_t count, 
+                                sycl::usm::alloc kind, const std::vector<node_ptr> &dep) {
+    // TODO: Do alloc within the graph execution.
+    // For now return dummy node without any dependencies
+    node_ptr nodeImpl = std::make_shared<node_impl>(impl);
+    MAllocs.push_back(std::tie(ptr,count,kind));
+    return nodeImpl;
 }
 
 void node_impl::exec(sycl::detail::queue_ptr q) {
@@ -104,6 +140,13 @@ void command_graph<graph_state::modifiable>::make_edge(node sender,
 
   sender_impl->register_successor(receiver_impl); // register successor
   impl->remove_root(receiver_impl); // remove receiver from root node list
+}
+    
+template <>
+node command_graph<graph_state::modifiable>::add_malloc(
+    void*& ptr, size_t count, sycl::usm::alloc kind, const std::vector<node> &dep) {
+    auto nodeImpl = impl->add_malloc(impl, ptr, count, kind);
+    return sycl::detail::createSyclObjFromImpl<node>(nodeImpl);
 }
 
 template <>

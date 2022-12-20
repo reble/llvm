@@ -13,6 +13,8 @@
 #include <sycl/detail/defines_elementary.hpp>
 #include <vector>
 
+#include <sycl/usm/usm_enums.hpp>
+
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
@@ -60,6 +62,10 @@ public:
   template <typename T> node add(T cgf, const std::vector<node> &dep = {}) {
     return add_impl(cgf, dep);
   }
+
+  // Adding USM allocation node:
+  node add_malloc(void*& ptr, size_t count, sycl::usm::alloc kind,
+                  const std::vector<node> &dep = {});
 
   // Adding dependency between two nodes.
   void make_edge(node sender, node receiver);
