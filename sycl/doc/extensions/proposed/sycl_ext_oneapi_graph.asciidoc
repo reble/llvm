@@ -321,8 +321,12 @@ public:
   command_graph(const property_list& propList = {});
   command_graph<graph_state::executable> finalize(const context& syclContext) const;
 
-  bool begin_recording(const std::vector<queue>& queues);
-  bool end_recording(const std::vector<queue>& queues = {});
+  bool begin_recording(queue recordingQueue);
+  bool begin_recording(const std::vector<queue>& recordingQueues);
+
+  bool end_recording();
+  bool end_recording(queue recordingQueue);
+  bool end_recording(const std::vector<queue>& recordingQueues);
 
   node add(const property_list& propList = {});
 
@@ -690,49 +694,107 @@ Table 8. Member functions of the `command_graph` class for queue recording.
 [source, c++]
 ----
 using namespace ext::oneapi::experimental;
-bool begin_recording(const std::vector<queue>& queues)
+bool begin_recording(queue recordingQueue)
 ----
 
-|Synchronously changes the state of each queue in `queues` to the
+|Synchronously changes the state of `recordingQueue` to the
 `queue_state::recording` state.
 
 Parameters:
 
-* `queues` - List of `sycl::queue` objects to change to the
+* `recordingQueue` - A `sycl::queue` object to change to the
   `queue_state::recording` state and start recording commands to the graph
   instance.
 
-Returns: `true` if any queue in `queues` has its state changed from
+Returns: `true` if `recordingQueue` has its state changed from
 `queue_state::executing` to `queue_state::recording`, `false` otherwise.
 
 Exceptions:
 
-* Throws synchronously with error code `invalid` if the any queue in `queues` is
+* Throws synchronously with error code `invalid` if `recordingQueue` is
   already recording to a different graph.
 
 |
 [source, c++]
 ----
 using namespace ext::oneapi::experimental;
-bool end_recording(const std::vector<queue>& queues = {})
+bool begin_recording(const std::vector<queue>& recordingQueues)
 ----
 
-|Synchronously changes the state of each queue in `queues` to the
-`queue_state::executing` state. If the list of queues is empty, recording
-finishes on all queues that are being recorded to the graph and their queue
-state is set to `queue_state::executing`.
+|Synchronously changes the state of each queue in `recordingQueues` to the
+`queue_state::recording` state.
 
 Parameters:
 
-* `queues` - List of `sycl::queue` objects to change to the executing state.
+* `recordingQueues` - List of `sycl::queue` objects to change to the
+  `queue_state::recording` state and start recording commands to the graph
+  instance.
+
+Returns: `true` if any queue in `recordingQueues` has its state changed from
+`queue_state::executing` to `queue_state::recording`, `false` otherwise.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if the any queue in
+  `recordingQueues` is already recording to a different graph.
+
+|
+[source, c++]
+----
+using namespace ext::oneapi::experimental;
+bool end_recording()
+----
+
+|Synchronously finishes recording on all queues that are being recorded to the
+graph and their queue state is set to `queue_state::executing`.
 
 Returns: `true` if any queue recording to the graph has its state changed from
 `queue_state::recording` to `queue_state::executing`, `false` otherwise.
 
+|
+[source, c++]
+----
+using namespace ext::oneapi::experimental;
+bool end_recording(queue recordingQueue)
+----
+
+|Synchronously changes the state of `recordingQueue` to the
+`queue_state::executing` state.
+
+Parameters:
+
+* `recordingQueue` - A `sycl::queue` object to change to the executing state.
+
+Returns: `true` if `recordingQueue` has its state changed from
+`queue_state::recording` to `queue_state::executing`, `false` otherwise.
+
 Exceptions:
 
-* Throws synchronously with error code `invalid` if any queue in `queues` is
+* Throws synchronously with error code `invalid` if `recordingQueue` is
   recording to a different graph.
+
+|
+[source, c++]
+----
+using namespace ext::oneapi::experimental;
+bool end_recording(const std::vector<queue>& recordingQueues)
+----
+
+|Synchronously changes the state of each queue in `recordingQueues` to the
+`queue_state::executing` state.
+
+Parameters:
+
+* `recordingQueues` - List of `sycl::queue` objects to change to the executing
+  state.
+
+Returns: `true` if any queue in `recordingQueues` has its state changed from
+`queue_state::recording` to `queue_state::executing`, `false` otherwise.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if any queue in
+  `recordingQueues` is recording to a different graph.
 
 |===
 
@@ -934,9 +996,9 @@ preemptively changed the state of the queue.
 
 === Exception Safety
 
-In additional to the destruction semantics provided by the SYCL
+In addition to the destruction semantics provided by the SYCL
 {crs}[common reference semantics], when a modifiable `command_graph` is
-destroyed recording is ended on any queues that are being recorded to that
+destroyed recording is ended on any queues that are recording to that
 graph, equivalent to `this->end_recording()`.
 
 As a result users don't need to manually wrap queue recording code in a
@@ -1125,7 +1187,7 @@ submitted in its entirety for execution via
 
     // `q` will be put in the recording state where commands are recorded to
     // `graph` rather than submitted for execution immediately.
-    graph.begin_recording({q});
+    graph.begin_recording(q);
 
     // Record commands to `graph` with the following topology.
     //
