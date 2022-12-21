@@ -30,11 +30,11 @@ int main() {
   auto compute = g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
       size_t i = idx;
-      y[i] = a*x[i]+y[i];
+      y[i] = a * x[i] + y[i];
     });
   });
 
-  g.make_edge(init,compute);
+  g.make_edge(init, compute);
 
   auto executable_graph = g.finalize(q.get_context());
 
