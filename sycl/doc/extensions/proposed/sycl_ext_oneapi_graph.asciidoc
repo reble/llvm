@@ -163,9 +163,9 @@ for example:
 
 [source, c++]
 ----
-queue.begin_recording(graph);
+graph.begin_recording(queue);
 graph.add(/*command group*/);    // Invalid as graph is being recorded to
-queue.end_recording();
+graph.end_recording();
 ----
 
 == Specification
@@ -746,7 +746,7 @@ bool end_recording()
 ----
 
 |Synchronously finishes recording on all queues that are recording to the
-graph and their queue state is set to `queue_state::executing`.
+graph and sets their state to `queue_state::executing`.
 
 Returns: `true` if any queue recording to the graph has its state changed from
 `queue_state::recording` to `queue_state::executing`, `false` otherwise.
@@ -844,8 +844,7 @@ put into a mode where command-groups are recorded to a graph rather than
 submitted immediately for execution.
 
 <<new-queue-member-functions, Three new member functions>> are also added to the
-`sycl::queue` class in this extension as queue shortcuts for
-`handler::exec_graph()`.
+`sycl::queue` class in this extension as queue shortcuts for `handler::graph()`.
 
 ==== Queue State
 
