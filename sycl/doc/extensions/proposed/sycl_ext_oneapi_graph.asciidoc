@@ -745,7 +745,7 @@ using namespace ext::oneapi::experimental;
 bool end_recording()
 ----
 
-|Synchronously finishes recording on all queues that are being recorded to the
+|Synchronously finishes recording on all queues that are recording to the
 graph and their queue state is set to `queue_state::executing`.
 
 Returns: `true` if any queue recording to the graph has its state changed from
