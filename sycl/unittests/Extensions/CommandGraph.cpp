@@ -87,6 +87,7 @@ TEST_F(CommandGraphTest, MakeEdge) {
   auto Node1 = Graph.add([&](sycl::handler &cgh) {});
   auto Node2 = Graph.add([&](sycl::handler &cgh) {});
   ASSERT_TRUE(sycl::detail::getSyclObjImpl(Node1)->MSuccessors.size() == 0);
+  ASSERT_TRUE(sycl::detail::getSyclObjImpl(Node2)->MPredecessors.size() == 0);
 
   Graph.make_edge(Node1, Node2);
 
