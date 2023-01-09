@@ -622,7 +622,8 @@ Exceptions:
 
 Memory that is allocated by the following functions is owned by the specific
 graph. When freed inside the graph, the memory is only accessible before the
-`free` node is executed and after the `malloc` node is executed.
+`free` node is executed and after the `malloc` node is executed. When a `command_graph` contains
+any nodes that allocate memory, only one executable graph object can be alive at the same time.
 
 Table 7. Member functions of the `command_graph` class (memory operations).
 [cols="2a,a"]
@@ -633,7 +634,9 @@ Table 7. Member functions of the `command_graph` class (memory operations).
 [source,c++]
 ----
 using namespace ext::oneapi::experimental;
-node add_malloc_device(void*& data, size_t numBytes, const property_list& propList = {});
+template <typename T>
+node 
+add_malloc(T*& data, size_t count, sycl::usm::alloc kind, const property_list& propList = {});
 ----
 |Adding a node that encapsulates a memory allocation operation.
 
@@ -646,7 +649,9 @@ Parameters:
 
 * `data` - Return parameter set to the address of memory allocated.
 
-* `numBytes` - Size in bytes to allocate.
+* `count` - Number of elements of type `T` to allocate.
+
+* `kind` - Specifies the type of USM to allocate
 
 * `propList` - Zero or more properties can be provided to the constructed node
   via an instance of `property_list`.
@@ -684,6 +689,9 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if a queue is recording
   commands to the graph.
+  
+* Throws synchronously with error code `invalid` if the pointer has already freed
+  or is an invalid address.
 
 |===
 
@@ -948,7 +956,7 @@ there would be no thread safe way for a user to check they could call these
 functions without throwing, as a query about the state of the queue may be
 immediately stale.
 
-=== Storage Lifetimes
+=== Storage Lifetimes and Accessibility
 
 The lifetime of any buffer recorded as part of a submission
 to a command graph will be extended in keeping with the common reference
@@ -956,6 +964,15 @@ semantics and buffer synchronization rules in the SYCL specification. It will be
 extended either for the lifetime of the graph (including both modifiable graphs
 and the executable graphs created from them) or until the buffer is no longer
 required by the graph (such as after being replaced through executable graph update).
+
+USM allocations are accessible from all nodes that are located after the malloc
+and before an (optional) free node. When the execution is in process accessing 
+the memory from anywhere else inside and outside the graph is undefined behavior.
+If the memory is not freed inside a graph, it's the users resposiblity to release 
+the memory. In that case the memory is accessible after the first execution of
+a `command_graph`. When freed inside a graph, all memory is owned by and associated
+to the lifetime of one specific `command_graph<state::executable>` object.
+When the executable graph is executed again the underlying memory might be reused.
 
 === Host Tasks
 
@@ -1018,9 +1035,9 @@ int main() {
   //     |
   //     fx
 
-  auto node_x = g.add_malloc_device(x, n * sizeof(float));
-  auto node_y = g.add_malloc_device(y, n * sizeof(float));
-  auto node_z = g.add_malloc_device(z, n * sizeof(float));
+  auto node_x = g.add_malloc<float>(x, sycl::usm::alloc::device, n);
+  auto node_y = g.add_malloc<float>(y, sycl::usm::alloc::device, n);
+  auto node_z = g.add_malloc<float>(z, sycl::usm::alloc::device, n);
 
   /* init data on the device */
   auto node_i = g.add([&](sycl::handler& h) {
