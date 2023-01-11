@@ -141,10 +141,10 @@ void command_graph<graph_state::modifiable>::make_edge(node sender,
   impl->remove_root(receiver_impl); // remove receiver from root node list
 }
     
-template <>
+template<> template<typename T>
 node command_graph<graph_state::modifiable>::add_malloc(
-    void*& ptr, size_t count, sycl::usm::alloc kind, const std::vector<node> &dep) {
-    auto nodeImpl = impl->add_malloc(impl, ptr, count, kind);
+    T*& ptr, size_t count, sycl::usm::alloc kind, const std::vector<node> &dep) {
+    auto nodeImpl = impl->add_malloc(impl, (void*&)ptr, count*sizeof(T), kind);
     return sycl::detail::createSyclObjFromImpl<node>(nodeImpl);
 }
 

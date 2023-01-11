@@ -67,7 +67,7 @@ struct node_impl {
   template <typename T>
   node_impl(graph_ptr g, T cgf) : MScheduled(false), MGraph(g), MBody(cgf) {}
     
-  // empty or dummy node:
+  // empty node:
   node_impl(graph_ptr g) : MScheduled(false), MGraph(g) {}
 
   // Recursively adding nodes to execution stack:
@@ -106,6 +106,7 @@ struct graph_impl {
   node_ptr add_malloc(graph_ptr impl, void*& ptr, size_t count, sycl::usm::alloc kind, 
                       const std::vector<node_ptr> &dep = {});
     
+  //TODO: Implement free node
   //node_ptr add_free(graph_ptr impl, void* ptr, const std::vector<node_ptr> &dep = {});
 
   graph_impl() : MFirst(true) {}

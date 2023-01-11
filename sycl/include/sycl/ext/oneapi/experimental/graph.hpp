@@ -64,7 +64,8 @@ public:
   }
 
   // Adding USM allocation node:
-  node add_malloc(void*& ptr, size_t count, sycl::usm::alloc kind,
+  template<typename T>
+  node add_malloc(T*& ptr, size_t count, sycl::usm::alloc kind,
                   const std::vector<node> &dep = {});
 
   // Adding dependency between two nodes.

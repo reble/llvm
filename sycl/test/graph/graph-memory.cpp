@@ -18,7 +18,7 @@ int main() {
   float *x;
   //void*& x = vec;
   
-  auto a = g.add_malloc((void*&)x,n,sycl::usm::alloc::shared);
+  auto a = g.add_malloc(x,n,sycl::usm::alloc::shared);
 
   g.add([=](sycl::handler& h){
           h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
