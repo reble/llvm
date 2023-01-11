@@ -638,7 +638,7 @@ template <typename T>
 node 
 add_malloc(T*& data, size_t count, sycl::usm::alloc kind, const property_list& propList = {});
 ----
-|Adding a node that encapsulates a memory allocation operation.
+|Adding a node that encapsulates a USM allocation operation.
 
 Preconditions:
 
@@ -651,7 +651,7 @@ Parameters:
 
 * `count` - Number of elements of type `T` to allocate.
 
-* `kind` - Specifies the type of USM to allocate
+* `kind` - Specifies the type of USM to allocate.
 
 * `propList` - Zero or more properties can be provided to the constructed node
   via an instance of `property_list`.
@@ -690,7 +690,7 @@ Exceptions:
 * Throws synchronously with error code `invalid` if a queue is recording
   commands to the graph.
   
-* Throws synchronously with error code `invalid` if the pointer has already freed
+* Throws synchronously with error code `invalid` if the pointer has already been freed
   or is an invalid address.
 
 |===
@@ -966,13 +966,13 @@ and the executable graphs created from them) or until the buffer is no longer
 required by the graph (such as after being replaced through executable graph update).
 
 USM allocations are accessible from all nodes that are located after the malloc
-and before an (optional) free node. When the execution is in process accessing 
-the memory from anywhere else inside and outside the graph is undefined behavior.
-If the memory is not freed inside a graph, it's the users resposiblity to release 
+and before an (optional) free node. While the graph is being executed accessing 
+the memory from anywhere else inside or outside the graph is undefined behavior.
+If the memory is not freed inside a graph, it's the user's resposiblity to release 
 the memory. In that case the memory is accessible after the first execution of
 a `command_graph`. When freed inside a graph, all memory is owned by and associated
 to the lifetime of one specific `command_graph<state::executable>` object.
-When the executable graph is executed again the underlying memory might be reused.
+When the executable graph is executed again the previously allocated memory may be reused.
 
 === Host Tasks
 
