@@ -462,6 +462,13 @@ public:
   ext::oneapi::experimental::detail::graph_ptr getCommandGraph() const {
     return MGraph;
   }
+  // Sets the flag for if a command graph is currently
+  // submitting to this queue.
+  void setIsGraphSubmitting(bool value) { MIsGraphSubmitting = value; }
+
+  // Get the flag which tells us whether the queue is currently
+  // receiving submissions from a command graph
+  bool getIsGraphSubmitting() const { return MIsGraphSubmitting; }
 
 protected:
   // template is needed for proper unit testing
@@ -650,6 +657,10 @@ private:
   // Command graph which is associated with this queue for the purposes of
   // recording commands to it.
   ext::oneapi::experimental::detail::graph_ptr MGraph;
+  // This flag is set to true if a command_graph is currently submitting
+  // commands to this queue. Used by subgraphs to determine if they are part of
+  // a larger command graph submission.
+  bool MIsGraphSubmitting = false;
 };
 
 } // namespace detail
