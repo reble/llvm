@@ -46,7 +46,7 @@ int main() {
     sycl::buffer yBuf(yData);
     sycl::buffer zBuf(zData);
 
-    q.begin_recording(g);
+    g.begin_recording(q);
 
     /* init data on the device */
     q.submit([&](sycl::handler &h) {
@@ -95,11 +95,11 @@ int main() {
       });
     });
 
-    q.end_recording();
+    g.end_recording();
 
     auto exec_graph = g.finalize(q.get_context());
 
-    q.submit([&](sycl::handler &h) { h.exec_graph(exec_graph); });
+    q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); });
   }
 
   if (dotpData != host_gold_result()) {

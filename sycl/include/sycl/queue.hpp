@@ -1128,19 +1128,6 @@ public:
   /// \return the backend associated with this queue.
   backend get_backend() const noexcept;
 
-public:
-  /// Places the queue into command_graph recording mode.
-  ///
-  /// \return true if the queue was not already in recording mode.
-  bool
-  begin_recording(ext::oneapi::experimental::command_graph<
-                  ext::oneapi::experimental::graph_state::modifiable> &graph);
-
-  /// Ends recording mode on the queue and returns to the normal state.
-  ///
-  /// \return true if the queue was already in recording mode.
-  bool end_recording();
-
 private:
   pi_native_handle getNative() const;
 

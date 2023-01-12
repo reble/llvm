@@ -213,26 +213,6 @@ bool queue::device_has(aspect Aspect) const {
   return impl->getDeviceImplPtr()->has(Aspect);
 }
 
-bool queue::begin_recording(
-    ext::oneapi::experimental::command_graph<
-        ext::oneapi::experimental::graph_state::modifiable> &graph) {
-  using namespace ext::oneapi::experimental;
-  if (!impl->getCommandGraph()) {
-    impl->setCommandGraph(
-        sycl::detail::getSyclObjImpl<command_graph<graph_state::modifiable>>(
-            graph));
-    return true;
-  }
-  return false;
-}
-
-bool queue::end_recording() {
-  if (impl->getCommandGraph()) {
-    impl->setCommandGraph(nullptr);
-    return true;
-  }
-  return false;
-}
 template __SYCL_EXPORT bool
 queue::has_property<ext::oneapi::property::queue::lazy_execution>() const;
 template __SYCL_EXPORT ext::oneapi::property::queue::lazy_execution

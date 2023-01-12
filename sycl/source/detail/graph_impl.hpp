@@ -125,6 +125,26 @@ struct graph_impl {
                const std::vector<node_ptr> &dep = {});
 
   graph_impl() : MFirst(true) {}
+
+  /// Add a queue to the set of queues which are currently recording to this
+  /// graph.
+  void add_queue(sycl::detail::queue_ptr recordingQueue) {
+    MRecordingQueues.insert(recordingQueue);
+  }
+
+  /// Remove a queue from the set of queues which are currently recording to
+  /// this graph.
+  void remove_queue(sycl::detail::queue_ptr recordingQueue) {
+    MRecordingQueues.erase(recordingQueue);
+  }
+
+  /// Remove all queues which are recording to this graph, also sets all queues
+  /// cleared back to the executing state. \return True if any queues were
+  /// removed.
+  bool clear_queues();
+
+private:
+  std::set<sycl::detail::queue_ptr> MRecordingQueues;
 };
 
 } // namespace detail
