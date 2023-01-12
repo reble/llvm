@@ -17,6 +17,7 @@ namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
 class handler;
+class queue;
 namespace ext {
 namespace oneapi {
 namespace experimental {
