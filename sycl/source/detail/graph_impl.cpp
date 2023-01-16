@@ -8,6 +8,7 @@
 
 #include <detail/graph_impl.hpp>
 #include <detail/queue_impl.hpp>
+#include <sycl/queue.hpp>
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
@@ -121,6 +122,17 @@ node_ptr graph_impl::add(graph_ptr impl, T cgf,
   return nodeImpl;
 }
 
+bool graph_impl::clear_queues() {
+  bool anyQueuesCleared = false;
+  for (auto &q : MRecordingQueues) {
+    q->setCommandGraph(nullptr);
+    anyQueuesCleared = true;
+  }
+  MRecordingQueues.clear();
+
+  return anyQueuesCleared;
+}
+
 void node_impl::exec(sycl::detail::queue_ptr q) {
   std::vector<sycl::event> deps;
   for (auto i : MPredecessors)
@@ -162,6 +174,65 @@ command_graph<graph_state::executable>
 command_graph<graph_state::modifiable>::finalize(
     const sycl::context &ctx) const {
   return command_graph<graph_state::executable>{this->impl, ctx};
+}
+
+template <>
+bool command_graph<graph_state::modifiable>::begin_recording(
+    queue recordingQueue) {
+  auto queueImpl = sycl::detail::getSyclObjImpl(recordingQueue);
+  if (queueImpl->getCommandGraph() == nullptr) {
+    queueImpl->setCommandGraph(impl);
+    impl->add_queue(queueImpl);
+    return true;
+  } else if (queueImpl->getCommandGraph() != impl) {
+    throw sycl::exception(make_error_code(errc::invalid),
+                          "begin_recording called for a queue which is already "
+                          "recording to a different graph.");
+  }
+
+  // Queue was already recording to this graph.
+  return false;
+}
+
+template <>
+bool command_graph<graph_state::modifiable>::begin_recording(
+    const std::vector<queue> &recordingQueues) {
+  bool queueStateChanged = false;
+  for (auto &q : recordingQueues) {
+    queueStateChanged |= this->begin_recording(q);
+  }
+  return queueStateChanged;
+}
+
+template <> bool command_graph<graph_state::modifiable>::end_recording() {
+  return impl->clear_queues();
+}
+
+template <>
+bool command_graph<graph_state::modifiable>::end_recording(
+    queue recordingQueue) {
+  auto queueImpl = sycl::detail::getSyclObjImpl(recordingQueue);
+  if (queueImpl->getCommandGraph() == impl) {
+    queueImpl->setCommandGraph(nullptr);
+    impl->remove_queue(queueImpl);
+    return true;
+  } else if (queueImpl->getCommandGraph() != nullptr) {
+    throw sycl::exception(make_error_code(errc::invalid),
+                          "end_recording called for a queue which is recording "
+                          "to a different graph.");
+  }
+
+  // Queue was not recording to a graph.
+  return false;
+}
+template <>
+bool command_graph<graph_state::modifiable>::end_recording(
+    const std::vector<queue> &recordingQueues) {
+  bool queueStateChanged = false;
+  for (auto &q : recordingQueues) {
+    queueStateChanged |= this->end_recording(q);
+  }
+  return queueStateChanged;
 }
 
 } // namespace experimental

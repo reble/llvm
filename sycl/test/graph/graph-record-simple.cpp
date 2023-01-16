@@ -14,12 +14,13 @@ int main() {
       sycl::ext::oneapi::property::queue::lazy_execution{}};
 
   sycl::queue q{sycl::default_selector_v, properties};
+  sycl::queue q2;
 
   sycl::ext::oneapi::experimental::command_graph g;
 
   float *arr = sycl::malloc_shared<float>(n, q);
 
-  q.begin_recording(g);
+  g.begin_recording(q);
 
   q.submit([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
@@ -28,11 +29,12 @@ int main() {
     });
   });
 
-  q.end_recording();
+  g.end_recording(q);
+  g.end_recording(q2);
 
   auto exec_graph = g.finalize(q.get_context());
 
-  q.submit([&](sycl::handler &h){h.exec_graph(exec_graph);});
+  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); });
 
   int errors = 0;
   // Verify results

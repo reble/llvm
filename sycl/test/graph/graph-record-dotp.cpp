@@ -40,7 +40,7 @@ int main() {
   float *y = sycl::malloc_shared<float>(n, q);
   float *z = sycl::malloc_shared<float>(n, q);
 
-  q.begin_recording(g);
+  g.begin_recording(q);
 
   /* init data on the device */
   q.submit([&](sycl::handler &h) {
@@ -79,11 +79,11 @@ int main() {
     });
   });
 
-  q.end_recording();
+  g.end_recording();
 
   auto exec_graph = g.finalize(q.get_context());
 
-  q.submit([&](sycl::handler &h) { h.exec_graph(exec_graph); });
+  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); });
 
   if (dotp[0] != host_gold_result()) {
     std::cout << "Error unexpected result!\n";
