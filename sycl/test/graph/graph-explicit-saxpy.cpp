@@ -38,9 +38,7 @@ int main() {
 
   auto executable_graph = g.finalize(q.get_context());
 
-  q.submit([&](sycl::handler &h) { h.exec_graph(executable_graph); });
-
-  auto result = y[0];
+  q.submit([&](sycl::handler &h) { h.exec_graph(executable_graph); }).wait();
 
   sycl::free(x, q);
   sycl::free(y, q);
