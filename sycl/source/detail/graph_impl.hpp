@@ -81,12 +81,18 @@ struct node_impl {
       schedule.push_front(node_ptr(this));
   }
 };
+  struct usm_mem_info {
+    void*& data;
+    size_t size;
+    sycl::usm::alloc kind;
+    usm_mem_info(void*& d, size_t s, sycl::usm::alloc k) : data(d), size(s), kind(k) {}
+  };
 
 struct graph_impl {
   std::set<node_ptr> MRoots;
   std::list<node_ptr> MSchedule;
   // TODO: Integrate allocs into the graph
-  std::list<std::tuple<void*&,size_t,usm::alloc>> MAllocs;
+  std::list<usm_mem_info> MAllocs;
   // TODO: Change one time initialization to per executable object
   bool MFirst;
 

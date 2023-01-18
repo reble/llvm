@@ -101,7 +101,7 @@ node_ptr graph_impl::add_malloc(graph_ptr impl,
     // TODO: Do alloc within the graph execution.
     // For now return dummy node without any dependencies
     node_ptr nodeImpl = std::make_shared<node_impl>(impl);
-    MAllocs.push_back(std::tie(ptr,count,kind));
+    MAllocs.emplace_back(usm_mem_info{ptr,count,kind});
     return nodeImpl;
 }
 
