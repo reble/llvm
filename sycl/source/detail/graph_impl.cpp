@@ -25,13 +25,11 @@ namespace experimental {
 namespace detail {
 
 void graph_impl::exec(sycl::detail::queue_ptr q) {
-  for(auto i:MAllocs) {
-    auto Size = std::get<1>(i);
-    auto Kind = std::get<2>(i);
+  for(auto alloc:MAllocs) {
     auto Ctxt = q->get_context();
     auto Dev = q->get_device();
-    std::get<0>(i) = sycl::aligned_alloc(0, Size, Dev, Ctxt, Kind,
-                                        sycl::property_list{});
+    alloc.data = sycl::aligned_alloc(0, alloc.size, Dev, Ctxt, alloc.kind,
+                                     sycl::property_list{});
   }
   if (MSchedule.empty()) {
     for (auto n : MRoots) {
