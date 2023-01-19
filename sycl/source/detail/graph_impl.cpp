@@ -33,11 +33,18 @@ void graph_impl::exec(sycl::detail::queue_ptr q) {
 }
 
 void graph_impl::exec_and_wait(sycl::detail::queue_ptr q) {
+  bool isSubGraph = q->getIsGraphSubmitting();
+  if (!isSubGraph) {
+    q->setIsGraphSubmitting(true);
+  }
   if (MFirst) {
     exec(q);
     MFirst = false;
   }
-  q->wait();
+  if (!isSubGraph) {
+    q->setIsGraphSubmitting(false);
+    q->wait();
+  }
 }
 
 void graph_impl::add_root(node_ptr n) {
@@ -81,7 +88,8 @@ void node_impl::exec(sycl::detail::queue_ptr q) {
 } // namespace detail
 
 template <>
-command_graph<graph_state::modifiable>::command_graph()
+command_graph<graph_state::modifiable>::command_graph(
+    const sycl::property_list &)
     : impl(std::make_shared<detail::graph_impl>()) {}
 
 template <>
@@ -109,7 +117,7 @@ void command_graph<graph_state::modifiable>::make_edge(node sender,
 template <>
 command_graph<graph_state::executable>
 command_graph<graph_state::modifiable>::finalize(
-    const sycl::context &ctx) const {
+    const sycl::context &ctx, const sycl::property_list &) const {
   return command_graph<graph_state::executable>{this->impl, ctx};
 }
 

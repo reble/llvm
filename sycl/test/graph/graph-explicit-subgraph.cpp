@@ -1,4 +1,7 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+
+// Modified version of the dotp example which submits part of the graph as a
+// sub-graph
 #include <CL/sycl.hpp>
 #include <iostream>
 
@@ -32,6 +35,7 @@ int main() {
   sycl::queue q{sycl::gpu_selector_v, properties};
 
   sycl::ext::oneapi::experimental::command_graph g;
+  sycl::ext::oneapi::experimental::command_graph subGraph;
 
   float *dotp = sycl::malloc_shared<float>(1, q);
 
@@ -49,23 +53,24 @@ int main() {
     });
   });
 
-  auto node_a = g.add(
-      [&](sycl::handler &h) {
-        h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
-          const size_t i = it[0];
-          x[i] = alpha * x[i] + beta * y[i];
-        });
-      },
-      {n_i});
+  auto node_a = subGraph.add([&](sycl::handler &h) {
+    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
+      const size_t i = it[0];
+      x[i] = alpha * x[i] + beta * y[i];
+    });
+  });
 
-  auto node_b = g.add(
-      [&](sycl::handler &h) {
-        h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
-          const size_t i = it[0];
-          z[i] = gamma * z[i] + beta * y[i];
-        });
-      },
-      {n_i});
+  auto node_b = subGraph.add([&](sycl::handler &h) {
+    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
+      const size_t i = it[0];
+      z[i] = gamma * z[i] + beta * y[i];
+    });
+  });
+
+  auto subGraphExec = subGraph.finalize(q.get_context());
+
+  auto node_sub =
+      g.add([&](sycl::handler &h) { h.exec_graph(subGraphExec); }, {n_i});
 
   auto node_c = g.add(
       [&](sycl::handler &h) {
@@ -76,12 +81,12 @@ int main() {
                          sum += x[i] * z[i];
                        });
       },
-      {node_a, node_b});
+      {node_sub});
 
   auto executable_graph = g.finalize(q.get_context());
 
   // Using shortcut for executing a graph of commands
-  q.ext_oneapi_graph(executable_graph).wait();
+  q.exec_graph(executable_graph).wait();
 
   if (*dotp != host_gold_result()) {
     std::cout << "Error unexpected result!\n";
