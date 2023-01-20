@@ -23,7 +23,7 @@ int main() {
   g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
       size_t i = idx;
-      arr[i] = 1;
+      arr[i] += 1;
     });
   });
 
@@ -47,10 +47,19 @@ int main() {
       check = false;
   }
 
+  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); });
+
+  for (int i = 0; i < n; i++) {
+    if (arr[i] != 2)
+      check = false;
+  }
+
   if (check)
-    std::cout << "Single node explicit graph test passed." << std::endl;
+    std::cout << "Repeated execution of an explicit graph test passed."
+              << std::endl;
   else
-    std::cout << "Single node explicit graph test failed." << std::endl;
+    std::cout << "Repeated execution of an explicit graph test failed."
+              << std::endl;
 
   sycl::free(arr, q);
 

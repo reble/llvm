@@ -40,10 +40,19 @@ int main() {
 
   q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); }).wait();
 
+  bool check = true;
+  for (int i = 0; i < n; i++) {
+    if (y[i] != 5.0f)
+      check = false;
+  }
+
+  if (check)
+    std::cout << "SAXPY explicit graph test passed." << std::endl;
+  else
+    std::cout << "SAXPY explicit graph test failed." << std::endl;
+
   sycl::free(x, q);
   sycl::free(y, q);
-
-  std::cout << "done.\n";
 
   return 0;
 }

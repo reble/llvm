@@ -70,7 +70,7 @@ int main() {
   auto subGraphExec = subGraph.finalize(q.get_context());
 
   auto node_sub =
-      g.add([&](sycl::handler &h) { h.exec_graph(subGraphExec); }, {n_i});
+      g.add([&](sycl::handler &h) { h.ext_oneapi_graph(subGraphExec); }, {n_i});
 
   auto node_c = g.add(
       [&](sycl::handler &h) {
@@ -86,18 +86,17 @@ int main() {
   auto executable_graph = g.finalize(q.get_context());
 
   // Using shortcut for executing a graph of commands
-  q.exec_graph(executable_graph).wait();
+  q.ext_oneapi_graph(executable_graph).wait();
 
-  if (*dotp != host_gold_result()) {
-    std::cout << "Error unexpected result!\n";
-  }
+  if (*dotp == host_gold_result())
+    std::cout << "Subgraph explicit graph test passed." << std::endl;
+  else
+    std::cout << "Subgraph explicit graph test failed." << std::endl;
 
   sycl::free(dotp, q);
   sycl::free(x, q);
   sycl::free(y, q);
   sycl::free(z, q);
-
-  std::cout << "done.\n";
 
   return 0;
 }
