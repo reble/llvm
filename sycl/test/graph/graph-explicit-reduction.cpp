@@ -26,7 +26,8 @@ int main() {
                    [=](sycl::id<1> idx, auto &sum) { sum += input[idx]; });
   });
 
-  e.wait();
+  auto executable_graph = g.finalize(q.get_context());
+  q.ext_oneapi_graph(executable_graph).wait();
 
   if (*output == 45)
     std::cout << "Reduction explicit graph test passed." << std::endl;
