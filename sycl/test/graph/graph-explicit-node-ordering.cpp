@@ -1,0 +1,62 @@
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+#include <sycl/sycl.hpp>
+#include <iostream>
+
+#include <sycl/ext/oneapi/experimental/graph.hpp>
+
+int main() {
+
+  sycl::property_list properties{
+      sycl::property::queue::in_order{},
+      sycl::ext::oneapi::property::queue::lazy_execution{}};
+
+  sycl::queue q{sycl::gpu_selector_v, properties};
+
+  sycl::ext::oneapi::experimental::command_graph g;
+
+  const size_t n = 10;
+  float *x = sycl::malloc_shared<float>(n, q);
+
+  auto init = g.add([&](sycl::handler &h) {
+    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
+      size_t i = idx;
+      x[i] = 2.0f;
+    });
+  });
+
+  auto add = g.add([&](sycl::handler &h) {
+    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
+      size_t i = idx;
+      x[i] += 2.0f;
+    });
+  });
+
+  auto mult = g.add([&](sycl::handler &h) {
+    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
+      size_t i = idx;
+      x[i] *= 3.0f;
+    });
+  });
+
+  g.make_edge(init, mult);
+  g.make_edge(mult, add);
+
+  auto executable_graph = g.finalize(q.get_context());
+
+  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); }).wait();
+
+  bool check = true;
+  for (int i = 0; i < n; i++) {
+    if (x[i] != 8.0f)
+      check = false;
+  }
+
+  if (check)
+    std::cout << "Node ordering explicit graph test passed." << std::endl;
+  else
+    std::cout << "Node ordering explicit graph test failed." << std::endl;
+
+  sycl::free(x, q);
+
+  return 0;
+}
