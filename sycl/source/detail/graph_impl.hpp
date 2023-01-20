@@ -142,7 +142,9 @@ struct graph_impl {
   std::set<std::shared_ptr<node_impl>> MRoots;
   std::list<std::shared_ptr<node_impl>> MSchedule;
   // TODO: Change one time initialization to per executable object
+#if SYCL_EXT_ONEAPI_GRAPH
   bool MFirst;
+#endif
 
   std::shared_ptr<graph_impl> MParent;
 
@@ -169,7 +171,11 @@ struct graph_impl {
       const std::vector<sycl::detail::ArgDesc> &Args,
       const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
+#if SYCL_EXT_ONEAPI_GRAPH
   graph_impl() : MFirst(true) {}
+#else
+  graph_impl() {}
+#endif
 
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.

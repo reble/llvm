@@ -35,13 +35,17 @@ void graph_impl::exec_and_wait(
   if (!IsSubGraph) {
     Queue->setIsGraphSubmitting(true);
   }
+#if SYCL_EXT_ONEAPI_GRAPH
   if (MFirst) {
     exec(Queue);
     MFirst = false;
   }
-  if (!IsSubGraph) {
-    Queue->setIsGraphSubmitting(false);
-    Queue->wait();
+#else
+  exec(q);
+#endif
+  if (!isSubGraph) {
+    q->setIsGraphSubmitting(false);
+    q->wait();
   }
 }
 

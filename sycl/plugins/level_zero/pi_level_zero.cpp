@@ -1306,7 +1306,8 @@ pi_result resetCommandLists(pi_queue Queue) {
 pi_result _pi_context::getAvailableCommandList(
     pi_queue Queue, pi_command_list_ptr_t &CommandList, bool UseCopyEngine,
     bool AllowBatching, ze_command_queue_handle_t *ForcedCmdQueue) {
-    
+
+#if SYCL_EXT_ONEAPI_GRAPH
   // This is a hack. TODO: Proper CommandList allocation per Executable Graph.
   if( Queue->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION ) {
     // TODO: Create new Command List.
@@ -1346,6 +1347,7 @@ pi_result _pi_context::getAvailableCommandList(
     }
     return PI_SUCCESS;
   }
+#endif
     
   // Immediate commandlists have been pre-allocated and are always available.
   if (Queue->Device->useImmediateCommandLists()) {
@@ -1587,8 +1589,10 @@ pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
                                         bool OKToBatchCommand) {
   // When executing a Graph, defer execution if this is a command
   // which could be batched (i.e. likely a kernel submission)
+#if SYCL_EXT_ONEAPI_GRAPH
   if (this->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION && OKToBatchCommand)
     return PI_SUCCESS;
+#endif
 
   bool UseCopyEngine = CommandList->second.isCopy(this);
 
@@ -3830,6 +3834,7 @@ pi_result piQueueFinish(pi_queue Queue) {
 // Flushing cross-queue dependencies is covered by createAndRetainPiZeEventList,
 // so this can be left as a no-op.
 pi_result piQueueFlush(pi_queue Queue) {
+#if SYCL_EXT_ONEAPI_GRAPH
   if( Queue->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION ) {
 
     pi_command_list_ptr_t CommandList{};
@@ -3838,6 +3843,9 @@ pi_result piQueueFlush(pi_queue Queue) {
 
     Queue->executeCommandList(CommandList, false, false);
   }
+#else
+  (void)Queue;
+#endif
   return PI_SUCCESS;
 }
 
