@@ -1070,6 +1070,15 @@ device at once.
 Host tasks can be updated as part of <<executable-graph-update, executable graph update>>
 by replacing the whole node with the new callable.
 
+=== Command Group Function Evaluation
+
+Host code within a command group function object is evaluated once either when
+submitting a command to a queue in recording mode or when adding a node to a
+graph explicitly. This behaviour is in keeping with the SYCL 2020 specification
+but may have implications for command group functions containing arbitrary host
+code. This could affect the behaviour of captured code due to the delayed
+execution of commands.
+
 == Examples
 
 [NOTE]
