@@ -1064,14 +1064,17 @@ code which relies on the copy-back on destruction behaviour of buffers.
 Typically applications would rely on this behaviour to do work on the host which
 cannot inherently be captured inside a command graph. Thus when recording to a graph
 it is an error to submit a command which has an accessor on a buffer which would
-cause a write-back to happen.
+cause a write-back to happen. Using an incompatible buffer in this will result
+in a synchronous error being thrown with error code `invalid`.
 
 The copy-back mechanism can be disabled explicitly for buffers with attached host
 storage using either `buffer::set_final_data(nullptr)` or
 `buffer::set_copy_back(false)`.
 
 It is also an error to create a host accessor to a buffer which is used in
-commands which are currently being recorded to a command graph.
+commands which are currently being recorded to a command graph. Attempting to
+construct a host accessor to an incompatible buffer will result in a
+synchronous error being thrown with error code `invalid`.
 
 === Host Tasks
 
