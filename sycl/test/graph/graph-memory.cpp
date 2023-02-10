@@ -16,7 +16,6 @@ int main() {
 
   const size_t n = 1000;
   float *x;
-  //void*& x = vec;
   
   auto a = g.add_malloc(x,n,sycl::usm::alloc::shared);
 
@@ -29,14 +28,13 @@ int main() {
 
   auto executable_graph = g.finalize(q.get_context());
 
-  q.submit([&](sycl::handler &h) { h.exec_graph(executable_graph); });
+  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); }).wait();
 
   float v = 2.0f;
-  //auto vec = static_cast<float*>(x);
   x[0] = v;
   auto result = x[0];
 
-  //sycl::free(x, q);
+  sycl::free(x, q);
 
   std::cout << "done.\n";
 

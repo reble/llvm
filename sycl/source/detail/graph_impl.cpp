@@ -104,7 +104,7 @@ node_ptr graph_impl::add_malloc(graph_ptr impl,
                                 void*& ptr, size_t count, 
                                 sycl::usm::alloc kind, const std::vector<node_ptr> &dep) {
     // TODO: Do alloc within the graph execution.
-    // For now return dummy node without any dependencies
+    // For now return empty node without any dependencies
     node_ptr nodeImpl = std::make_shared<node_impl>(impl);
     MAllocs.emplace_back(usm_mem_info{ptr,count,kind});
     return nodeImpl;
@@ -147,10 +147,11 @@ void command_graph<graph_state::modifiable>::make_edge(node sender,
   impl->remove_root(receiver_impl); // remove receiver from root node list
 }
     
-template<> template<typename T>
-node command_graph<graph_state::modifiable>::add_malloc(
-    T*& ptr, size_t count, sycl::usm::alloc kind, const std::vector<node> &dep) {
-    auto nodeImpl = impl->add_malloc(impl, (void*&)ptr, count*sizeof(T), kind);
+template<> 
+//template<typename T>
+node command_graph<graph_state::modifiable>::add_malloc_impl(
+    void*& ptr, size_t n, sycl::usm::alloc kind, const std::vector<node> &dep) {
+    auto nodeImpl = impl->add_malloc(impl, ptr, n, kind);
     return sycl::detail::createSyclObjFromImpl<node>(nodeImpl);
 }
 

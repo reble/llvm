@@ -68,7 +68,9 @@ public:
   // Adding USM allocation node:
   template<typename T>
   node add_malloc(T*& ptr, size_t count, sycl::usm::alloc kind,
-                  const std::vector<node> &dep = {});
+                  const std::vector<node> &dep = {}) {
+    return add_malloc_impl((void*&)ptr, count * sizeof(T), kind, dep);
+  }
 
   // Adding dependency between two nodes.
   void make_edge(node sender, node receiver);
@@ -83,6 +85,8 @@ private:
   // Template-less implementation of add()
   node add_impl(std::function<void(handler &)> cgf,
                 const std::vector<node> &dep);
+    
+  node add_malloc_impl(void*& ptr, size_t n, sycl::usm::alloc kind, const std::vector<node> &dep);
 
   template <class Obj>
   friend decltype(Obj::impl)
