@@ -10,6 +10,14 @@
 // {
 //     ptr[0] += 1;
 // }
+// Generated with the following commands (assuming above kernel is in test.cl):
+// # Generate the LLVM-IR
+// $ clang -c -emit-llvm -target spir64-unknown-unknown -cl-std=CL1.2 -Xclang
+// -finclude-default-header -O0 -o test.bc64 test.cl
+// # Generate SPIR-V binary from LLVM-IR
+// $ llvm-spirv test.bc64 -o test.spv
+// # Convert SPIR-V binary to C header
+// $ xxd -i test.spv > out.h
 //===----------------------------------------------------------------------===//
 
 unsigned char SpvSource[] = {

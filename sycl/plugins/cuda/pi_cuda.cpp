@@ -5314,23 +5314,23 @@ pi_result
 cuda_piextCommandBufferCreate(pi_context context, pi_device device,
                               const pi_ext_command_buffer_desc *desc,
                               pi_ext_command_buffer *ret_command_buffer) {
-  sycl::detail::pi::die("Command Buffer API not implemented in CUDA backend");
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
   return {};
 }
 
 pi_result cuda_piextCommandBufferRetain(pi_ext_command_buffer command_buffer) {
-  sycl::detail::pi::die("Command Buffer API not implemented in CUDA backend");
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
   return {};
 }
 
 pi_result cuda_piextCommandBufferRelease(pi_ext_command_buffer command_buffer) {
-  sycl::detail::pi::die("Command Buffer API not implemented in CUDA backend");
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
   return {};
 }
 
 pi_result
 cuda_piextCommandBufferFinalize(pi_ext_command_buffer command_buffer) {
-  sycl::detail::pi::die("Command Buffer API not implemented in CUDA backend");
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
   return {};
 }
 
@@ -5340,7 +5340,7 @@ pi_result cuda_piextCommandBufferNDRangeKernel(
     const size_t *local_work_size, pi_uint32 num_sync_points_in_wait_list,
     const pi_ext_sync_point *sync_point_wait_list,
     pi_ext_sync_point *sync_point) {
-  sycl::detail::pi::die("Command Buffer API not implemented in CUDA backend");
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
   return {};
 }
 
@@ -5349,7 +5349,7 @@ pi_result cuda_piextEnqueueCommandBuffer(pi_ext_command_buffer command_buffer,
                                          pi_uint32 num_events_in_wait_list,
                                          const pi_event *event_wait_list,
                                          pi_event *event) {
-  sycl::detail::pi::die("Command Buffer API not implemented in CUDA backend");
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
   return {};
 }
 
@@ -5501,7 +5501,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextUSMEnqueueMemAdvise, cuda_piextUSMEnqueueMemAdvise)
   _PI_CL(piextUSMGetMemAllocInfo, cuda_piextUSMGetMemAllocInfo)
 
-  // Command Buffer
+  // command-buffer
   _PI_CL(piextCommandBufferCreate, cuda_piextCommandBufferCreate)
   _PI_CL(piextCommandBufferRetain, cuda_piextCommandBufferRetain)
   _PI_CL(piextCommandBufferRelease, cuda_piextCommandBufferRelease)

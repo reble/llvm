@@ -8989,7 +8989,7 @@ pi_result _pi_buffer::free() {
   return PI_SUCCESS;
 }
 
-/// Command Buffer Extension
+/// command-buffer Extension
 
 pi_result piextCommandBufferCreate(pi_context Context, pi_device Device,
                                    const pi_ext_command_buffer_desc *Desc,
@@ -9034,7 +9034,7 @@ pi_result piextCommandBufferRelease(pi_ext_command_buffer CommandBuffer) {
 }
 
 pi_result piextCommandBufferFinalize(pi_ext_command_buffer CommandBuffer) {
-  // We need to append some signal that will indicate that command buffer has
+  // We need to append some signal that will indicate that command-buffer has
   // finished executing.
   EventCreate(CommandBuffer->Context, nullptr, true,
               &CommandBuffer->ExecutionEvent);
@@ -9165,7 +9165,7 @@ pi_result piextEnqueueCommandBuffer(pi_ext_command_buffer CommandBuffer,
 
   CommandListPtr->second.ZeFenceInUse = true;
 
-  // Return the command buffer's execution event as the user visible pi_event
+  // Return the command-buffer's execution event as the user visible pi_event
   *Event = CommandBuffer->ExecutionEvent;
   (*Event)->Queue = Queue;
   (*Event)->RefCount.increment();
@@ -9186,6 +9186,14 @@ _pi_ext_command_buffer::_pi_ext_command_buffer(
     : Context(Context), ZeCommandList(CommandList), ZeCommandListDesc(ZeDesc),
       CommandBufferDesc(*Desc) {
   Context->RefCount.increment();
+}
+
+_pi_ext_command_buffer::~_pi_ext_command_buffer() {
+  if (ZeCommandList) {
+    ZE_CALL_NOCHECK(zeCommandListDestroy, (ZeCommandList));
+  }
+  ExecutionEvent->RefCount.decrementAndTest();
+  Context->RefCount.decrementAndTest();
 }
 
 } // extern "C"

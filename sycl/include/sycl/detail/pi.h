@@ -53,9 +53,10 @@
 // 10.14 Add PI_EXT_INTEL_DEVICE_INFO_FREE_MEMORY as an extension for
 // piDeviceGetInfo.
 // 10.15 Add new PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION queue property
+// 10.16 Add command-buffer extension methods
 
 #define _PI_H_VERSION_MAJOR 10
-#define _PI_H_VERSION_MINOR 15
+#define _PI_H_VERSION_MINOR 16
 
 #define _PI_STRING_HELPER(a) #a
 #define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
@@ -1807,12 +1808,12 @@ struct pi_ext_command_buffer_desc final {
   pi_queue_properties *properties;
 };
 
-/// API to create a command buffer.
-/// \param context The context to associate the command buffer with.
-/// \param device The device to associate the command buffer with.
-/// \param desc Descriptor for the new command buffer.
+/// API to create a command-buffer.
+/// \param context The context to associate the command-buffer with.
+/// \param device The device to associate the command-buffer with.
+/// \param desc Descriptor for the new command-buffer.
 /// \param ret_command_buffer Pointer to fill with the address of the new
-/// command buffer.
+/// command-buffer.
 __SYCL_EXPORT pi_result
 piextCommandBufferCreate(pi_context context, pi_device device,
                          const pi_ext_command_buffer_desc *desc,
@@ -1836,8 +1837,8 @@ piextCommandBufferRelease(pi_ext_command_buffer command_buffer);
 __SYCL_EXPORT pi_result
 piextCommandBufferFinalize(pi_ext_command_buffer command_buffer);
 
-/// API to append a kernel execution command to the command buffer.
-/// \param command_buffer The command buffer to append onto.
+/// API to append a kernel execution command to the command-buffer.
+/// \param command_buffer The command-buffer to append onto.
 /// \param kernel The kernel to append.
 /// \param work_dim Dimension of the kernel execution.
 /// \param global_work_offset Offset to use when executing kernel.
@@ -1858,7 +1859,7 @@ __SYCL_EXPORT pi_result piextCommandBufferNDRangeKernel(
 /// API to submit the command-buffer to queue for execution, returns an error if
 /// command-buffer not finalized or another instance of same command-buffer
 /// currently executing.
-/// \param command_buffer The command buffer to be submitted.
+/// \param command_buffer The command-buffer to be submitted.
 /// \param queue The PI queue to submit on.
 /// \param num_events_in_wait_list The number of events that this execution
 /// depends on.

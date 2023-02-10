@@ -1412,7 +1412,7 @@ pi_result piextKernelGetNativeHandle(pi_kernel kernel,
   return piextGetNativeHandle(kernel, nativeHandle);
 }
 
-// Command Buffer extension
+// command-buffer extension
 pi_result piextCommandBufferCreate(pi_context context, pi_device device,
                                    const pi_ext_command_buffer_desc *desc,
                                    pi_ext_command_buffer *ret_command_buffer) {
@@ -1591,7 +1591,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextUSMEnqueueMemAdvise, piextUSMEnqueueMemAdvise)
   _PI_CL(piextUSMGetMemAllocInfo, piextUSMGetMemAllocInfo)
 
-  // Command Buffer
+  // command-buffer
   _PI_CL(piextCommandBufferCreate, piextCommandBufferCreate)
   _PI_CL(piextCommandBufferRetain, piextCommandBufferRetain)
   _PI_CL(piextCommandBufferRelease, piextCommandBufferRelease)

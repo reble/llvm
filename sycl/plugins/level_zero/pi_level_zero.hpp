@@ -1614,7 +1614,7 @@ struct _pi_ext_command_buffer : _pi_object {
                          ZeStruct<ze_command_list_desc_t> ZeDesc,
                          const pi_ext_command_buffer_desc *Desc);
 
-  ~_pi_ext_command_buffer() { Context->RefCount.decrementAndTest(); }
+  ~_pi_ext_command_buffer();
 
   void RegisterSyncPoint(pi_ext_sync_point SyncPoint, pi_event Event) {
     SyncPoints[SyncPoint] = Event;
@@ -1623,13 +1623,14 @@ struct _pi_ext_command_buffer : _pi_object {
 
   pi_ext_sync_point GetNextSyncPoint() const { return NextSyncPoint; }
 
-  // PI context associated with this command buffer
+  // PI context associated with this command-buffer
   pi_context Context;
   // Level Zero command list handle
   ze_command_list_handle_t ZeCommandList;
   // Level Zero command list descriptor
   ZeStruct<ze_command_list_desc_t> ZeCommandListDesc;
-  // Command buffer descriptor
+  // Command buffer descriptor (TODO: Is it safe to store this? It contains
+  // pointers to host objects potentially)
   pi_ext_command_buffer_desc CommandBufferDesc;
   // Map of sync_points to pi_events
   std::unordered_map<pi_ext_sync_point, pi_event> SyncPoints;
@@ -1639,7 +1640,7 @@ struct _pi_ext_command_buffer : _pi_object {
   // Command list map so we can use queue::executeCommandList, TODO: Remove in
   // future if possible
   pi_command_list_map_t CommandListMap;
-  // Event which will signal the execution of the command buffer has finished
+  // Event which will signal the execution of the command-buffer has finished
   pi_event ExecutionEvent;
 };
 

@@ -69,22 +69,37 @@ protected:
     EXPECT_NE(Context, nullptr);
   }
 
+  void TearDown() override {
+    if (Plugin.has_value()) {
+      Plugin->call<detail::PiApiKind::piQueueRelease>(Queue);
+      Plugin->call<detail::PiApiKind::piDeviceRelease>(Device);
+      Plugin->call<detail::PiApiKind::piContextRelease>(Context);
+    }
+  }
+
   LevelZeroCommandBuffersTest() = default;
 
   ~LevelZeroCommandBuffersTest() = default;
 };
 
 TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferCreate) {
-  // Create command buffer
+  // Create command-buffer
   pi_ext_command_buffer CommandBuffer = nullptr;
-  pi_ext_command_buffer_desc CommandBufferDesc;
+  pi_ext_command_buffer_desc CommandBufferDesc = {
+      PI_EXT_STRUCTURE_TYPE_COMMAND_BUFFER_DESC, nullptr, nullptr};
   ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferCreate>(
                 Context, Device, &CommandBufferDesc, &CommandBuffer)),
+            PI_SUCCESS);
+
+  ASSERT_NE(CommandBuffer, nullptr);
+
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferRelease>(
+                CommandBuffer)),
             PI_SUCCESS);
 }
 
 TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferReleaseRetain) {
-  // Create command buffer
+  // Create command-buffer
   pi_ext_command_buffer CommandBuffer = nullptr;
   pi_ext_command_buffer_desc CommandBufferDesc;
   ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferCreate>(
@@ -104,7 +119,7 @@ TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferReleaseRetain) {
 }
 
 TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferFinalize) {
-  // Create command buffer
+  // Create command-buffer
   pi_ext_command_buffer CommandBuffer = nullptr;
   pi_ext_command_buffer_desc CommandBufferDesc;
   ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferCreate>(
@@ -114,6 +129,10 @@ TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferFinalize) {
       (Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferFinalize>(
           CommandBuffer)),
       PI_SUCCESS);
+
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferRelease>(
+                CommandBuffer)),
+            PI_SUCCESS);
 }
 
 TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferEnqueue) {
@@ -136,7 +155,7 @@ TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferEnqueue) {
       (Plugin->call_nocheck<detail::PiApiKind::piEventsWait>(1, &WriteEvent)),
       PI_SUCCESS);
 
-  // Create command buffer
+  // Create command-buffer
   pi_ext_command_buffer CommandBuffer = nullptr;
   pi_ext_command_buffer_desc CommandBufferDesc;
   ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferCreate>(
@@ -155,13 +174,15 @@ TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferEnqueue) {
 
   size_t KernelNameSize;
 
-  Plugin->call_nocheck<detail::PiApiKind::piProgramGetInfo>(
-      Prog, pi_program_info::PI_PROGRAM_INFO_KERNEL_NAMES, 0, nullptr,
-      &KernelNameSize);
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piProgramGetInfo>(
+                Prog, pi_program_info::PI_PROGRAM_INFO_KERNEL_NAMES, 0, nullptr,
+                &KernelNameSize)),
+            PI_SUCCESS);
   std::vector<char> KernelNames(KernelNameSize);
-  Plugin->call_nocheck<detail::PiApiKind::piProgramGetInfo>(
-      Prog, pi_program_info::PI_PROGRAM_INFO_KERNEL_NAMES, KernelNameSize,
-      KernelNames.data(), nullptr);
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piProgramGetInfo>(
+                Prog, pi_program_info::PI_PROGRAM_INFO_KERNEL_NAMES,
+                KernelNameSize, KernelNames.data(), nullptr)),
+            PI_SUCCESS);
   std::string KernelNameStr(KernelNames.data());
 
   pi_kernel Kernel;
@@ -215,6 +236,10 @@ TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferEnqueue) {
 
   ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piMemRelease>(MemObj)),
             PI_SUCCESS);
+
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferRelease>(
+                CommandBuffer)),
+            PI_SUCCESS);
 }
 
 TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferEnqueueMultiple) {
@@ -237,7 +262,7 @@ TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferEnqueueMultiple) {
       (Plugin->call_nocheck<detail::PiApiKind::piEventsWait>(1, &WriteEvent)),
       PI_SUCCESS);
 
-  // Create command buffer
+  // Create command-buffer
   pi_ext_command_buffer CommandBuffer = nullptr;
   pi_ext_command_buffer_desc CommandBufferDesc;
   ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferCreate>(
@@ -251,18 +276,21 @@ TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferEnqueueMultiple) {
                 Context, SpvSource, SpvSourceLen, &Prog)),
             PI_SUCCESS);
 
-  Plugin->call_nocheck<detail::PiApiKind::piProgramBuild>(
-      Prog, 1, &Device, nullptr, nullptr, nullptr);
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piProgramBuild>(
+                Prog, 1, &Device, nullptr, nullptr, nullptr)),
+            PI_SUCCESS);
 
   size_t KernelNameSize;
 
-  Plugin->call_nocheck<detail::PiApiKind::piProgramGetInfo>(
-      Prog, pi_program_info::PI_PROGRAM_INFO_KERNEL_NAMES, 0, nullptr,
-      &KernelNameSize);
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piProgramGetInfo>(
+                Prog, pi_program_info::PI_PROGRAM_INFO_KERNEL_NAMES, 0, nullptr,
+                &KernelNameSize)),
+            PI_SUCCESS);
   std::vector<char> KernelNames(KernelNameSize);
-  Plugin->call_nocheck<detail::PiApiKind::piProgramGetInfo>(
-      Prog, pi_program_info::PI_PROGRAM_INFO_KERNEL_NAMES, KernelNameSize,
-      KernelNames.data(), nullptr);
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piProgramGetInfo>(
+                Prog, pi_program_info::PI_PROGRAM_INFO_KERNEL_NAMES,
+                KernelNameSize, KernelNames.data(), nullptr)),
+            PI_SUCCESS);
   std::string KernelNameStr(KernelNames.data());
 
   pi_kernel Kernel;
@@ -327,5 +355,9 @@ TEST_F(LevelZeroCommandBuffersTest, piextCommandBufferEnqueueMultiple) {
   ASSERT_EQ(HostData[0], 2);
 
   ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piMemRelease>(MemObj)),
+            PI_SUCCESS);
+
+  ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piextCommandBufferRelease>(
+                CommandBuffer)),
             PI_SUCCESS);
 }
