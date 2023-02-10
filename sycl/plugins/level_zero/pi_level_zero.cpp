@@ -1311,10 +1311,36 @@ pi_result _pi_context::getAvailableCommandList(
   if( Queue->Properties & PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION ) {
     // TODO: Create new Command List.
     if(Queue->LazyCommandListMap.empty()) {
-    pi_ext_command_buffer CommandBuffer;
-    auto result = piextCommandBufferCreate(Queue->Context, Queue->Device, nullptr, &CommandBuffer);
-    Queue->LazyCommandListMap = CommandBuffer->CommandListMap;
-    CommandList = CommandBuffer->CommandListMap.begin();
+      const bool UseCopyEngine = false;
+      // Adding createCommandList() to LazyCommandListMap
+      ze_fence_handle_t ZeFence;
+      ZeStruct<ze_fence_desc_t> ZeFenceDesc;
+      ze_command_list_handle_t ZeCommandList;
+
+      uint32_t QueueGroupOrdinal;
+      auto &QGroup = Queue->getQueueGroup(UseCopyEngine);
+      auto &ZeCommandQueue =
+          // ForcedCmdQueue ? *ForcedCmdQueue :
+          QGroup.getZeQueue(&QueueGroupOrdinal);
+      // if (ForcedCmdQueue)
+      //  QueueGroupOrdinal = QGroup.getCmdQueueOrdinal(ZeCommandQueue);
+
+      ZeStruct<ze_command_list_desc_t> ZeCommandListDesc;
+      ZeCommandListDesc.commandQueueGroupOrdinal = QueueGroupOrdinal;
+
+      ZE_CALL(zeCommandListCreate,
+              (Queue->Context->ZeContext, Queue->Device->ZeDevice,
+               &ZeCommandListDesc, &ZeCommandList));
+
+      ZE_CALL(zeFenceCreate, (ZeCommandQueue, &ZeFenceDesc, &ZeFence));
+      std::tie(CommandList, std::ignore) = Queue->LazyCommandListMap.insert(
+          std::pair<ze_command_list_handle_t, pi_command_list_info_t>(
+              ZeCommandList,
+              {ZeFence, false, ZeCommandQueue, QueueGroupOrdinal}));
+
+      Queue->insertActiveBarriers(CommandList, UseCopyEngine);
+      //
+      CommandList->second.ZeFenceInUse = true;
     } else {
         CommandList = Queue->LazyCommandListMap.begin();
     }
