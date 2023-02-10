@@ -18,11 +18,6 @@
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
-namespace detail {
-struct queue_impl;
-using queue_ptr = std::shared_ptr<queue_impl>;
-} // namespace detail
-
 namespace ext {
 namespace oneapi {
 namespace experimental {
@@ -53,7 +48,7 @@ struct node_impl {
 
   std::function<void(sycl::handler &)> MBody;
 
-  void exec(sycl::detail::queue_ptr q);
+  void exec(const std::shared_ptr<sycl::detail::queue_impl> &q);
 
   void register_successor(node_ptr n) {
     MSuccessors.push_back(n);
@@ -86,8 +81,8 @@ struct graph_impl {
 
   graph_ptr MParent;
 
-  void exec(const sycl::detail::queue_ptr &q);
-  void exec_and_wait(const sycl::detail::queue_ptr &q);
+  void exec(const std::shared_ptr<sycl::detail::queue_impl> &q);
+  void exec_and_wait(const std::shared_ptr<sycl::detail::queue_impl> &q);
 
   void add_root(node_ptr n);
   void remove_root(node_ptr n);

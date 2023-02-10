@@ -12,17 +12,12 @@
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
-namespace detail {
-struct queue_impl;
-using queue_ptr = std::shared_ptr<queue_impl>;
-} // namespace detail
-
 namespace ext {
 namespace oneapi {
 namespace experimental {
 namespace detail {
 
-void graph_impl::exec(const sycl::detail::queue_ptr &q) {
+void graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q) {
   if (MSchedule.empty()) {
     for (auto n : MRoots) {
       n->topology_sort(MSchedule);
@@ -32,7 +27,7 @@ void graph_impl::exec(const sycl::detail::queue_ptr &q) {
     n->exec(q);
 }
 
-void graph_impl::exec_and_wait(const sycl::detail::queue_ptr &q) {
+void graph_impl::exec_and_wait(const std::shared_ptr<sycl::detail::queue_impl> &q) {
   bool isSubGraph = q->getIsGraphSubmitting();
   if (!isSubGraph) {
     q->setIsGraphSubmitting(true);
@@ -77,7 +72,7 @@ node_ptr graph_impl::add(graph_ptr impl, T cgf,
   return nodeImpl;
 }
 
-void node_impl::exec(sycl::detail::queue_ptr q) {
+void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q) {
   std::vector<sycl::event> deps;
   for (auto i : MPredecessors)
     deps.push_back(i->get_event());
