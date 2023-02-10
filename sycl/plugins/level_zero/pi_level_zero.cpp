@@ -5081,7 +5081,7 @@ pi_result _pi_kernel::initialize() {
 
   // Set up how to obtain kernel properties when needed.
   ZeKernelProperties.Compute = [this](ze_kernel_properties_t &Properties) {
-    ZE_CALL(zeKernelGetProperties, (ZeKernel, &Properties));
+    ZE_CALL_NOCHECK(zeKernelGetProperties, (ZeKernel, &Properties));
   };
 
   // Cache kernel name.
