@@ -470,7 +470,7 @@ create the executable graphs, with the nodes added in the same order.
 
 Individual input parameters to the executable graph can also be updated
 using the `command_graph::update_parameter()` method. This can be useful
-if only a small number of parameters required updating.
+if only a small number of parameters require updating.
 
 ==== Graph Member Functions
 
