@@ -352,6 +352,8 @@ class command_graph<graph_state::executable> {
 public:
     command_graph() = delete;
     void update(const command_graph<graph_state::modifiable>& graph);
+    template <typename T>
+    void update_parameter(const T& from, const T& to);
 };
 }  // namespace ext::oneapi::experimental
 
@@ -465,6 +467,10 @@ modifiable state and updates the executable graph to use the node input &
 outputs of the modifiable graph, a technique called _Whole Graph Update_. The
 modifiable graph must have the same topology as the graph originally used to
 create the executable graphs, with the nodes added in the same order.
+
+Individual input parameters to the executable graph can also be updated
+using the `command_graph::update_parameter()` method. This can be useful
+if only a small number of parameters required updating.
 
 ==== Graph Member Functions
 
@@ -844,6 +850,34 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the topology of `graph` is
   not the same as the existing graph topology, or if the nodes were not added in
   the same order.
+
+  |
+[source, c++]
+----
+using namespace ext::oneapi::experimental;
+template <typename T>
+void command_graph<graph_state::executable> 
+update_parameter(const T& from, const T& to);
+----
+
+|Updates a parameter across the executable graph. All nodes which
+use the parameter will be updated.
+
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::executable`.
+* T must be either a Buffer or a raw pointer to a USM allocation.
+
+Parameters:
+
+* `from` - The parameter within the graph to be updated.
+* `to` - The new value to use for this parameter.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if `from` is not found within the graph
+or if `to` is not compatible with `from`.
 |===
 
 === Queue Class Modifications
