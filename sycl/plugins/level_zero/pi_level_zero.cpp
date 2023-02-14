@@ -9210,15 +9210,20 @@ _pi_ext_command_buffer::_pi_ext_command_buffer(
     ZeStruct<ze_command_list_desc_t> ZeDesc,
     const pi_ext_command_buffer_desc *Desc)
     : Context(Context), ZeCommandList(CommandList), ZeCommandListDesc(ZeDesc),
-      CommandBufferDesc(*Desc) {
+      QueueProperties() {
   Context->RefCount.increment();
+  if (Desc->properties) {
+    QueueProperties = *(Desc->properties);
+  }
 }
 
 _pi_ext_command_buffer::~_pi_ext_command_buffer() {
   if (ZeCommandList) {
     ZE_CALL_NOCHECK(zeCommandListDestroy, (ZeCommandList));
   }
-  ExecutionEvent->RefCount.decrementAndTest();
+  if (ExecutionEvent) {
+    ExecutionEvent->RefCount.decrementAndTest();
+  }
   Context->RefCount.decrementAndTest();
 }
 

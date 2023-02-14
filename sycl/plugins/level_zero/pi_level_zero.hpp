@@ -1629,9 +1629,9 @@ struct _pi_ext_command_buffer : _pi_object {
   ze_command_list_handle_t ZeCommandList;
   // Level Zero command list descriptor
   ZeStruct<ze_command_list_desc_t> ZeCommandListDesc;
-  // Command buffer descriptor (TODO: Is it safe to store this? It contains
-  // pointers to host objects potentially)
-  pi_ext_command_buffer_desc CommandBufferDesc;
+  // Queue properties from command-buffer descriptor
+  // TODO: Do we need these?
+  pi_queue_properties QueueProperties;
   // Map of sync_points to pi_events
   std::unordered_map<pi_ext_sync_point, pi_event> SyncPoints;
   // Next sync_point value (may need to consider ways to reuse values if 32-bits
