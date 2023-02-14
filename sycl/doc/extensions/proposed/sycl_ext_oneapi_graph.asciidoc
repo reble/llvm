@@ -271,9 +271,9 @@ dependencies in one of two ways. Firstly, through buffer accessors that
 represent data dependencies between two command groups captured as nodes.
 Secondly, by using the `handler::depends_on()` mechanism inside a command group
 captured as a node. However, for an event passed to `handler::depends_on()` to
-create an edge, it must be a default constructed event returned from a queue
-submission captured by the same graph. Otherwise, the event will be ignored and
-no dependency edge will be created in the graph. `handler::depends_on()` can be
+create an edge, it must be an event returned from a queue
+submission captured by the same graph. Otherwise, a synchronous error will be
+thrown with error code `invalid`. `handler::depends_on()` can be
 used to express edges when a user is working with USM memory rather than SYCL
 buffers.
 |===
@@ -895,10 +895,16 @@ Table 10. Queue info query
 
 |===
 
-A default constructed event is returned when a user submits a command-group to
-a queue in the recording state. These events have status
-`info::event_command_status::complete` and a user waiting on them will return
-immediately.
+Events returned from queue submissions when a queue is in the recording state
+may only be used as parameters to `handler::depends_on()` or as dependent
+events for queue shortcuts like `queue::parallel_for()` for submissions which
+are being recorded to the same modifiable `command_graph`.
+
+Waiting on an event returned from a queue submission recorded to a graph
+will throw synchronously with error code `invalid`.
+
+Calling `queue::wait()` on a queue in the recording state is an error and
+will throw synchronously with error code `invalid`.
 
 ==== Queue Properties
 
