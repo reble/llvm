@@ -860,14 +860,15 @@ void command_graph<graph_state::executable>
 update_parameter(const T& from, const T& to);
 ----
 
-|Updates a parameter across the executable graph. All nodes which
-use the parameter will be updated.
+|Updates a parameter across the executable graph such that all nodes in the
+graph which use `from` as a parameter will have that parameter replaced by
+`to`.
 
 Preconditions:
 
 * This member function is only available when the `command_graph` state is
   `graph_state::executable`.
-* T must be either a Buffer or a raw pointer to a USM allocation.
+* T must be either a buffer or a raw pointer to a USM allocation.
 
 Parameters:
 
