@@ -1058,7 +1058,7 @@ and the executable graphs created from them) or until the buffer is no longer
 required by the graph (such as after being replaced through executable graph update).
 
 Because of the extension of storage lifetimes, users should avoid the use of the
-buffer copy-back on destryction mechanism. If used in code intended to be
+buffer copy-back on destruction mechanism. If used in code intended to be
 executed as part of a graph, it may not perform as expected.
 
 === Buffer Limtations for Record & Replay API
