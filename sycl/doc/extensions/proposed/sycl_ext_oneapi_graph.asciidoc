@@ -898,7 +898,8 @@ Table 10. Queue info query
 Events returned from queue submissions when a queue is in the recording state
 may only be used as parameters to `handler::depends_on()` or as dependent
 events for queue shortcuts like `queue::parallel_for()` for submissions which
-are being recorded to the same modifiable `command_graph`.
+are being recorded to the same modifiable `command_graph`. These events have
+status `info::event_command_status::complete`.
 
 Waiting on an event returned from a queue submission recorded to a graph
 will throw synchronously with error code `invalid`.
