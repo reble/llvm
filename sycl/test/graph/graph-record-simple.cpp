@@ -40,11 +40,15 @@ int main() {
   // Verify results
   for (size_t i = 0; i < n; i++) {
     if (arr[i] != expectedValue) {
-      std::cout << "Unexpected result at index: " << i
+      std::cout << "Test failed: Unexpected result at index: " << i
                 << ", expected: " << expectedValue << " actual: " << arr[i]
                 << "\n";
       errors++;
     }
+  }
+
+  if (errors == 0) {
+    std::cout << "Test passed successfuly.";
   }
 
   std::cout << "done.\n";

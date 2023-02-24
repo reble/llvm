@@ -103,10 +103,10 @@ int main() {
   }
 
   if (dotpData != host_gold_result()) {
-    std::cout << "Error unexpected result!\n";
+    std::cout << "Test failed: Error unexpected result!\n";
+  } else {
+    std::cout << "Test passed successfuly.";
   }
-
-  std::cout << "done.\n";
 
   return 0;
 }
