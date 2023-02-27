@@ -48,7 +48,7 @@ struct node_impl {
 
   std::function<void(sycl::handler &)> MBody;
 
-  void exec(const std::shared_ptr<sycl::detail::queue_impl> &q);
+  void exec(const std::shared_ptr<sycl::detail::queue_impl> &q _CODELOCPARAM(&CodeLoc));
 
   void register_successor(node_ptr n) {
     MSuccessors.push_back(n);

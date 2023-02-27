@@ -72,13 +72,12 @@ node_ptr graph_impl::add(graph_ptr impl, T cgf,
   return nodeImpl;
 }
 
-void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q) {
+void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q _CODELOCPARAMDEF(&CodeLoc)) {
   std::vector<sycl::event> deps;
   for (auto i : MPredecessors)
     deps.push_back(i->get_event());
 
-  const sycl::detail::code_location CodeLoc;
-  MEvent = q->submit(wrapper{MBody, deps}, q, CodeLoc);
+  MEvent = q->submit(wrapper{MBody, deps}, q _CODELOCFW(CodeLoc));
 }
 } // namespace detail
 
@@ -95,18 +94,18 @@ node command_graph<graph_state::modifiable>::add_impl(
     depImpls.push_back(sycl::detail::getSyclObjImpl(d));
   }
 
-  auto nodeImpl = impl->add(impl, cgf, depImpls);
+  detail::node_ptr nodeImpl = impl->add(impl, cgf, depImpls);
   return sycl::detail::createSyclObjFromImpl<node>(nodeImpl);
 }
 
 template <>
 void command_graph<graph_state::modifiable>::make_edge(node sender,
                                                        node receiver) {
-  auto sender_impl = sycl::detail::getSyclObjImpl(sender);
-  auto receiver_impl = sycl::detail::getSyclObjImpl(receiver);
+  detail::node_ptr senderImpl = sycl::detail::getSyclObjImpl(sender);
+  detail::node_ptr receiverImpl = sycl::detail::getSyclObjImpl(receiver);
 
-  sender_impl->register_successor(receiver_impl); // register successor
-  impl->remove_root(receiver_impl); // remove receiver from root node list
+  senderImpl->register_successor(receiverImpl); // register successor
+  impl->remove_root(receiverImpl); // remove receiver from root node list
 }
 
 template <>
