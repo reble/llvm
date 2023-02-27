@@ -27,7 +27,8 @@ void graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q) {
     n->exec(q);
 }
 
-void graph_impl::exec_and_wait(const std::shared_ptr<sycl::detail::queue_impl> &q) {
+void graph_impl::exec_and_wait(
+    const std::shared_ptr<sycl::detail::queue_impl> &q) {
   bool isSubGraph = q->getIsGraphSubmitting();
   if (!isSubGraph) {
     q->setIsGraphSubmitting(true);
@@ -72,7 +73,8 @@ node_ptr graph_impl::add(graph_ptr impl, T cgf,
   return nodeImpl;
 }
 
-void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q _CODELOCPARAMDEF(&CodeLoc)) {
+void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q
+                         _CODELOCPARAMDEF(&CodeLoc)) {
   std::vector<sycl::event> deps;
   for (auto i : MPredecessors)
     deps.push_back(i->get_event());

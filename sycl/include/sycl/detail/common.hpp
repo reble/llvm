@@ -104,9 +104,11 @@ private:
 
 #ifndef DISABLE_SYCL_INSTRUMENTATION_METADATA
 #define _CODELOCONLYPARAM(a)                                                   \
-  const ::sycl::detail::code_location a = ::sycl::detail::code_location::current()
+  const ::sycl::detail::code_location a =                                      \
+      ::sycl::detail::code_location::current()
 #define _CODELOCPARAM(a)                                                       \
-  , const ::sycl::detail::code_location a = ::sycl::detail::code_location::current()
+  , const ::sycl::detail::code_location a =                                    \
+        ::sycl::detail::code_location::current()
 #define _CODELOCPARAMDEF(a) , const ::sycl::detail::code_location a
 
 #define _CODELOCARG(a)
