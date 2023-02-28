@@ -124,13 +124,13 @@ struct graph_impl {
 
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
-  void add_queue(sycl::detail::queue_ptr recordingQueue) {
+  void add_queue(const std::shared_ptr<sycl::detail::queue_impl> &recordingQueue) {
     MRecordingQueues.insert(recordingQueue);
   }
 
   /// Remove a queue from the set of queues which are currently recording to
   /// this graph.
-  void remove_queue(sycl::detail::queue_ptr recordingQueue) {
+  void remove_queue(const std::shared_ptr<sycl::detail::queue_impl> &recordingQueue) {
     MRecordingQueues.erase(recordingQueue);
   }
 
@@ -140,7 +140,7 @@ struct graph_impl {
   bool clear_queues();
 
 private:
-  std::set<sycl::detail::queue_ptr> MRecordingQueues;
+  std::set<std::shared_ptr<sycl::detail::queue_impl>> MRecordingQueues;
 };
 
 } // namespace detail
