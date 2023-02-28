@@ -139,9 +139,6 @@ Another reason for deferring a serialize/deserialize API (8) is that its scope
 could extend from emitting the graph in a binary format, to emitting a
 standardized IR format that enables further device specific graph optimizations.
 
-Multi-device support (7) is something we are looking into introducing into
-the extension, which may result in API changes.
-
 === Graph Building Mechanisms
 
 This extension contains two different API mechanisms for constructing a graph
@@ -207,7 +204,7 @@ Table {counter: tableNumber}. Terminology.
 (edges), represented by the `command_graph` class.
 
 | Node
-| A command, which can have different attributes.
+| A command, which can have different attributes, targeting a specific device.
 
 | Edge
 | Dependency between commands as a happens-before relationship.
@@ -253,15 +250,15 @@ Table {counter: tableNumber}. Recorded Graph Definition.
 | Concept | Description
 
 | Node
-| Nodes in a queue recorded graph represent each of the command group
-submissions of the program. Each submission encompasses either one or both of
-a.) some data movement, b.) a single asynchronous kernel launch. Nodes cannot
-define forward edges, only backwards. That is, kernels can only create
-dependencies on command-groups that have already been submitted. This means that
-transparently a node can depend on a previously recorded graph (sub-graph),
-which works by creating edges to the individual nodes in the old graph. Explicit
-memory operations without kernels, such as a memory copy, are still classed as
-nodes under this definition, as the
+| A node in a queue recorded graph represents a command group submission to the
+device associated with the queue begin recorded. Each submission encompasses
+either one or both of a.) some data movement, b.) a single asynchronous kernel
+launch. Nodes cannot define forward edges, only backwards. That is, kernels can
+only create dependencies on command-groups that have already been submitted.
+This means that transparently a node can depend on a previously recorded graph
+(sub-graph), which works by creating edges to the individual nodes in the old
+graph. Explicit memory operations without kernels, such as a memory copy, are
+still classed as nodes under this definition, as the
 {explicit-memory-ops}[SYCL 2020 specification states] that these can be seen as
 specialized kernels executing on the device.
 
@@ -339,7 +336,7 @@ public:
   node add(const property_list& propList = {});
 
   template<typename T>
-  node add(T cgf, const property_list& propList = {});
+  node add(const device& syclDevice, T cgf, const property_list& propList = {});
 
   void make_edge(node src, node dest);
 };
@@ -418,7 +415,8 @@ This extension adds a new `command_graph` object which follows the
 {crs}[common reference semantics] of other SYCL runtime objects.
 
 A `command_graph` represents a directed acyclic graph of nodes, where each node
-represents a single command or a sub-graph. The execution of a graph completes
+represents a single command for a specific device or a sub-graph. A graph may be
+made up of nodes targeting different devices. The execution of a graph completes
 when all its nodes have completed.
 
 A `command_graph` is built up by either recording queue submissions or
@@ -461,7 +459,8 @@ using the `command_graph::update()` method. This takes a graph in the
 modifiable state and updates the executable graph to use the node input &
 outputs of the modifiable graph, a technique called _Whole Graph Update_. The
 modifiable graph must have the same topology as the graph originally used to
-create the executable graphs, with the nodes added in the same order.
+create the executable graphs, with the nodes targeting the same devices and
+added in the same order.
 
 ==== Graph Member Functions
 
@@ -530,7 +529,7 @@ Exceptions:
 ----
 using namespace ext::oneapi::experimental;
 template<typename T>
-node add(T cgf, const property_list& propList = {});
+node add(const device& syclDevice, T cgf, const property_list& propList = {});
 ----
 |This function adds a command group function object to a graph. The function
 object statically contains a group of commands, of which a single command is
@@ -545,6 +544,8 @@ Preconditions:
   `graph_state::modifiable`.
 
 Parameters:
+
+* `syclDevice` - Device this command will run on, if not a host task.
 
 * `cgf` - Command group function object to be added as a node.
 
@@ -624,6 +625,9 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the graph contains a cycle.
   A cycle may be introduced to the graph via a call to `make_edge()` that
   creates a forward dependency.
+
+* Throws synchronously with error code `invalid` if the graph contains a
+  node which targets a device not present in `syclContext`.
 
 |===
 
@@ -939,6 +943,11 @@ Parameters:
 
 * `graph` - Graph object to execute.
 
+Exceptions:
+
+* Throws asynchronously with error code `invalid` if the handler is submitted
+  to a queue which doesn't have a SYCL context which matches the context of
+  the executable graph.
 |===
 
 === Thread Safety
@@ -979,6 +988,10 @@ while `command_graph::finalize()` may throw unspecified synchronous exceptions.
 Synchronous exception errors codes are defined for all of
 `command_graph::begin_recording()`, `command_graph::end_recording()` and
 `command_graph::update()`.
+
+Submitting an executable graph using `handler::ext_oneapi_graph()` to
+a queue with a different SYCL context than that of the executable graph will
+result in an asynchronous exception.
 
 When a queue is in recording mode asynchronous exceptions will not be
 generated, as no device execution is occurring. Synchronous errors specified as
@@ -1063,7 +1076,7 @@ evaluated as normal during command graph execution.
 [source,c++]
 ----
 using namespace ext::oneapi::experimental;
-auto node = graph.add([&](sycl::handler& cgh){
+auto node = graph.add([&](device, sycl::handler& cgh){
 // Host code here is evaluated during the call to add()
 cgh.host_task([=](){
   // Code here is evaluated as part of executing the command graph node
@@ -1109,6 +1122,38 @@ are the advantage of USM.
 
 Design 3) needs specific backend support for deferred allocation.
 
+=== Multi-device Graph
+
+A user can compose a graph with nodes targeting different devices. This allows
+the benefits of defining a execution graph ahead of submission to be extended
+to multi-device platforms. Without this capability a user would have to submit
+individual single device graphs and use events for dependencies, which is a
+usage model this extension is aiming to optimize. Automatic load balancing of
+commands across devices is not a problem this extension currently aims to solve,
+it is the responsibility of the user to decide the device each command will run
+on, not the SYCL runtime.
+
+A modifiable state `command_graph` contains nodes targeting specific devices,
+rather than being a device agnostic representation only tied to devices on
+finalization. This allows the implementation to process nodes which require
+device information when the command group function is evaluated. For example,
+SYCL reductions require a work-group/sub-group size to be known, which is
+normally gathered by the runtime from the device associated with the queue.
+
+A drawback of this design is that it is less convenient for the use-case where
+a user would like to run the same graph on N devices. Rather than finalizing a
+single modifiable graph N times for N devices in this scenario, the user now has
+to record N modifiable graphs and then as finalize each of them. If this use
+case does become a usability issue, we could provide a specific API to support
+it. For example an update API for the modifiable `command_graph`, similar to
+parameters, so that the same modifiable graph can be updated to new devices then
+re-finalized.
+
+The queue an executable graph is submitted to needs to have the same context as
+the executable graph, however execution of a multi-device graph is not limited
+to the device associated to the queue. Instead, the queue is used as the
+mechanism to submit the graph and express execution dependencies.
+
 == Examples
 
 [NOTE]
@@ -1138,6 +1183,7 @@ int main() {
   float gamma = 3.0f;
 
   sycl::queue q;
+  sycl::device device = q.get_device();
 
   sycl_ext::command_graph g;
 
@@ -1155,7 +1201,7 @@ int main() {
   //     c
 
   /* init data on the device */
-  auto node_i = g.add([&](sycl::handler& h) {
+  auto node_i = g.add(device, [&](sycl::handler& h) {
     h.parallel_for(n, [=](sycl::id<1> it){
       const size_t i = it[0];
       x[i] = 1.0f;
@@ -1164,21 +1210,21 @@ int main() {
     });
   });
 
-  auto node_a = g.add([&](sycl::handler& h) {
+  auto node_a = g.add(device, [&](sycl::handler& h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
       const size_t i = it[0];
       x[i] = alpha * x[i] + beta * y[i];
     });
   }, { sycl_ext::property::node::depends_on(node_i)});
 
-  auto node_b = g.add([&](sycl::handler& h) {
+  auto node_b = g.add(device, [&](sycl::handler& h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
       const size_t i = it[0];
       z[i] = gamma * z[i] + beta * y[i];
     });
   }, { sycl_ext::property::node::depends_on(node_i)});
 
-  auto node_c = g.add(
+  auto node_c = g.add(device,
       [&](sycl::handler& h) {
         h.parallel_for(sycl::range<1>{n},
                        sycl::reduction(dotp, 0.0f, std::plus()),
