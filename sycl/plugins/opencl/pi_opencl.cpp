@@ -1412,6 +1412,48 @@ pi_result piextKernelGetNativeHandle(pi_kernel kernel,
   return piextGetNativeHandle(kernel, nativeHandle);
 }
 
+// command-buffer extension
+pi_result piextCommandBufferCreate(pi_context context, pi_device device,
+                                   const pi_ext_command_buffer_desc *desc,
+                                   pi_ext_command_buffer *ret_command_buffer) {
+  // Not implemented
+  return {};
+}
+
+pi_result piextCommandBufferRetain(pi_ext_command_buffer command_buffer) {
+  // Not implemented
+  return {};
+}
+
+pi_result piextCommandBufferRelease(pi_ext_command_buffer command_buffer) {
+  // Not implemented
+  return {};
+}
+
+pi_result piextCommandBufferFinalize(pi_ext_command_buffer command_buffer) {
+  // Not implemented
+  return {};
+}
+
+pi_result piextCommandBufferNDRangeKernel(
+    pi_ext_command_buffer command_buffer, pi_kernel kernel, pi_uint32 work_dim,
+    const size_t *global_work_offset, const size_t *global_work_size,
+    const size_t *local_work_size, pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point) {
+  // Not implemented
+  return {};
+}
+
+pi_result piextEnqueueCommandBuffer(pi_ext_command_buffer command_buffer,
+                                    pi_queue queue,
+                                    pi_uint32 num_events_in_wait_list,
+                                    const pi_event *event_wait_list,
+                                    pi_event *event) {
+  // Not implemented
+  return {};
+}
+
 // This API is called by Sycl RT to notify the end of the plugin lifetime.
 // TODO: add a global variable lifetime management code here (see
 // pi_level_zero.cpp for reference) Currently this is just a NOOP.
@@ -1548,6 +1590,13 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextUSMEnqueuePrefetch, piextUSMEnqueuePrefetch)
   _PI_CL(piextUSMEnqueueMemAdvise, piextUSMEnqueueMemAdvise)
   _PI_CL(piextUSMGetMemAllocInfo, piextUSMGetMemAllocInfo)
+
+  // command-buffer
+  _PI_CL(piextCommandBufferCreate, piextCommandBufferCreate)
+  _PI_CL(piextCommandBufferRetain, piextCommandBufferRetain)
+  _PI_CL(piextCommandBufferRelease, piextCommandBufferRelease)
+  _PI_CL(piextCommandBufferNDRangeKernel, piextCommandBufferNDRangeKernel)
+  _PI_CL(piextEnqueueCommandBuffer, piextEnqueueCommandBuffer)
 
   _PI_CL(piextKernelSetArgMemObj, piextKernelSetArgMemObj)
   _PI_CL(piextKernelSetArgSampler, piextKernelSetArgSampler)

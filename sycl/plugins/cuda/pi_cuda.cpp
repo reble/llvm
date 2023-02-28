@@ -5310,6 +5310,49 @@ pi_result cuda_piextUSMGetMemAllocInfo(pi_context context, const void *ptr,
   return result;
 }
 
+pi_result
+cuda_piextCommandBufferCreate(pi_context context, pi_device device,
+                              const pi_ext_command_buffer_desc *desc,
+                              pi_ext_command_buffer *ret_command_buffer) {
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
+  return {};
+}
+
+pi_result cuda_piextCommandBufferRetain(pi_ext_command_buffer command_buffer) {
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
+  return {};
+}
+
+pi_result cuda_piextCommandBufferRelease(pi_ext_command_buffer command_buffer) {
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
+  return {};
+}
+
+pi_result
+cuda_piextCommandBufferFinalize(pi_ext_command_buffer command_buffer) {
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
+  return {};
+}
+
+pi_result cuda_piextCommandBufferNDRangeKernel(
+    pi_ext_command_buffer command_buffer, pi_kernel kernel, pi_uint32 work_dim,
+    const size_t *global_work_offset, const size_t *global_work_size,
+    const size_t *local_work_size, pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point) {
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
+  return {};
+}
+
+pi_result cuda_piextEnqueueCommandBuffer(pi_ext_command_buffer command_buffer,
+                                         pi_queue queue,
+                                         pi_uint32 num_events_in_wait_list,
+                                         const pi_event *event_wait_list,
+                                         pi_event *event) {
+  sycl::detail::pi::die("command-buffer API not implemented in CUDA backend");
+  return {};
+}
+
 // This API is called by Sycl RT to notify the end of the plugin lifetime.
 // TODO: add a global variable lifetime management code here (see
 // pi_level_zero.cpp for reference) Currently this is just a NOOP.
@@ -5457,6 +5500,13 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextUSMEnqueuePrefetch, cuda_piextUSMEnqueuePrefetch)
   _PI_CL(piextUSMEnqueueMemAdvise, cuda_piextUSMEnqueueMemAdvise)
   _PI_CL(piextUSMGetMemAllocInfo, cuda_piextUSMGetMemAllocInfo)
+
+  // command-buffer
+  _PI_CL(piextCommandBufferCreate, cuda_piextCommandBufferCreate)
+  _PI_CL(piextCommandBufferRetain, cuda_piextCommandBufferRetain)
+  _PI_CL(piextCommandBufferRelease, cuda_piextCommandBufferRelease)
+  _PI_CL(piextCommandBufferNDRangeKernel, cuda_piextCommandBufferNDRangeKernel)
+  _PI_CL(piextEnqueueCommandBuffer, cuda_piextEnqueueCommandBuffer)
 
   _PI_CL(piextKernelSetArgMemObj, cuda_piextKernelSetArgMemObj)
   _PI_CL(piextKernelSetArgSampler, cuda_piextKernelSetArgSampler)
