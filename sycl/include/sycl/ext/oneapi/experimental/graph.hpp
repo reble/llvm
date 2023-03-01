@@ -28,8 +28,6 @@ namespace detail {
 struct node_impl;
 struct graph_impl;
 
-using node_ptr = std::shared_ptr<node_impl>;
-using graph_ptr = std::shared_ptr<graph_impl>;
 } // namespace detail
 
 enum class graph_state {
@@ -39,7 +37,7 @@ enum class graph_state {
 
 class __SYCL_EXPORT node {
 private:
-  node(detail::node_ptr Impl) : impl(Impl) {}
+  node(const std::shared_ptr<detail::node_impl> &Impl) : impl(Impl) {}
 
   template <class Obj>
   friend decltype(Obj::impl)
@@ -47,8 +45,8 @@ private:
   template <class T>
   friend T sycl::detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
 
-  detail::node_ptr impl;
-  detail::graph_ptr MGraph;
+  std::shared_ptr<detail::node_impl> impl;
+  std::shared_ptr<detail::graph_impl> MGraph;
 };
 
 template <graph_state State = graph_state::modifiable>
@@ -106,7 +104,7 @@ public:
   bool end_recording(const std::vector<queue> &recordingQueues);
 
 private:
-  command_graph(detail::graph_ptr Impl) : impl(Impl) {}
+  command_graph(const std::shared_ptr<detail::graph_impl> &Impl) : impl(Impl) {}
 
   // Template-less implementation of add()
   node add_impl(std::function<void(handler &)> cgf,
@@ -118,14 +116,15 @@ private:
   template <class T>
   friend T sycl::detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
 
-  detail::graph_ptr impl;
+  std::shared_ptr<detail::graph_impl> impl;
 };
 
 template <> class __SYCL_EXPORT command_graph<graph_state::executable> {
 public:
   command_graph() = delete;
 
-  command_graph(detail::graph_ptr g, const sycl::context &ctx)
+  command_graph(const std::shared_ptr<detail::graph_impl> &g,
+                const sycl::context &ctx)
       : MTag(rand()), MCtx(ctx), impl(g) {}
 
 private:
@@ -135,7 +134,7 @@ private:
 
   int MTag;
   const sycl::context &MCtx;
-  detail::graph_ptr impl;
+  std::shared_ptr<detail::graph_impl> impl;
 };
 } // namespace experimental
 } // namespace oneapi

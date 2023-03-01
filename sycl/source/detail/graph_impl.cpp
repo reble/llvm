@@ -44,14 +44,14 @@ void graph_impl::exec_and_wait(
   }
 }
 
-void graph_impl::add_root(node_ptr n) {
+void graph_impl::add_root(const std::shared_ptr<node_impl> &n) {
   MRoots.insert(n);
   for (auto n : MSchedule)
     n->MScheduled = false;
   MSchedule.clear();
 }
 
-void graph_impl::remove_root(node_ptr n) {
+void graph_impl::remove_root(const std::shared_ptr<node_impl> &n) {
   MRoots.erase(n);
   for (auto n : MSchedule)
     n->MScheduled = false;
@@ -70,8 +70,10 @@ void graph_impl::remove_root(node_ptr n) {
 //
 // @returns True if a dependency was added in this node of any of its
 // successors.
-bool check_for_arg(const sycl::detail::ArgDesc &arg, node_ptr currentNode,
-                   std::set<node_ptr> &deps, bool dereferencePtr = false) {
+bool check_for_arg(const sycl::detail::ArgDesc &arg,
+                   const std::shared_ptr<node_impl> &currentNode,
+                   std::set<std::shared_ptr<node_impl>> &deps,
+                   bool dereferencePtr = false) {
   bool successorAddedDep = false;
   for (auto &successor : currentNode->MSuccessors) {
     successorAddedDep |= check_for_arg(arg, successor, deps, dereferencePtr);
@@ -86,14 +88,16 @@ bool check_for_arg(const sycl::detail::ArgDesc &arg, node_ptr currentNode,
 }
 
 template <typename T>
-node_ptr graph_impl::add(graph_ptr impl, T cgf,
-                         const std::vector<sycl::detail::ArgDesc> &args,
-                         const std::vector<node_ptr> &dep) {
-  node_ptr nodeImpl = std::make_shared<node_impl>(impl, cgf, args);
+std::shared_ptr<node_impl>
+graph_impl::add(const std::shared_ptr<graph_impl> &impl, T cgf,
+                const std::vector<sycl::detail::ArgDesc> &args,
+                const std::vector<std::shared_ptr<node_impl>> &dep) {
+  std::shared_ptr<node_impl> nodeImpl =
+      std::make_shared<node_impl>(impl, cgf, args);
   // Copy deps so we can modify them
   auto deps = dep;
   // A unique set of dependencies obtained by checking kernel arguments
-  std::set<node_ptr> uniqueDeps;
+  std::set<std::shared_ptr<node_impl>> uniqueDeps;
   for (auto &arg : args) {
     if (arg.MType != sycl::detail::kernel_param_kind_t::kind_pointer) {
       continue;
@@ -147,20 +151,23 @@ command_graph<graph_state::modifiable>::command_graph(
 template <>
 node command_graph<graph_state::modifiable>::add_impl(
     std::function<void(handler &)> cgf, const std::vector<node> &dep) {
-  std::vector<detail::node_ptr> depImpls;
+  std::vector<std::shared_ptr<detail::node_impl>> depImpls;
   for (auto &d : dep) {
     depImpls.push_back(sycl::detail::getSyclObjImpl(d));
   }
 
-  detail::node_ptr nodeImpl = impl->add(impl, cgf, {}, depImpls);
+  std::shared_ptr<detail::node_impl> nodeImpl =
+      impl->add(impl, cgf, {}, depImpls);
   return sycl::detail::createSyclObjFromImpl<node>(nodeImpl);
 }
 
 template <>
 void command_graph<graph_state::modifiable>::make_edge(node sender,
                                                        node receiver) {
-  detail::node_ptr senderImpl = sycl::detail::getSyclObjImpl(sender);
-  detail::node_ptr receiverImpl = sycl::detail::getSyclObjImpl(receiver);
+  std::shared_ptr<detail::node_impl> senderImpl =
+      sycl::detail::getSyclObjImpl(sender);
+  std::shared_ptr<detail::node_impl> receiverImpl =
+      sycl::detail::getSyclObjImpl(receiver);
 
   senderImpl->register_successor(receiverImpl); // register successor
   impl->remove_root(receiverImpl); // remove receiver from root node list
