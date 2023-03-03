@@ -30,11 +30,11 @@ class wrapper {
   std::vector<sycl::event> MDeps;
 
 public:
-  wrapper(T t, const std::vector<sycl::event> &deps) : MFunc(t), MDeps(deps){};
+  wrapper(T Func, const std::vector<sycl::event> &Deps) : MFunc(Func), MDeps(Deps){};
 
-  void operator()(sycl::handler &cgh) {
-    cgh.depends_on(MDeps);
-    std::invoke(MFunc, cgh);
+  void operator()(sycl::handler &CGH) {
+    CGH.depends_on(MDeps);
+    std::invoke(MFunc, CGH);
   }
 };
 
@@ -51,7 +51,7 @@ struct node_impl {
 
   std::vector<sycl::detail::ArgDesc> MArgs;
 
-  void exec(const std::shared_ptr<sycl::detail::queue_impl> &q
+  void exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
                 _CODELOCPARAM(&CodeLoc));
 
   void register_successor(const std::shared_ptr<node_impl> &Node) {
@@ -66,9 +66,9 @@ struct node_impl {
   sycl::event get_event(void) const { return MEvent; }
 
   template <typename T>
-  node_impl(const std::shared_ptr<graph_impl> &g, T cgf,
-            const std::vector<sycl::detail::ArgDesc> &args)
-      : MScheduled(false), MGraph(g), MBody(cgf), MArgs(args) {
+  node_impl(const std::shared_ptr<graph_impl> &Graph, T CGF,
+            const std::vector<sycl::detail::ArgDesc> &Args)
+      : MScheduled(false), MGraph(Graph), MBody(CGF), MArgs(Args) {
     for (size_t i = 0; i < MArgs.size(); i++) {
       if (MArgs[i].MType == sycl::detail::kernel_param_kind_t::kind_pointer) {
         // Make sure we are storing the actual USM pointer for comparison
@@ -80,22 +80,22 @@ struct node_impl {
   }
 
   // Recursively adding nodes to execution stack:
-  void topology_sort(std::list<std::shared_ptr<node_impl>> &schedule) {
+  void topology_sort(std::list<std::shared_ptr<node_impl>> &Schedule) {
     MScheduled = true;
-    for (auto i : MSuccessors) {
-      if (!i->MScheduled)
-        i->topology_sort(schedule);
+    for (auto Next : MSuccessors) {
+      if (!Next->MScheduled)
+        Next->topology_sort(Schedule);
     }
-    schedule.push_front(std::shared_ptr<node_impl>(this));
+    Schedule.push_front(std::shared_ptr<node_impl>(this));
   }
 
-  bool has_arg(const sycl::detail::ArgDesc &arg, bool dereferencePtr = false) {
-    for (auto &nodeArg : MArgs) {
-      if (arg.MType == nodeArg.MType && arg.MSize == nodeArg.MSize) {
+  bool has_arg(const sycl::detail::ArgDesc &Arg, bool DereferencePtr = false) {
+    for (auto &NodeArg : MArgs) {
+      if (Arg.MType == NodeArg.MType && Arg.MSize == NodeArg.MSize) {
         // Args coming directly from the handler will need to be dereferenced
         // since they are actually void**
-        void *incomingPtr = dereferencePtr ? *(void **)arg.MPtr : arg.MPtr;
-        if (incomingPtr == nodeArg.MPtr) {
+        void *IncomingPtr = DereferencePtr ? *(void **)Arg.MPtr : Arg.MPtr;
+        if (IncomingPtr == NodeArg.MPtr) {
           return true;
         }
       }
@@ -112,32 +112,32 @@ struct graph_impl {
 
   std::shared_ptr<graph_impl> MParent;
 
-  void exec(const std::shared_ptr<sycl::detail::queue_impl> &q);
-  void exec_and_wait(const std::shared_ptr<sycl::detail::queue_impl> &q);
+  void exec(const std::shared_ptr<sycl::detail::queue_impl> &);
+  void exec_and_wait(const std::shared_ptr<sycl::detail::queue_impl> &);
 
-  void add_root(const std::shared_ptr<node_impl> &n);
-  void remove_root(const std::shared_ptr<node_impl> &n);
+  void add_root(const std::shared_ptr<node_impl> &);
+  void remove_root(const std::shared_ptr<node_impl> &);
 
   template <typename T>
   std::shared_ptr<node_impl>
-  add(const std::shared_ptr<graph_impl> &impl, T cgf,
-      const std::vector<sycl::detail::ArgDesc> &args,
-      const std::vector<std::shared_ptr<node_impl>> &dep = {});
+  add(const std::shared_ptr<graph_impl> &Impl, T CGF,
+      const std::vector<sycl::detail::ArgDesc> &Args,
+      const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
   graph_impl() : MFirst(true) {}
 
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
   void
-  add_queue(const std::shared_ptr<sycl::detail::queue_impl> &recordingQueue) {
-    MRecordingQueues.insert(recordingQueue);
+  add_queue(const std::shared_ptr<sycl::detail::queue_impl> &RecordingQueue) {
+    MRecordingQueues.insert(RecordingQueue);
   }
 
   /// Remove a queue from the set of queues which are currently recording to
   /// this graph.
   void remove_queue(
-      const std::shared_ptr<sycl::detail::queue_impl> &recordingQueue) {
-    MRecordingQueues.erase(recordingQueue);
+      const std::shared_ptr<sycl::detail::queue_impl> &RecordingQueue) {
+    MRecordingQueues.erase(RecordingQueue);
   }
 
   /// Remove all queues which are recording to this graph, also sets all queues
