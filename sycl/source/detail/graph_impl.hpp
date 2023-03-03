@@ -54,13 +54,13 @@ struct node_impl {
   void exec(const std::shared_ptr<sycl::detail::queue_impl> &q
                 _CODELOCPARAM(&CodeLoc));
 
-  void register_successor(const std::shared_ptr<node_impl> &n) {
-    MSuccessors.push_back(n);
-    n->register_predecessor(std::shared_ptr<node_impl>(this));
+  void register_successor(const std::shared_ptr<node_impl> &Node) {
+    MSuccessors.push_back(Node);
+    Node->register_predecessor(std::shared_ptr<node_impl>(this));
   }
 
-  void register_predecessor(const std::shared_ptr<node_impl> &n) {
-    MPredecessors.push_back(n);
+  void register_predecessor(const std::shared_ptr<node_impl> &Node) {
+    MPredecessors.push_back(Node);
   }
 
   sycl::event get_event(void) const { return MEvent; }
