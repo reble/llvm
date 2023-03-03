@@ -19,11 +19,6 @@
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
-namespace detail {
-struct queue_impl;
-using queue_ptr = std::shared_ptr<queue_impl>;
-} // namespace detail
-
 namespace ext {
 namespace oneapi {
 namespace experimental {
@@ -46,29 +41,33 @@ public:
 struct node_impl {
   bool MScheduled;
 
-  graph_ptr MGraph;
+  std::shared_ptr<graph_impl> MGraph;
   sycl::event MEvent;
 
-  std::vector<node_ptr> MSuccessors;
-  std::vector<node_ptr> MPredecessors;
+  std::vector<std::shared_ptr<node_impl>> MSuccessors;
+  std::vector<std::shared_ptr<node_impl>> MPredecessors;
 
   std::function<void(sycl::handler &)> MBody;
 
   std::vector<sycl::detail::ArgDesc> MArgs;
 
-  void exec(sycl::detail::queue_ptr q);
+  void exec(const std::shared_ptr<sycl::detail::queue_impl> &q
+                _CODELOCPARAM(&CodeLoc));
 
-  void register_successor(node_ptr n) {
+  void register_successor(const std::shared_ptr<node_impl> &n) {
     MSuccessors.push_back(n);
-    n->register_predecessor(node_ptr(this));
+    n->register_predecessor(std::shared_ptr<node_impl>(this));
   }
 
-  void register_predecessor(node_ptr n) { MPredecessors.push_back(n); }
+  void register_predecessor(const std::shared_ptr<node_impl> &n) {
+    MPredecessors.push_back(n);
+  }
 
   sycl::event get_event(void) const { return MEvent; }
 
   template <typename T>
-  node_impl(graph_ptr g, T cgf, const std::vector<sycl::detail::ArgDesc> &args)
+  node_impl(const std::shared_ptr<graph_impl> &g, T cgf,
+            const std::vector<sycl::detail::ArgDesc> &args)
       : MScheduled(false), MGraph(g), MBody(cgf), MArgs(args) {
     for (size_t i = 0; i < MArgs.size(); i++) {
       if (MArgs[i].MType == sycl::detail::kernel_param_kind_t::kind_pointer) {
@@ -81,13 +80,13 @@ struct node_impl {
   }
 
   // Recursively adding nodes to execution stack:
-  void topology_sort(std::list<node_ptr> &schedule) {
+  void topology_sort(std::list<std::shared_ptr<node_impl>> &schedule) {
     MScheduled = true;
     for (auto i : MSuccessors) {
       if (!i->MScheduled)
         i->topology_sort(schedule);
     }
-    schedule.push_front(node_ptr(this));
+    schedule.push_front(std::shared_ptr<node_impl>(this));
   }
 
   bool has_arg(const sycl::detail::ArgDesc &arg, bool dereferencePtr = false) {
@@ -106,35 +105,38 @@ struct node_impl {
 };
 
 struct graph_impl {
-  std::set<node_ptr> MRoots;
-  std::list<node_ptr> MSchedule;
+  std::set<std::shared_ptr<node_impl>> MRoots;
+  std::list<std::shared_ptr<node_impl>> MSchedule;
   // TODO: Change one time initialization to per executable object
   bool MFirst;
 
-  graph_ptr MParent;
+  std::shared_ptr<graph_impl> MParent;
 
-  void exec(const sycl::detail::queue_ptr &q);
-  void exec_and_wait(const sycl::detail::queue_ptr &q);
+  void exec(const std::shared_ptr<sycl::detail::queue_impl> &q);
+  void exec_and_wait(const std::shared_ptr<sycl::detail::queue_impl> &q);
 
-  void add_root(node_ptr n);
-  void remove_root(node_ptr n);
+  void add_root(const std::shared_ptr<node_impl> &n);
+  void remove_root(const std::shared_ptr<node_impl> &n);
 
   template <typename T>
-  node_ptr add(graph_ptr impl, T cgf,
-               const std::vector<sycl::detail::ArgDesc> &args,
-               const std::vector<node_ptr> &dep = {});
+  std::shared_ptr<node_impl>
+  add(const std::shared_ptr<graph_impl> &impl, T cgf,
+      const std::vector<sycl::detail::ArgDesc> &args,
+      const std::vector<std::shared_ptr<node_impl>> &dep = {});
 
   graph_impl() : MFirst(true) {}
 
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
-  void add_queue(sycl::detail::queue_ptr recordingQueue) {
+  void
+  add_queue(const std::shared_ptr<sycl::detail::queue_impl> &recordingQueue) {
     MRecordingQueues.insert(recordingQueue);
   }
 
   /// Remove a queue from the set of queues which are currently recording to
   /// this graph.
-  void remove_queue(sycl::detail::queue_ptr recordingQueue) {
+  void remove_queue(
+      const std::shared_ptr<sycl::detail::queue_impl> &recordingQueue) {
     MRecordingQueues.erase(recordingQueue);
   }
 
@@ -144,7 +146,7 @@ struct graph_impl {
   bool clear_queues();
 
 private:
-  std::set<sycl::detail::queue_ptr> MRecordingQueues;
+  std::set<std::shared_ptr<sycl::detail::queue_impl>> MRecordingQueues;
 };
 
 } // namespace detail

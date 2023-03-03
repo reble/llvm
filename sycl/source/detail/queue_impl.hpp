@@ -318,7 +318,8 @@ public:
       // queue property.
       CreationFlags |= PI_EXT_ONEAPI_QUEUE_DISCARD_EVENTS;
     }
-    if (MPropList.has_property<ext::oneapi::property::queue::lazy_execution>()) {
+    if (MPropList
+            .has_property<ext::oneapi::property::queue::lazy_execution>()) {
       CreationFlags |= PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION;
     }
     RT::PiQueue Queue{};
@@ -455,11 +456,13 @@ public:
     return MAssertHappenedBuffer;
   }
 
-  void setCommandGraph(ext::oneapi::experimental::detail::graph_ptr Graph) {
+  void setCommandGraph(
+      std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> Graph) {
     MGraph = Graph;
   }
 
-  ext::oneapi::experimental::detail::graph_ptr getCommandGraph() const {
+  std::shared_ptr<ext::oneapi::experimental::detail::graph_impl>
+  getCommandGraph() const {
     return MGraph;
   }
   // Sets the flag for if a command graph is currently
@@ -656,7 +659,7 @@ private:
 
   // Command graph which is associated with this queue for the purposes of
   // recording commands to it.
-  ext::oneapi::experimental::detail::graph_ptr MGraph;
+  std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph;
   // This flag is set to true if a command_graph is currently submitting
   // commands to this queue. Used by subgraphs to determine if they are part of
   // a larger command graph submission.

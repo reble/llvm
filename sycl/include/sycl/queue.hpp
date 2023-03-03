@@ -23,7 +23,6 @@
 #include <sycl/property_list.hpp>
 #include <sycl/stl.hpp>
 
-
 // Explicitly request format macros
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
@@ -1075,9 +1074,9 @@ public:
   /// \return an event representing graph execution operation.
   event ext_oneapi_graph(ext::oneapi::experimental::command_graph<
                          ext::oneapi::experimental::graph_state::executable>
-                             Graph) {
-    const detail::code_location CodeLoc = {};
-    return submit([&](handler &CGH) { CGH.ext_oneapi_graph(Graph); }, CodeLoc);
+                             Graph _CODELOCPARAM(&CodeLoc)) {
+    return submit(
+        [&](handler &CGH) { CGH.ext_oneapi_graph(Graph); } _CODELOCFW(CodeLoc));
   }
 
   /// Shortcut for executing a graph of commands.
@@ -1090,11 +1089,10 @@ public:
                              ext::oneapi::experimental::graph_state::executable>
                              Graph,
                          event DepEvent _CODELOCPARAM(&CodeLoc)) {
-    return submit(
-        [&](handler &CGH) {
-          CGH.depends_on(DepEvent);
-          CGH.ext_oneapi_graph(Graph);
-        } _CODELOCFW(CodeLoc));
+    return submit([&](handler &CGH) {
+      CGH.depends_on(DepEvent);
+      CGH.ext_oneapi_graph(Graph);
+    } _CODELOCFW(CodeLoc));
   }
 
   /// Shortcut for executing a graph of commands.
@@ -1106,14 +1104,12 @@ public:
   event ext_oneapi_graph(ext::oneapi::experimental::command_graph<
                              ext::oneapi::experimental::graph_state::executable>
                              Graph,
-                         const std::vector<event> &DepEvents) {
-    const detail::code_location CodeLoc = {};
-    return submit(
-        [&](handler &CGH) {
-          CGH.depends_on(DepEvents);
-          CGH.ext_oneapi_graph(Graph);
-        },
-        CodeLoc);
+                         const std::vector<event> &DepEvents
+                             _CODELOCPARAM(&CodeLoc)) {
+    return submit([&](handler &CGH) {
+      CGH.depends_on(DepEvents);
+      CGH.ext_oneapi_graph(Graph);
+    } _CODELOCFW(CodeLoc));
   }
 
   /// Returns whether the queue is in order or OoO
