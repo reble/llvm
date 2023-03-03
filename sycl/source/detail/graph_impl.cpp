@@ -18,43 +18,43 @@ namespace oneapi {
 namespace experimental {
 namespace detail {
 
-void graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q) {
+void graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
   if (MSchedule.empty()) {
-    for (auto n : MRoots) {
-      n->topology_sort(MSchedule);
+    for (auto Node : MRoots) {
+      Node->topology_sort(MSchedule);
     }
   }
-  for (auto n : MSchedule)
-    n->exec(q);
+  for (auto Node : MSchedule)
+    Node->exec(Queue);
 }
 
 void graph_impl::exec_and_wait(
-    const std::shared_ptr<sycl::detail::queue_impl> &q) {
-  bool isSubGraph = q->getIsGraphSubmitting();
-  if (!isSubGraph) {
-    q->setIsGraphSubmitting(true);
+    const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
+  bool IsSubGraph = Queue->getIsGraphSubmitting();
+  if (!IsSubGraph) {
+    Queue->setIsGraphSubmitting(true);
   }
   if (MFirst) {
-    exec(q);
+    exec(Queue);
     MFirst = false;
   }
-  if (!isSubGraph) {
-    q->setIsGraphSubmitting(false);
-    q->wait();
+  if (!IsSubGraph) {
+    Queue->setIsGraphSubmitting(false);
+    Queue->wait();
   }
 }
 
-void graph_impl::add_root(const std::shared_ptr<node_impl> &n) {
-  MRoots.insert(n);
-  for (auto n : MSchedule)
-    n->MScheduled = false;
+void graph_impl::add_root(const std::shared_ptr<node_impl> &Root) {
+  MRoots.insert(Root);
+  for (auto Node : MSchedule)
+    Node->MScheduled = false;
   MSchedule.clear();
 }
 
-void graph_impl::remove_root(const std::shared_ptr<node_impl> &n) {
-  MRoots.erase(n);
-  for (auto n : MSchedule)
-    n->MScheduled = false;
+void graph_impl::remove_root(const std::shared_ptr<node_impl> &Root) {
+  MRoots.erase(Root);
+  for (auto Node : MSchedule)
+    Node->MScheduled = false;
   MSchedule.clear();
 }
 
@@ -70,21 +70,21 @@ void graph_impl::remove_root(const std::shared_ptr<node_impl> &n) {
 //
 // @returns True if a dependency was added in this node of any of its
 // successors.
-bool check_for_arg(const sycl::detail::ArgDesc &arg,
-                   const std::shared_ptr<node_impl> &currentNode,
-                   std::set<std::shared_ptr<node_impl>> &deps,
-                   bool dereferencePtr = false) {
-  bool successorAddedDep = false;
-  for (auto &successor : currentNode->MSuccessors) {
-    successorAddedDep |= check_for_arg(arg, successor, deps, dereferencePtr);
+bool check_for_arg(const sycl::detail::ArgDesc &Arg,
+                   const std::shared_ptr<node_impl> &CurrentNode,
+                   std::set<std::shared_ptr<node_impl>> &Deps,
+                   bool DereferencePtr = false) {
+  bool SuccessorAddedDep = false;
+  for (auto &Successor : CurrentNode->MSuccessors) {
+    SuccessorAddedDep |= check_for_arg(Arg, Successor, Deps, DereferencePtr);
   }
 
-  if (deps.find(currentNode) == deps.end() &&
-      currentNode->has_arg(arg, dereferencePtr) && !successorAddedDep) {
-    deps.insert(currentNode);
+  if (Deps.find(CurrentNode) == Deps.end() &&
+      CurrentNode->has_arg(Arg, DereferencePtr) && !SuccessorAddedDep) {
+    Deps.insert(CurrentNode);
     return true;
   }
-  return successorAddedDep;
+  return SuccessorAddedDep;
 }
 
 template <typename T>
