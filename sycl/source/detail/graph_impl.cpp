@@ -71,8 +71,9 @@ void graph_impl::remove_root(const std::shared_ptr<node_impl> &Root) {
 //
 // @returns True if a dependency was added in this node of any of its
 // successors.
-bool check_for_arg(const sycl::detail::ArgDesc &arg, const std::shared_ptr<node_impl> & currentNode,
-                   std::set<const std::shared_ptr<node_impl> &> &deps) {
+bool check_for_arg(const sycl::detail::ArgDesc &arg,
+                   const std::shared_ptr<node_impl> &currentNode,
+                   std::set<std::shared_ptr<node_impl>> &deps) {
   bool successorAddedDep = false;
   for (auto &successor : currentNode->MSuccessors) {
     successorAddedDep |= check_for_arg(arg, successor, deps);
@@ -86,9 +87,11 @@ bool check_for_arg(const sycl::detail::ArgDesc &arg, const std::shared_ptr<node_
   return SuccessorAddedDep;
 }
 
-const std::shared_ptr<node_impl> & graph_impl::add(const std::shared_ptr<graph_impl> &impl, std::function<void(handler &)> cgf,
-                         const std::vector<sycl::detail::ArgDesc> &args,
-                         const std::vector<const std::shared_ptr<node_impl> &> &dep) {
+std::shared_ptr<node_impl>
+graph_impl::add(const std::shared_ptr<graph_impl> &impl,
+                std::function<void(handler &)> cgf,
+                const std::vector<sycl::detail::ArgDesc> &args,
+                const std::vector<std::shared_ptr<node_impl>> &dep) {
   sycl::queue TempQueue{};
   auto QueueImpl = sycl::detail::getSyclObjImpl(TempQueue);
   QueueImpl->setCommandGraph(impl);
@@ -101,15 +104,16 @@ const std::shared_ptr<node_impl> & graph_impl::add(const std::shared_ptr<graph_i
                    Handler.MRequirements, Handler.MArgs, {});
 }
 
-const std::shared_ptr<node_impl> & graph_impl::add(
-    const std::shared_ptr<graph_impl> &impl, std::shared_ptr<sycl::detail::kernel_impl> Kernel,
+std::shared_ptr<node_impl> graph_impl::add(
+    const std::shared_ptr<graph_impl> &impl,
+    std::shared_ptr<sycl::detail::kernel_impl> Kernel,
     sycl::detail::NDRDescT NDRDesc, sycl::detail::OSModuleHandle OSModuleHandle,
     std::string KernelName,
     const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
     const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
     const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
     const std::vector<sycl::detail::ArgDesc> &args,
-    const std::vector<const std::shared_ptr<node_impl> &> &dep) {
+    const std::vector<std::shared_ptr<node_impl>> &dep) {
   const std::shared_ptr<node_impl> & nodeImpl = std::make_shared<node_impl>(
       impl, Kernel, NDRDesc, OSModuleHandle, KernelName, AccStorage,
       LocalAccStorage, Requirements, args);
