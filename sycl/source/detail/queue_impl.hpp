@@ -550,34 +550,27 @@ private:
     handler Handler(Self, PrimaryQueue, SecondaryQueue, MHostQueue);
     Handler.saveCodeLoc(Loc);
     CGF(Handler);
-    if (auto graphImpl = Self->getCommandGraph(); graphImpl != nullptr) {
-      // Pass the args obtained by the handler to the graph to use in
-      // determining edges between this node and previously submitted nodes.
-      graphImpl->add(graphImpl, CGF, Handler.MArgs, {});
-    } else {
 
-      // Scheduler will later omit events, that are not required to execute
-      // tasks. Host and interop tasks, however, are not submitted to low-level
-      // runtimes and require separate dependency management.
-      const CG::CGTYPE Type = Handler.getType();
+    // Scheduler will later omit events, that are not required to execute
+    // tasks. Host and interop tasks, however, are not submitted to low-level
+    // runtimes and require separate dependency management.
+    const CG::CGTYPE Type = Handler.getType();
 
-      if (PostProcess) {
-        bool IsKernel = Type == CG::Kernel;
-        bool KernelUsesAssert = false;
+    if (PostProcess) {
+      bool IsKernel = Type == CG::Kernel;
+      bool KernelUsesAssert = false;
 
-        if (IsKernel)
-          // Kernel only uses assert if it's non interop one
-          KernelUsesAssert =
-              !(Handler.MKernel && Handler.MKernel->isInterop()) &&
-              ProgramManager::getInstance().kernelUsesAssert(
-                  Handler.MOSModuleHandle, Handler.MKernelName);
+      if (IsKernel)
+        // Kernel only uses assert if it's non interop one
+        KernelUsesAssert = !(Handler.MKernel && Handler.MKernel->isInterop()) &&
+                           ProgramManager::getInstance().kernelUsesAssert(
+                               Handler.MOSModuleHandle, Handler.MKernelName);
 
-        finalizeHandler(Handler, Type, Event);
+      finalizeHandler(Handler, Type, Event);
 
-        (*PostProcess)(IsKernel, KernelUsesAssert, Event);
-      } else
-        finalizeHandler(Handler, Type, Event);
-    }
+      (*PostProcess)(IsKernel, KernelUsesAssert, Event);
+    } else
+      finalizeHandler(Handler, Type, Event);
 
     addEvent(Event);
     return Event;
@@ -664,6 +657,8 @@ private:
   // commands to this queue. Used by subgraphs to determine if they are part of
   // a larger command graph submission.
   bool MIsGraphSubmitting = false;
+
+  friend class sycl::ext::oneapi::experimental::detail::node_impl;
 };
 
 } // namespace detail

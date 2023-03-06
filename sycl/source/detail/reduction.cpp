@@ -52,6 +52,12 @@ __SYCL_EXPORT size_t reduComputeWGSize(size_t NWorkItems, size_t MaxWGSize,
 // with the given queue.
 __SYCL_EXPORT uint32_t reduGetMaxNumConcurrentWorkGroups(
     std::shared_ptr<sycl::detail::queue_impl> Queue) {
+  // TODO: Graphs extension explicit API uses a handler with no queue attached,
+  // so return some value here. In the future we should have access to the
+  // device so can remove this.
+  if (Queue == nullptr) {
+    return 8;
+  }
   device Dev = Queue->get_device();
   uint32_t NumThreads = Dev.get_info<sycl::info::device::max_compute_units>();
   // TODO: The heuristics here require additional tuning for various devices
@@ -104,6 +110,12 @@ reduGetMaxWGSize(std::shared_ptr<sycl::detail::queue_impl> Queue,
 
 __SYCL_EXPORT size_t reduGetPreferredWGSize(std::shared_ptr<queue_impl> &Queue,
                                             size_t LocalMemBytesPerWorkItem) {
+  // TODO: Graphs extension explicit API uses a handler with a null queue to
+  // process CGFs, in future we should have access to the device so we can
+  // correctly calculate this.
+  if (Queue == nullptr) {
+    return 32;
+  }
   device Dev = Queue->get_device();
 
   // The maximum WGSize returned by CPU devices is very large and does not
