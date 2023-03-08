@@ -30,7 +30,8 @@ class wrapper {
   std::vector<sycl::event> MDeps;
 
 public:
-  wrapper(T Func, const std::vector<sycl::event> &Deps) : MFunc(Func), MDeps(Deps){};
+  wrapper(T Func, const std::vector<sycl::event> &Deps)
+      : MFunc(Func), MDeps(Deps){};
 
   void operator()(sycl::handler &CGH) {
     CGH.depends_on(MDeps);

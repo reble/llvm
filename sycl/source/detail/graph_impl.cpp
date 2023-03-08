@@ -139,7 +139,7 @@ void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
   for (auto Sender : MPredecessors)
     Deps.push_back(Sender->get_event());
 
-  MEvent = q->submit(wrapper{MBody, deps}, Queue _CODELOCFW(CodeLoc));
+  MEvent = Queue->submit(wrapper{MBody, Deps}, Queue _CODELOCFW(CodeLoc));
 }
 } // namespace detail
 
