@@ -127,8 +127,8 @@ struct node_impl {
       if (arg.MType == nodeArg.MType && arg.MSize == nodeArg.MSize) {
         // Args are actually void** so we need to dereference them to compare
         // actual values
-        void *incomingPtr = *(void **)arg.MPtr;
-        void *argPtr = *(void **)nodeArg.MPtr;
+        void *incomingPtr = *static_cast<void **>(arg.MPtr);
+        void *argPtr = *static_cast<void **>(nodeArg.MPtr);
         if (incomingPtr == argPtr) {
           return true;
         }

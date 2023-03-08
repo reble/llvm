@@ -55,6 +55,10 @@ __SYCL_EXPORT uint32_t reduGetMaxNumConcurrentWorkGroups(
   // TODO: Graphs extension explicit API uses a handler with no queue attached,
   // so return some value here. In the future we should have access to the
   // device so can remove this.
+  //
+  // The 8 value was chosen as the hardcoded value as it is the returned
+  // value for sycl::info::device::max_compute_units on
+  // Intel HD Graphics devices used as a L0 backend during development.
   if (Queue == nullptr) {
     return 8;
   }
@@ -113,6 +117,10 @@ __SYCL_EXPORT size_t reduGetPreferredWGSize(std::shared_ptr<queue_impl> &Queue,
   // TODO: Graphs extension explicit API uses a handler with a null queue to
   // process CGFs, in future we should have access to the device so we can
   // correctly calculate this.
+  //
+  // The 32 value was chosen as the hardcoded value as it is the returned
+  // value for SYCL_REDUCTION_PREFERRED_WORKGROUP_SIZE on
+  // Intel HD Graphics devices used as a L0 backend during development.
   if (Queue == nullptr) {
     return 32;
   }

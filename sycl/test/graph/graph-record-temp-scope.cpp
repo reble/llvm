@@ -8,7 +8,7 @@
 const size_t n = 10;
 const float expectedValue = 42.0f;
 
-void run_some_kernel(sycl::queue q, float* data){
+void run_some_kernel(sycl::queue q, float *data) {
   // data is captured by ref here but will have gone out of scope when the
   // CGF is later run when the graph is executed.
   q.submit([&](sycl::handler &h) {
