@@ -945,7 +945,7 @@ Parameters:
 
 Exceptions:
 
-* Throws asynchronously with error code `invalid` if the handler is submitted
+* Throws synchronously with error code `invalid` if the handler is submitted
   to a queue which doesn't have a SYCL context which matches the context of
   the executable graph.
 |===
@@ -991,7 +991,7 @@ Synchronous exception errors codes are defined for all of
 
 Submitting an executable graph using `handler::ext_oneapi_graph()` to
 a queue with a different SYCL context than that of the executable graph will
-result in an asynchronous exception.
+result in a synchronous exception.
 
 When a queue is in recording mode asynchronous exceptions will not be
 generated, as no device execution is occurring. Synchronous errors specified as
@@ -1125,9 +1125,9 @@ Design 3) needs specific backend support for deferred allocation.
 === Multi-device Graph
 
 A user can compose a graph with nodes targeting different devices. This allows
-the benefits of defining a execution graph ahead of submission to be extended
+the benefits of defining an execution graph ahead of submission to be extended
 to multi-device platforms. Without this capability a user would have to submit
-individual single device graphs and use events for dependencies, which is a
+individual single-device graphs and use events for dependencies, which is a
 usage model this extension is aiming to optimize. Automatic load balancing of
 commands across devices is not a problem this extension currently aims to solve,
 it is the responsibility of the user to decide the device each command will run
@@ -1137,8 +1137,8 @@ A modifiable state `command_graph` contains nodes targeting specific devices,
 rather than being a device agnostic representation only tied to devices on
 finalization. This allows the implementation to process nodes which require
 device information when the command group function is evaluated. For example,
-SYCL reductions require a work-group/sub-group size to be known, which is
-normally gathered by the runtime from the device associated with the queue.
+a SYCL reduction implementation may desire the work-group/sub-group size, which
+is normally gathered by the runtime from the device associated with the queue.
 
 A drawback of this design is that it is less convenient for the use-case where
 a user would like to run the same graph on N devices. Rather than finalizing a
