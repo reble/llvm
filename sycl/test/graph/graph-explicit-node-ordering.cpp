@@ -45,16 +45,8 @@ int main() {
 
   q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); }).wait();
 
-  bool check = true;
-  for (int i = 0; i < n; i++) {
-    if (x[i] != 8.0f)
-      check = false;
-  }
-
-  if (check)
-    std::cout << "Node ordering explicit graph test passed." << std::endl;
-  else
-    std::cout << "Node ordering explicit graph test failed." << std::endl;
+  for (int i = 0; i < n; i++)
+    assert(x[i] == 8.0f);
 
   sycl::free(x, q);
 

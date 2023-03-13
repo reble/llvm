@@ -83,10 +83,7 @@ int main() {
   // Using shortcut for executing a graph of commands
   q.ext_oneapi_graph(executable_graph).wait();
 
-  if (*dotp == host_gold_result())
-    std::cout << "Dot product explicit graph test passed." << std::endl;
-  else
-    std::cout << "Dot product explicit graph test failed." << std::endl;
+  assert(*dotp == host_gold_result());
 
   sycl::free(dotp, q);
   sycl::free(x, q);

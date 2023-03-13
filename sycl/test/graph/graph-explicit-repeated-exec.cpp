@@ -49,17 +49,8 @@ int main() {
 
   q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); });
 
-  for (int i = 0; i < n; i++) {
-    if (arr[i] != 2)
-      check = false;
-  }
-
-  if (check)
-    std::cout << "Repeated execution of an explicit graph test passed."
-              << std::endl;
-  else
-    std::cout << "Repeated execution of an explicit graph test failed."
-              << std::endl;
+    for (int i = 0; i < n; i++)
+    assert(arr[i] == 2);
 
   sycl::free(arr, q);
 

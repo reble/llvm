@@ -33,16 +33,8 @@ int main() {
   auto e3 = q.ext_oneapi_graph(executable_graph, e1);
   q.ext_oneapi_graph(executable_graph, {e2, e3}).wait();
 
-  bool check = true;
-  for (int i = 0; i < n; i++) {
-    if (arr[i] != 1)
-      check = false;
-  }
-
-  if (check)
-    std::cout << "Queue shortcuts explicit graph test passed." << std::endl;
-  else
-    std::cout << "Queue shortcuts explicit graph test failed." << std::endl;
+  for (int i = 0; i < n; i++)
+    assert(arr[i] == 1);
   
   sycl::free(arr, q);
 

@@ -29,10 +29,7 @@ int main() {
   auto executable_graph = g.finalize(q.get_context());
   q.ext_oneapi_graph(executable_graph).wait();
 
-  if (*output == 45)
-    std::cout << "Reduction explicit graph test passed." << std::endl;
-  else
-    std::cout << "Reduction explicit graph test failed." << std::endl;
+  assert(*output == 45);
 
   sycl::free(input, q);
   sycl::free(output, q);
