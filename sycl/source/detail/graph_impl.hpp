@@ -10,6 +10,7 @@
 
 #include <sycl/detail/cg_types.hpp>
 #include <sycl/detail/os_util.hpp>
+#include <sycl/feature_test.hpp>
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 #include <sycl/handler.hpp>
 
@@ -142,9 +143,7 @@ struct graph_impl {
   std::set<std::shared_ptr<node_impl>> MRoots;
   std::list<std::shared_ptr<node_impl>> MSchedule;
   // TODO: Change one time initialization to per executable object
-#if SYCL_EXT_ONEAPI_GRAPH
   bool MFirst;
-#endif
 
   std::shared_ptr<graph_impl> MParent;
 

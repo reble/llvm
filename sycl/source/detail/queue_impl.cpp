@@ -12,6 +12,7 @@
 #include <sycl/context.hpp>
 #include <sycl/detail/pi.hpp>
 #include <sycl/device.hpp>
+#include <sycl/feature_test.hpp>
 
 #include <cstring>
 #include <utility>

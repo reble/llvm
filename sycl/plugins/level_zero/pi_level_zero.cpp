@@ -21,6 +21,7 @@
 #include <sstream>
 #include <string>
 #include <sycl/detail/spinlock.hpp>
+#include <sycl/feature_test.hpp>
 #include <thread>
 #include <utility>
 

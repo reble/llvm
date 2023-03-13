@@ -36,6 +36,7 @@
 #include <shared_mutex>
 #include <string>
 #include <sycl/detail/pi.h>
+#include <sycl/feature_test.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
