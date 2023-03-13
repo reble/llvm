@@ -18,43 +18,43 @@ namespace oneapi {
 namespace experimental {
 namespace detail {
 
-void graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q) {
+void graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
   if (MSchedule.empty()) {
-    for (auto n : MRoots) {
-      n->topology_sort(MSchedule);
+    for (auto Node : MRoots) {
+      Node->topology_sort(MSchedule);
     }
   }
-  for (auto n : MSchedule)
-    n->exec(q);
+  for (auto Node : MSchedule)
+    Node->exec(Queue);
 }
 
 void graph_impl::exec_and_wait(
-    const std::shared_ptr<sycl::detail::queue_impl> &q) {
-  bool isSubGraph = q->getIsGraphSubmitting();
-  if (!isSubGraph) {
-    q->setIsGraphSubmitting(true);
+    const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
+  bool IsSubGraph = Queue->getIsGraphSubmitting();
+  if (!IsSubGraph) {
+    Queue->setIsGraphSubmitting(true);
   }
   if (MFirst) {
-    exec(q);
+    exec(Queue);
     MFirst = false;
   }
-  if (!isSubGraph) {
-    q->setIsGraphSubmitting(false);
-    q->wait();
+  if (!IsSubGraph) {
+    Queue->setIsGraphSubmitting(false);
+    Queue->wait();
   }
 }
 
-void graph_impl::add_root(const std::shared_ptr<node_impl> &n) {
-  MRoots.insert(n);
-  for (auto n : MSchedule)
-    n->MScheduled = false;
+void graph_impl::add_root(const std::shared_ptr<node_impl> &Root) {
+  MRoots.insert(Root);
+  for (auto Node : MSchedule)
+    Node->MScheduled = false;
   MSchedule.clear();
 }
 
-void graph_impl::remove_root(const std::shared_ptr<node_impl> &n) {
-  MRoots.erase(n);
-  for (auto n : MSchedule)
-    n->MScheduled = false;
+void graph_impl::remove_root(const std::shared_ptr<node_impl> &Root) {
+  MRoots.erase(Root);
+  for (auto Node : MSchedule)
+    Node->MScheduled = false;
   MSchedule.clear();
 }
 
@@ -70,21 +70,21 @@ void graph_impl::remove_root(const std::shared_ptr<node_impl> &n) {
 //
 // @returns True if a dependency was added in this node of any of its
 // successors.
-bool check_for_arg(const sycl::detail::ArgDesc &arg,
-                   const std::shared_ptr<node_impl> &currentNode,
-                   std::set<std::shared_ptr<node_impl>> &deps,
-                   bool dereferencePtr = false) {
-  bool successorAddedDep = false;
-  for (auto &successor : currentNode->MSuccessors) {
-    successorAddedDep |= check_for_arg(arg, successor, deps, dereferencePtr);
+bool check_for_arg(const sycl::detail::ArgDesc &Arg,
+                   const std::shared_ptr<node_impl> &CurrentNode,
+                   std::set<std::shared_ptr<node_impl>> &Deps,
+                   bool DereferencePtr = false) {
+  bool SuccessorAddedDep = false;
+  for (auto &Successor : CurrentNode->MSuccessors) {
+    SuccessorAddedDep |= check_for_arg(Arg, Successor, Deps, DereferencePtr);
   }
 
-  if (deps.find(currentNode) == deps.end() &&
-      currentNode->has_arg(arg, dereferencePtr) && !successorAddedDep) {
-    deps.insert(currentNode);
+  if (Deps.find(CurrentNode) == Deps.end() &&
+      CurrentNode->has_arg(Arg, DereferencePtr) && !SuccessorAddedDep) {
+    Deps.insert(CurrentNode);
     return true;
   }
-  return successorAddedDep;
+  return SuccessorAddedDep;
 }
 
 template <typename T>
@@ -133,13 +133,13 @@ bool graph_impl::clear_queues() {
   return anyQueuesCleared;
 }
 
-void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &q
+void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
                          _CODELOCPARAMDEF(&CodeLoc)) {
-  std::vector<sycl::event> deps;
-  for (auto i : MPredecessors)
-    deps.push_back(i->get_event());
+  std::vector<sycl::event> Deps;
+  for (auto Sender : MPredecessors)
+    Deps.push_back(Sender->get_event());
 
-  MEvent = q->submit(wrapper{MBody, deps}, q _CODELOCFW(CodeLoc));
+  MEvent = Queue->submit(wrapper{MBody, Deps}, Queue _CODELOCFW(CodeLoc));
 }
 } // namespace detail
 
@@ -150,45 +150,45 @@ command_graph<graph_state::modifiable>::command_graph(
 
 template <>
 node command_graph<graph_state::modifiable>::add_impl(
-    std::function<void(handler &)> cgf, const std::vector<node> &dep) {
-  std::vector<std::shared_ptr<detail::node_impl>> depImpls;
-  for (auto &d : dep) {
-    depImpls.push_back(sycl::detail::getSyclObjImpl(d));
+    std::function<void(handler &)> CGF, const std::vector<node> &Deps) {
+  std::vector<std::shared_ptr<detail::node_impl>> DepImpls;
+  for (auto &D : Deps) {
+    DepImpls.push_back(sycl::detail::getSyclObjImpl(D));
   }
 
-  std::shared_ptr<detail::node_impl> nodeImpl =
-      impl->add(impl, cgf, {}, depImpls);
-  return sycl::detail::createSyclObjFromImpl<node>(nodeImpl);
+  std::shared_ptr<detail::node_impl> NodeImpl =
+      impl->add(impl, CGF, {}, DepImpls);
+  return sycl::detail::createSyclObjFromImpl<node>(NodeImpl);
 }
 
 template <>
-void command_graph<graph_state::modifiable>::make_edge(node sender,
-                                                       node receiver) {
-  std::shared_ptr<detail::node_impl> senderImpl =
-      sycl::detail::getSyclObjImpl(sender);
-  std::shared_ptr<detail::node_impl> receiverImpl =
-      sycl::detail::getSyclObjImpl(receiver);
+void command_graph<graph_state::modifiable>::make_edge(node Sender,
+                                                       node Receiver) {
+  std::shared_ptr<detail::node_impl> SenderImpl =
+      sycl::detail::getSyclObjImpl(Sender);
+  std::shared_ptr<detail::node_impl> ReceiverImpl =
+      sycl::detail::getSyclObjImpl(Receiver);
 
-  senderImpl->register_successor(receiverImpl); // register successor
-  impl->remove_root(receiverImpl); // remove receiver from root node list
+  SenderImpl->register_successor(ReceiverImpl); // register successor
+  impl->remove_root(ReceiverImpl); // remove receiver from root node list
 }
 
 template <>
 command_graph<graph_state::executable>
 command_graph<graph_state::modifiable>::finalize(
-    const sycl::context &ctx, const sycl::property_list &) const {
-  return command_graph<graph_state::executable>{this->impl, ctx};
+    const sycl::context &CTX, const sycl::property_list &) const {
+  return command_graph<graph_state::executable>{this->impl, CTX};
 }
 
 template <>
 bool command_graph<graph_state::modifiable>::begin_recording(
-    queue recordingQueue) {
-  auto queueImpl = sycl::detail::getSyclObjImpl(recordingQueue);
-  if (queueImpl->getCommandGraph() == nullptr) {
-    queueImpl->setCommandGraph(impl);
-    impl->add_queue(queueImpl);
+    queue RecordingQueue) {
+  auto QueueImpl = sycl::detail::getSyclObjImpl(RecordingQueue);
+  if (QueueImpl->getCommandGraph() == nullptr) {
+    QueueImpl->setCommandGraph(impl);
+    impl->add_queue(QueueImpl);
     return true;
-  } else if (queueImpl->getCommandGraph() != impl) {
+  } else if (QueueImpl->getCommandGraph() != impl) {
     throw sycl::exception(make_error_code(errc::invalid),
                           "begin_recording called for a queue which is already "
                           "recording to a different graph.");
@@ -200,12 +200,12 @@ bool command_graph<graph_state::modifiable>::begin_recording(
 
 template <>
 bool command_graph<graph_state::modifiable>::begin_recording(
-    const std::vector<queue> &recordingQueues) {
-  bool queueStateChanged = false;
-  for (auto &q : recordingQueues) {
-    queueStateChanged |= this->begin_recording(q);
+    const std::vector<queue> &RecordingQueues) {
+  bool QueueStateChanged = false;
+  for (auto &Queue : RecordingQueues) {
+    QueueStateChanged |= this->begin_recording(Queue);
   }
-  return queueStateChanged;
+  return QueueStateChanged;
 }
 
 template <> bool command_graph<graph_state::modifiable>::end_recording() {
@@ -214,13 +214,13 @@ template <> bool command_graph<graph_state::modifiable>::end_recording() {
 
 template <>
 bool command_graph<graph_state::modifiable>::end_recording(
-    queue recordingQueue) {
-  auto queueImpl = sycl::detail::getSyclObjImpl(recordingQueue);
-  if (queueImpl->getCommandGraph() == impl) {
-    queueImpl->setCommandGraph(nullptr);
-    impl->remove_queue(queueImpl);
+    queue RecordingQueue) {
+  auto QueueImpl = sycl::detail::getSyclObjImpl(RecordingQueue);
+  if (QueueImpl->getCommandGraph() == impl) {
+    QueueImpl->setCommandGraph(nullptr);
+    impl->remove_queue(QueueImpl);
     return true;
-  } else if (queueImpl->getCommandGraph() != nullptr) {
+  } else if (QueueImpl->getCommandGraph() != nullptr) {
     throw sycl::exception(make_error_code(errc::invalid),
                           "end_recording called for a queue which is recording "
                           "to a different graph.");
@@ -229,14 +229,15 @@ bool command_graph<graph_state::modifiable>::end_recording(
   // Queue was not recording to a graph.
   return false;
 }
+
 template <>
 bool command_graph<graph_state::modifiable>::end_recording(
-    const std::vector<queue> &recordingQueues) {
-  bool queueStateChanged = false;
-  for (auto &q : recordingQueues) {
-    queueStateChanged |= this->end_recording(q);
+    const std::vector<queue> &RecordingQueues) {
+  bool QueueStateChanged = false;
+  for (auto &Queue : RecordingQueues) {
+    QueueStateChanged |= this->end_recording(Queue);
   }
-  return queueStateChanged;
+  return QueueStateChanged;
 }
 
 } // namespace experimental
