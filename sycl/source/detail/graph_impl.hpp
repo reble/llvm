@@ -86,14 +86,15 @@ struct node_impl {
   sycl::event get_event(void) const { return MEvent; }
 
   node_impl(
-      const std::shared_ptr<graph_impl> &g, std::shared_ptr<sycl::detail::kernel_impl> Kernel,
+      const std::shared_ptr<graph_impl> &Graph,
+      std::shared_ptr<sycl::detail::kernel_impl> Kernel,
       sycl::detail::NDRDescT NDRDesc,
       sycl::detail::OSModuleHandle OSModuleHandle, std::string KernelName,
       const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
       const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
       const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
       const std::vector<sycl::detail::ArgDesc> &args)
-      : MScheduled(false), MGraph(g), MKernel(Kernel), MNDRDesc(NDRDesc),
+      : MScheduled(false), MGraph(Graph), MKernel(Kernel), MNDRDesc(NDRDesc),
         MOSModuleHandle(OSModuleHandle), MKernelName(KernelName),
         MAccStorage(AccStorage), MLocalAccStorage(LocalAccStorage),
         MRequirements(Requirements), MArgs(args), MArgStorage() {
@@ -121,15 +122,14 @@ struct node_impl {
     Schedule.push_front(std::shared_ptr<node_impl>(this));
   }
 
-
-  bool has_arg(const sycl::detail::ArgDesc &arg) {
-    for (auto &nodeArg : MArgs) {
-      if (arg.MType == nodeArg.MType && arg.MSize == nodeArg.MSize) {
+  bool has_arg(const sycl::detail::ArgDesc &Arg) {
+    for (auto &NodeArg : MArgs) {
+      if (Arg.MType == NodeArg.MType && Arg.MSize == NodeArg.MSize) {
         // Args are actually void** so we need to dereference them to compare
         // actual values
-        void *incomingPtr = *static_cast<void **>(arg.MPtr);
-        void *argPtr = *static_cast<void **>(nodeArg.MPtr);
-        if (incomingPtr == argPtr) {
+        void *IncomingPtr = *static_cast<void **>(Arg.MPtr);
+        void *ArgPtr = *static_cast<void **>(NodeArg.MPtr);
+        if (IncomingPtr == ArgPtr) {
           return true;
         }
       }
@@ -153,19 +153,21 @@ struct graph_impl {
   void remove_root(const std::shared_ptr<node_impl> &);
 
   std::shared_ptr<node_impl>
-
-  add(const std::shared_ptr<graph_impl> &impl, std::shared_ptr<sycl::detail::kernel_impl> Kernel,
+  add(const std::shared_ptr<graph_impl> &Impl,
+      std::shared_ptr<sycl::detail::kernel_impl> Kernel,
       sycl::detail::NDRDescT NDRDesc,
       sycl::detail::OSModuleHandle OSModuleHandle, std::string KernelName,
       const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
       const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
       const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
-      const std::vector<sycl::detail::ArgDesc> &args,
-      const std::vector<std::shared_ptr<node_impl>> &dep = {});
+      const std::vector<sycl::detail::ArgDesc> &Args,
+      const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
-  std::shared_ptr<node_impl> add(const std::shared_ptr<graph_impl> &impl, std::function<void(handler &)> cgf,
-               const std::vector<sycl::detail::ArgDesc> &args,
-               const std::vector<std::shared_ptr<node_impl>> &dep = {});
+  std::shared_ptr<node_impl>
+  add(const std::shared_ptr<graph_impl> &Impl,
+      std::function<void(handler &)> CGF,
+      const std::vector<sycl::detail::ArgDesc> &Args,
+      const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
   graph_impl() : MFirst(true) {}
 

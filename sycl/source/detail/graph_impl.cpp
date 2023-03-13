@@ -62,98 +62,96 @@ void graph_impl::remove_root(const std::shared_ptr<node_impl> &Root) {
 // Recursive check if a graph node or its successors contains a given kernel
 // argument.
 //
-// @param[in] arg The kernel argument to check for.
-// @param[in] currentNode The current graph node being checked.
-// @param[in,out] deps The unique list of dependencies which have been
+// @param[in] Arg The kernel argument to check for.
+// @param[in] CurrentNode The current graph node being checked.
+// @param[in,out] Deps The unique list of dependencies which have been
 // identified for this arg.
-// @param[in] dereferencePtr if true arg comes direct from the handler in which
-// case it will need to be deferenced to check actual value.
 //
 // @returns True if a dependency was added in this node of any of its
 // successors.
-bool check_for_arg(const sycl::detail::ArgDesc &arg,
-                   const std::shared_ptr<node_impl> &currentNode,
-                   std::set<std::shared_ptr<node_impl>> &deps) {
-  bool successorAddedDep = false;
-  for (auto &successor : currentNode->MSuccessors) {
-    successorAddedDep |= check_for_arg(arg, successor, deps);
+bool check_for_arg(const sycl::detail::ArgDesc &Arg,
+                   const std::shared_ptr<node_impl> &CurrentNode,
+                   std::set<std::shared_ptr<node_impl>> &Deps) {
+  bool SuccessorAddedDep = false;
+  for (auto &Successor : CurrentNode->MSuccessors) {
+    SuccessorAddedDep |= check_for_arg(Arg, Successor, Deps);
   }
 
-  if (deps.find(currentNode) == deps.end() && currentNode->has_arg(arg) &&
-      !successorAddedDep) {
-    deps.insert(currentNode);
+  if (Deps.find(CurrentNode) == Deps.end() && CurrentNode->has_arg(Arg) &&
+      !SuccessorAddedDep) {
+    Deps.insert(CurrentNode);
     return true;
   }
   return SuccessorAddedDep;
 }
 
 std::shared_ptr<node_impl>
-graph_impl::add(const std::shared_ptr<graph_impl> &impl,
-                std::function<void(handler &)> cgf,
-                const std::vector<sycl::detail::ArgDesc> &args,
-                const std::vector<std::shared_ptr<node_impl>> &dep) {
+graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
+                std::function<void(handler &)> CGF,
+                const std::vector<sycl::detail::ArgDesc> &Args,
+                const std::vector<std::shared_ptr<node_impl>> &Dep) {
   sycl::queue TempQueue{};
   auto QueueImpl = sycl::detail::getSyclObjImpl(TempQueue);
-  QueueImpl->setCommandGraph(impl);
+  QueueImpl->setCommandGraph(Impl);
   sycl::handler Handler{QueueImpl, false};
-  cgf(Handler);
+  CGF(Handler);
 
-  return this->add(impl, Handler.MKernel, Handler.MNDRDesc,
+  return this->add(Impl, Handler.MKernel, Handler.MNDRDesc,
                    Handler.MOSModuleHandle, Handler.MKernelName,
                    Handler.MAccStorage, Handler.MLocalAccStorage,
                    Handler.MRequirements, Handler.MArgs, {});
 }
 
 std::shared_ptr<node_impl> graph_impl::add(
-    const std::shared_ptr<graph_impl> &impl,
+    const std::shared_ptr<graph_impl> &Impl,
     std::shared_ptr<sycl::detail::kernel_impl> Kernel,
     sycl::detail::NDRDescT NDRDesc, sycl::detail::OSModuleHandle OSModuleHandle,
     std::string KernelName,
     const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
     const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
     const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
-    const std::vector<sycl::detail::ArgDesc> &args,
-    const std::vector<std::shared_ptr<node_impl>> &dep) {
-  const std::shared_ptr<node_impl> & nodeImpl = std::make_shared<node_impl>(
-      impl, Kernel, NDRDesc, OSModuleHandle, KernelName, AccStorage,
-      LocalAccStorage, Requirements, args);
+    const std::vector<sycl::detail::ArgDesc> &Args,
+    const std::vector<std::shared_ptr<node_impl>> &Dep) {
+  const std::shared_ptr<node_impl> &NodeImpl = std::make_shared<node_impl>(
+      Impl, Kernel, NDRDesc, OSModuleHandle, KernelName, AccStorage,
+      LocalAccStorage, Requirements, Args);
   // Copy deps so we can modify them
-  auto deps = dep;
+  auto Deps = Dep;
   // A unique set of dependencies obtained by checking kernel arguments
-  std::set<std::shared_ptr<node_impl>> uniqueDeps;
-  for (auto &arg : args) {
-    if (arg.MType != sycl::detail::kernel_param_kind_t::kind_pointer) {
+  std::set<std::shared_ptr<node_impl>> UniqueDeps;
+  for (auto &Arg : Args) {
+    if (Arg.MType != sycl::detail::kernel_param_kind_t::kind_pointer) {
       continue;
     }
     // Look through the graph for nodes which share this argument
-    for (auto nodePtr : MRoots) {
-      check_for_arg(arg, nodePtr, uniqueDeps);
+    for (auto NodePtr : MRoots) {
+      check_for_arg(Arg, NodePtr, UniqueDeps);
     }
   }
 
   // Add any deps determined from arguments into the dependency list
-  deps.insert(deps.end(), uniqueDeps.begin(), uniqueDeps.end());
-  if (!deps.empty()) {
-    for (auto n : deps) {
-      n->register_successor(nodeImpl); // register successor
-      this->remove_root(nodeImpl);     // remove receiver from root node
+  Deps.insert(Deps.end(), UniqueDeps.begin(), UniqueDeps.end());
+  if (!Deps.empty()) {
+    for (auto N : Deps) {
+      N->register_successor(NodeImpl); // register successor
+      this->remove_root(NodeImpl);     // remove receiver from root node
                                        // list
     }
   } else {
-    this->add_root(nodeImpl);
+    this->add_root(NodeImpl);
   }
-  return nodeImpl;
+  return NodeImpl;
 }
 
 bool graph_impl::clear_queues() {
-  bool anyQueuesCleared = false;
-  for (auto &q : MRecordingQueues) {
-    q->setCommandGraph(nullptr);
-    anyQueuesCleared = true;
+  bool AnyQueuesCleared = false;
+  for (auto &Queue : MRecordingQueues) {
+    Queue->setCommandGraph(nullptr);
+    AnyQueuesCleared = true;
   }
   MRecordingQueues.clear();
 
-  return anyQueuesCleared;
+  return AnyQueuesCleared;
 }
 
 void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
@@ -166,28 +164,28 @@ void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
 
   std::vector<pi_event> RawEvents;
   pi_event *OutEvent = nullptr;
-  auto NewEvent = std::make_shared<sycl::detail::event_impl>(q);
-  NewEvent->setContextImpl(q->getContextImplPtr());
+  auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
+  NewEvent->setContextImpl(Queue->getContextImplPtr());
   NewEvent->setStateIncomplete();
   OutEvent = &NewEvent->getHandleRef();
-  pi_result res =
-      q->getPlugin().call_nocheck<sycl::detail::PiApiKind::piEventCreate>(
-          sycl::detail::getSyclObjImpl(q->get_context())->getHandleRef(),
+  pi_result Res =
+      Queue->getPlugin().call_nocheck<sycl::detail::PiApiKind::piEventCreate>(
+          sycl::detail::getSyclObjImpl(Queue->get_context())->getHandleRef(),
           OutEvent);
-  if (res != pi_result::PI_SUCCESS) {
+  if (Res != pi_result::PI_SUCCESS) {
     throw sycl::exception(errc::event,
                           "Failed to create event for node submission");
   }
 
   pi_int32 Result = enqueueImpKernel(
-      q, MNDRDesc, MArgs, /* KernelBundleImpPtr */ nullptr, MKernel,
+      Queue, MNDRDesc, MArgs, /* KernelBundleImpPtr */ nullptr, MKernel,
       MKernelName, MOSModuleHandle, RawEvents, OutEvent, nullptr);
   if (Result != pi_result::PI_SUCCESS) {
     throw sycl::exception(errc::kernel, "Error enqueuing graph node kernel");
   }
   sycl::event QueueEvent =
       sycl::detail::createSyclObjFromImpl<sycl::event>(NewEvent);
-  q->addEvent(QueueEvent);
+  Queue->addEvent(QueueEvent);
   MEvent = QueueEvent;
 }
 } // namespace detail

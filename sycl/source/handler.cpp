@@ -93,10 +93,10 @@ event handler::finalize() {
   if (MIsFinalized)
     return MLastEvent;
   MIsFinalized = true;
-  if (auto graphImpl = MQueue->getCommandGraph(); graphImpl != nullptr) {
+  if (auto GraphImpl = MQueue->getCommandGraph(); GraphImpl != nullptr) {
     // Extract relevant data from the handler and pass to graph to create a new
     // node representing this command group.
-    graphImpl->add(graphImpl, MKernel, MNDRDesc, MOSModuleHandle, MKernelName,
+    GraphImpl->add(GraphImpl, MKernel, MNDRDesc, MOSModuleHandle, MKernelName,
                    MAccStorage, MLocalAccStorage, MRequirements, MArgs, {});
     return detail::createSyclObjFromImpl<event>(
         std::make_shared<detail::event_impl>());
