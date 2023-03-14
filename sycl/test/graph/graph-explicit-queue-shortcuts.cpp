@@ -1,6 +1,6 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-#include <sycl/sycl.hpp>
 #include <iostream>
+#include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
@@ -35,7 +35,7 @@ int main() {
 
   for (int i = 0; i < n; i++)
     assert(arr[i] == 1);
-  
+
   sycl::free(arr, q);
 
   return 0;

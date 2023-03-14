@@ -2,8 +2,8 @@
 
 // Modified version of the dotp example which submits part of the graph as a
 // sub-graph
-#include <sycl/sycl.hpp>
 #include <iostream>
+#include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 

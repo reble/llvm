@@ -1,6 +1,6 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-#include <sycl/sycl.hpp>
 #include <iostream>
+#include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
@@ -43,7 +43,9 @@ int main() {
 
   auto executable_graph = g.finalize(q.get_context());
 
-  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); }).wait();
+  q.submit([&](sycl::handler &h) {
+     h.ext_oneapi_graph(executable_graph);
+   }).wait();
 
   for (int i = 0; i < n; i++)
     assert(x[i] == 8.0f);
