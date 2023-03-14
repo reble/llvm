@@ -353,7 +353,7 @@ public:
     command_graph() = delete;
     void update(const command_graph<graph_state::modifiable>& graph);
     template <typename T>
-    void update_parameter(const T& from, const T& to);
+    void update_memory_parameter(const T& from, const T& to);
 };
 }  // namespace ext::oneapi::experimental
 
@@ -468,9 +468,11 @@ outputs of the modifiable graph, a technique called _Whole Graph Update_. The
 modifiable graph must have the same topology as the graph originally used to
 create the executable graphs, with the nodes added in the same order.
 
-Individual input parameters to the executable graph can also be updated
-using the `command_graph::update_parameter()` method. This can be useful
-if only a small number of parameters require updating.
+Individual buffer and USM parameters to the executable graph can also be updated
+using the `command_graph::update_memory_parameter()` method. This can be useful
+if only a small number of inputs & outputs require updating. It is not possible
+to update scalar parameters as they are considered to be captured by value in
+command group scope, so due to the copy there is no basis for a comparison.
 
 ==== Graph Member Functions
 
@@ -856,12 +858,12 @@ Exceptions:
 ----
 using namespace ext::oneapi::experimental;
 template <typename T>
-void command_graph<graph_state::executable> 
-update_parameter(const T& from, const T& to);
+void command_graph<graph_state::executable>
+update_memory_parameter(const T& from, const T& to);
 ----
 
-|Updates a parameter across the executable graph such that all nodes in the
-graph which use `from` as a parameter will have that parameter replaced by
+|Updates a memory parameter across the executable graph such that all nodes in
+the graph which use `from` as a parameter will have that parameter replaced by
 `to`.
 
 Preconditions:
