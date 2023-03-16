@@ -1298,14 +1298,15 @@ Allow an executable graph to contain nodes targeting different devices.
 
 **Outcome:** Under consideration
 
-=== Record & Replay: Mark Internal Memory
+=== Memory Allocation API
 
-When a graph is created by recording a queue there is no way to tag memory
-objects internal to the graph, which would enable optimizations on the internal
-memory. Do we need an interface record & replay can use to identify buffers and
-USM allocations not used outside of the graph?
+We would like to provide an API that allows graph scope memory to be
+allocated and used in nodes, such that optimizations can be done on
+the allocation. No mechanism is currently provided, but see the
+section on <<memory-allocation-nodes, Memory Allocation Nodes>> for
+some designs being considered.
 
-**Outcome:** Unresolved
+**Outcome:** Designs under consideration
 
 === Executable Graph Update
 
