@@ -14,27 +14,32 @@ int main() {
 
   sycl::ext::oneapi::experimental::command_graph g;
 
-  const size_t n = 1000;
-  const float a = 3.0f;
-  float *x = sycl::malloc_device<float>(n, q);
-  float *y = sycl::malloc_shared<float>(n, q);
+  const size_t n = 10;
+  float *x = sycl::malloc_shared<float>(n, q);
 
   auto init = g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
       size_t i = idx;
-      x[i] = 1.0f;
-      y[i] = 2.0f;
+      x[i] = 2.0f;
     });
   });
 
-  auto compute = g.add([&](sycl::handler &h) {
+  auto add = g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
       size_t i = idx;
-      y[i] = a * x[i] + y[i];
+      x[i] += 2.0f;
     });
   });
 
-  g.make_edge(init, compute);
+  auto mult = g.add([&](sycl::handler &h) {
+    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
+      size_t i = idx;
+      x[i] *= 3.0f;
+    });
+  });
+
+  g.make_edge(init, mult);
+  g.make_edge(mult, add);
 
   auto executable_graph = g.finalize(q.get_context());
 
@@ -43,10 +48,9 @@ int main() {
    }).wait();
 
   for (int i = 0; i < n; i++)
-    assert(y[i] == 5.0f);
+    assert(x[i] == 8.0f);
 
   sycl::free(x, q);
-  sycl::free(y, q);
 
   return 0;
 }

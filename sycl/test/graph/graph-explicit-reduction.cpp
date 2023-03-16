@@ -1,6 +1,6 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-#include <CL/sycl.hpp>
 #include <iostream>
+#include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
@@ -26,12 +26,13 @@ int main() {
                    [=](sycl::id<1> idx, auto &sum) { sum += input[idx]; });
   });
 
-  e.wait();
+  auto executable_graph = g.finalize(q.get_context());
+  q.ext_oneapi_graph(executable_graph).wait();
+
+  assert(*output == 45);
 
   sycl::free(input, q);
   sycl::free(output, q);
-
-  std::cout << "done\n";
 
   return 0;
 }

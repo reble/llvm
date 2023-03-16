@@ -1,6 +1,6 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-#include <CL/sycl.hpp>
 #include <iostream>
+#include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
@@ -83,16 +83,12 @@ int main() {
   // Using shortcut for executing a graph of commands
   q.ext_oneapi_graph(executable_graph).wait();
 
-  if (*dotp != host_gold_result()) {
-    std::cout << "Error unexpected result!\n";
-  }
+  assert(*dotp == host_gold_result());
 
   sycl::free(dotp, q);
   sycl::free(x, q);
   sycl::free(y, q);
   sycl::free(z, q);
-
-  std::cout << "done.\n";
 
   return 0;
 }

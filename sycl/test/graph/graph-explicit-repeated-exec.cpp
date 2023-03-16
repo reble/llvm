@@ -23,7 +23,7 @@ int main() {
   g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
       size_t i = idx;
-      arr[i] = 1;
+      arr[i] += 1;
     });
   });
 
@@ -42,8 +42,15 @@ int main() {
 
   q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); });
 
+  for (int i = 0; i < n; i++) {
+    if (arr[i] != 1)
+      check = false;
+  }
+
+  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); });
+
   for (int i = 0; i < n; i++)
-    assert(arr[i] == 1);
+    assert(arr[i] == 2);
 
   sycl::free(arr, q);
 

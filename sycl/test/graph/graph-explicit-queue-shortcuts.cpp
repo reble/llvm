@@ -1,6 +1,6 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-#include <CL/sycl.hpp>
 #include <iostream>
+#include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
@@ -33,9 +33,10 @@ int main() {
   auto e3 = q.ext_oneapi_graph(executable_graph, e1);
   q.ext_oneapi_graph(executable_graph, {e2, e3}).wait();
 
-  sycl::free(arr, q);
+  for (int i = 0; i < n; i++)
+    assert(arr[i] == 1);
 
-  std::cout << "done " << arr[0] << std::endl;
+  sycl::free(arr, q);
 
   return 0;
 }
