@@ -1076,7 +1076,7 @@ cgh.host_task([=](){
 There is no provided interface for users to define a USM allocation/free
 operation belonging to the scope of the graph. It would be error prone and
 non-performant to allocate or free memory as a node executed during graph
-submission. Instead such a memory allocation API needs to provide a way to
+submission. Instead, such a memory allocation API needs to provide a way to
 return a pointer which won't be valid until the allocation is made on graph
 finalization, as allocating at finalization is the only way to benefit from
 the known graph scope for optimal memory allocation, and even optimize to
@@ -1088,7 +1088,7 @@ USM allocations to be used in the graph submission. Before to coming to this
 recommendation we considered the following explicit graph building interfaces
 for adding a memory allocation owned by the graph:
 
-1. Allocation function returning a reference to the raw pointer, i.e `void*&`,
+1. Allocation function returning a reference to the raw pointer, i.e. `void*&`,
    which will be instantiated on graph finalization with the location of the
    allocated USM memory.
 
@@ -1107,8 +1107,7 @@ error prone way to provide the pointer to the deferred allocation. However, it
 requires kernel changes and introduces an overhead above the raw pointers that
 are the advantage of USM.
 
-The backend support for design 3) is too limited for the approach to be
-feasible.
+Design 3) needs specific backend support for deferred allocation.
 
 == Examples
 
