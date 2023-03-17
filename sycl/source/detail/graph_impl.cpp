@@ -90,10 +90,7 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
                 std::function<void(handler &)> CGF,
                 const std::vector<sycl::detail::ArgDesc> &Args,
                 const std::vector<std::shared_ptr<node_impl>> &Dep) {
-  sycl::queue TempQueue{};
-  auto QueueImpl = sycl::detail::getSyclObjImpl(TempQueue);
-  QueueImpl->setCommandGraph(Impl);
-  sycl::handler Handler{QueueImpl, false};
+  sycl::handler Handler{Impl};
   CGF(Handler);
 
   return this->add(Impl, Handler.MKernel, Handler.MNDRDesc,
