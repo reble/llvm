@@ -256,7 +256,7 @@ Table {counter: tableNumber}. Recorded Graph Definition.
 | Nodes in a queue recorded graph represent each of the command group
 submissions of the program. Each submission encompasses either one or both of
 a.) some data movement, b.) a single asynchronous kernel launch. Nodes cannot
-define forward edges, only backwards. This is kernels can only create
+define forward edges, only backwards. That is, kernels can only create
 dependencies on command-groups that have already been submitted. This means that
 transparently a node can depend on a previously recorded graph (sub-graph),
 which works by creating edges to the individual nodes in the old graph. Explicit
