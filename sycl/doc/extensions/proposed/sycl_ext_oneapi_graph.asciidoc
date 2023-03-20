@@ -545,7 +545,12 @@ Preconditions:
 
 Parameters:
 
-* `syclDevice` - Device this command will run on, if not a host task.
+* `syclDevice` - Device to process `cgf` with to create node command-group.
+  Commands are not required to execute on this device if the behaviour is
+  consistent with how they would not execute on the device associated with a
+  `sycl::queue` during regular queue submission. In particular host tasks,
+  sub-graphs with nodes targeting other devices, and memory copies may not
+  execute on `syclDevice`.
 
 * `cgf` - Command group function object to be added as a node.
 
@@ -1130,8 +1135,8 @@ to multi-device platforms. Without this capability a user would have to submit
 individual single-device graphs and use events for dependencies, which is a
 usage model this extension is aiming to optimize. Automatic load balancing of
 commands across devices is not a problem this extension currently aims to solve,
-it is the responsibility of the user to decide the device each command will run
-on, not the SYCL runtime.
+it is the responsibility of the user to decide the device each command will be
+be processed for, not the SYCL runtime.
 
 A modifiable state `command_graph` contains nodes targeting specific devices,
 rather than being a device agnostic representation only tied to devices on
@@ -1147,7 +1152,10 @@ to record N modifiable graphs and then as finalize each of them. If this use
 case does become a usability issue, we could provide a specific API to support
 it. For example an update API for the modifiable `command_graph`, similar to
 parameters, so that the same modifiable graph can be updated to new devices then
-re-finalized.
+re-finalized. There may need to be limitations on what devices a graph can be
+updated to however, as device specific processing might not be possible to roll
+back or defer. As such, it may be only possible to update to identical physical
+devices, rather than re-target a GPU constructed graph to a CPU.
 
 The queue an executable graph is submitted to needs to have the same context as
 the executable graph, however execution of a multi-device graph is not limited
@@ -1337,12 +1345,6 @@ submitted in its entirety for execution via
 ----
 
 == Issues
-
-=== Multi Device Graph
-
-Allow an executable graph to contain nodes targeting different devices.
-
-**Outcome:** Under consideration
 
 === Memory Allocation API
 
