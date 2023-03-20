@@ -1,7 +1,5 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 #include <CL/sycl.hpp>
-#include <iostream>
-#include <thread>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
@@ -85,18 +83,12 @@ int main() {
 
   q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); });
 
-  if (dotp[0] != host_gold_result()) {
-    std::cout << "Test failed: Error unexpected result!\n";
-  } else {
-    std::cout << "Test passed successfuly.";
-  }
+  assert(dotp[0] == host_gold_result());
 
   sycl::free(dotp, q);
   sycl::free(x, q);
   sycl::free(y, q);
   sycl::free(z, q);
-
-  std::cout << "done.\n";
 
   return 0;
 }
