@@ -1081,7 +1081,7 @@ evaluated as normal during command graph execution.
 [source,c++]
 ----
 using namespace ext::oneapi::experimental;
-auto node = graph.add([&](device, sycl::handler& cgh){
+auto node = graph.add(device, [&](sycl::handler& cgh){
 // Host code here is evaluated during the call to add()
 cgh.host_task([=](){
   // Code here is evaluated as part of executing the command graph node
