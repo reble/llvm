@@ -83,18 +83,23 @@ int main() {
       auto dotp = dotpBuf.get_access(h);
       auto x = xBuf.get_access(h);
       auto z = zBuf.get_access(h);
-      h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
-        const size_t i = it[0];
+#ifdef TEST_GRAPH_REDUCTIONS
+      h.parallel_for(sycl::range<1>{n},
+                     sycl::reduction(dotpBuf, h, 0.0f, std::plus()),
+                     [=](sycl::id<1> it, auto &sum) {
+                       const size_t i = it[0];
+                       sum += x[i] * z[i];
+                     });
+#else
+      h.single_task([=]() {
         // Doing a manual reduction here because reduction objects cause issues
         // with graphs.
-        if (i == 0) {
-          for (size_t j = 0; j < n; j++) {
-            dotp[0] += x[j] * z[j];
-          }
+        for (size_t j = 0; j < n; j++) {
+          dotp[0] += x[j] * z[j];
         }
       });
+#endif
     });
-
     g.end_recording();
 
     auto exec_graph = g.finalize(q.get_context());
