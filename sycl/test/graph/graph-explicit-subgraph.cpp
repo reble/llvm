@@ -73,12 +73,22 @@ int main() {
 
   auto node_c = g.add(
       [&](sycl::handler &h) {
+#ifdef TEST_GRAPH_REDUCTIONS
         h.parallel_for(sycl::range<1>{n},
                        sycl::reduction(dotp, 0.0f, std::plus()),
                        [=](sycl::id<1> it, auto &sum) {
                          const size_t i = it[0];
                          sum += x[i] * z[i];
                        });
+#else
+        h.single_task([=]() {
+          // Doing a manual reduction here because reduction objects cause
+          // issues with graphs.
+          for (size_t j = 0; j < n; j++) {
+            dotp[0] += x[j] * z[j];
+          }
+        });
+#endif
       },
       {node_sub});
 

@@ -1,5 +1,5 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-#include <CL/sycl.hpp>
+#include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
@@ -25,7 +25,7 @@ int main() {
   float gamma = 3.0f;
 
   sycl::property_list properties{
-      sycl::property::queue::in_order(),
+      sycl::property::queue::in_order{},
       sycl::ext::oneapi::property::queue::lazy_execution{}};
 
   sycl::queue q{sycl::gpu_selector_v, properties};
@@ -44,10 +44,8 @@ int main() {
     sycl::buffer yBuf(yData);
     sycl::buffer zBuf(zData);
 
-    g.begin_recording(q);
-
     /* init data on the device */
-    q.submit([&](sycl::handler &h) {
+    auto n_i = g.add([&](sycl::handler &h) {
       auto x = xBuf.get_access(h);
       auto y = yBuf.get_access(h);
       auto z = zBuf.get_access(h);
@@ -59,7 +57,7 @@ int main() {
       });
     });
 
-    q.submit([&](sycl::handler &h) {
+    auto node_a = g.add([&](sycl::handler &h) {
       auto x = xBuf.get_access(h);
       auto y = yBuf.get_access(h);
       h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
@@ -68,7 +66,7 @@ int main() {
       });
     });
 
-    q.submit([&](sycl::handler &h) {
+    auto node_b = g.add([&](sycl::handler &h) {
       auto y = yBuf.get_access(h);
       auto z = zBuf.get_access(h);
       h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
@@ -77,7 +75,7 @@ int main() {
       });
     });
 
-    q.submit([&](sycl::handler &h) {
+    auto node_c = g.add([&](sycl::handler &h) {
       auto dotp = dotpBuf.get_access(h);
       auto x = xBuf.get_access(h);
       auto z = zBuf.get_access(h);
@@ -98,14 +96,13 @@ int main() {
       });
 #endif
     });
-    g.end_recording();
 
-    auto exec_graph = g.finalize(q.get_context());
+    auto executable_graph = g.finalize(q.get_context());
 
-    q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); });
+    // Using shortcut for executing a graph of commands
+    q.ext_oneapi_graph(executable_graph).wait();
   }
 
   assert(dotpData == host_gold_result());
-
   return 0;
 }

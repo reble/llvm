@@ -9,9 +9,13 @@
 #pragma once
 
 #include <sycl/detail/cg_types.hpp>
+#include <sycl/detail/os_util.hpp>
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 #include <sycl/handler.hpp>
 
+#include <detail/kernel_impl.hpp>
+
+#include <cstring>
 #include <functional>
 #include <list>
 #include <set>
@@ -48,9 +52,24 @@ struct node_impl {
   std::vector<std::shared_ptr<node_impl>> MSuccessors;
   std::vector<std::shared_ptr<node_impl>> MPredecessors;
 
-  std::function<void(sycl::handler &)> MBody;
+  /// Kernel to be executed by this node
+  std::shared_ptr<sycl::detail::kernel_impl> MKernel;
+  /// Description of the kernel global and local sizes as well as offset
+  sycl::detail::NDRDescT MNDRDesc;
+  /// Module handle for the kernel to be executed.
+  sycl::detail::OSModuleHandle MOSModuleHandle =
+      sycl::detail::OSUtil::ExeModuleHandle;
+  /// Kernel name inside the module
+  std::string MKernelName;
+  std::vector<sycl::detail::AccessorImplPtr> MAccStorage;
+  std::vector<sycl::detail::LocalAccessorImplPtr> MLocalAccStorage;
+  std::vector<sycl::detail::AccessorImplHost *> MRequirements;
 
+  /// Store arg descriptors for the kernel arguments
   std::vector<sycl::detail::ArgDesc> MArgs;
+  // We need to store local copies of the values pointed to by MArgssince they
+  // may go out of scope before execution.
+  std::vector<std::vector<std::byte>> MArgStorage;
 
   void exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
                 _CODELOCPARAM(&CodeLoc));
@@ -66,17 +85,30 @@ struct node_impl {
 
   sycl::event get_event(void) const { return MEvent; }
 
-  template <typename T>
-  node_impl(const std::shared_ptr<graph_impl> &Graph, T CGF,
-            const std::vector<sycl::detail::ArgDesc> &Args)
-      : MScheduled(false), MGraph(Graph), MBody(CGF), MArgs(Args) {
+  node_impl(
+      const std::shared_ptr<graph_impl> &Graph,
+      std::shared_ptr<sycl::detail::kernel_impl> Kernel,
+      sycl::detail::NDRDescT NDRDesc,
+      sycl::detail::OSModuleHandle OSModuleHandle, std::string KernelName,
+      const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
+      const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
+      const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
+      const std::vector<sycl::detail::ArgDesc> &args)
+      : MScheduled(false), MGraph(Graph), MKernel(Kernel), MNDRDesc(NDRDesc),
+        MOSModuleHandle(OSModuleHandle), MKernelName(KernelName),
+        MAccStorage(AccStorage), MLocalAccStorage(LocalAccStorage),
+        MRequirements(Requirements), MArgs(args), MArgStorage() {
+
+    // Need to copy the arg values to node local storage so that they don't go
+    // out of scope before execution
     for (size_t i = 0; i < MArgs.size(); i++) {
-      if (MArgs[i].MType == sycl::detail::kernel_param_kind_t::kind_pointer) {
-        // Make sure we are storing the actual USM pointer for comparison
-        // purposes, note we couldn't actually submit using these copies of the
-        // args if subsequent code expects a void**.
-        MArgs[i].MPtr = *(void **)(MArgs[i].MPtr);
-      }
+      auto &CurrentArg = MArgs[i];
+      MArgStorage.emplace_back(CurrentArg.MSize);
+      auto StoragePtr = MArgStorage.back().data();
+      if (CurrentArg.MPtr)
+        std::memcpy(StoragePtr, CurrentArg.MPtr, CurrentArg.MSize);
+      // Set the arg descriptor to point to the new storage
+      CurrentArg.MPtr = StoragePtr;
     }
   }
 
@@ -90,13 +122,14 @@ struct node_impl {
     Schedule.push_front(std::shared_ptr<node_impl>(this));
   }
 
-  bool has_arg(const sycl::detail::ArgDesc &Arg, bool DereferencePtr = false) {
+  bool has_arg(const sycl::detail::ArgDesc &Arg) {
     for (auto &NodeArg : MArgs) {
       if (Arg.MType == NodeArg.MType && Arg.MSize == NodeArg.MSize) {
-        // Args coming directly from the handler will need to be dereferenced
-        // since they are actually void**
-        void *IncomingPtr = DereferencePtr ? *(void **)Arg.MPtr : Arg.MPtr;
-        if (IncomingPtr == NodeArg.MPtr) {
+        // Args are actually void** so we need to dereference them to compare
+        // actual values
+        void *IncomingPtr = *static_cast<void **>(Arg.MPtr);
+        void *ArgPtr = *static_cast<void **>(NodeArg.MPtr);
+        if (IncomingPtr == ArgPtr) {
           return true;
         }
       }
@@ -119,9 +152,20 @@ struct graph_impl {
   void add_root(const std::shared_ptr<node_impl> &);
   void remove_root(const std::shared_ptr<node_impl> &);
 
-  template <typename T>
   std::shared_ptr<node_impl>
-  add(const std::shared_ptr<graph_impl> &Impl, T CGF,
+  add(const std::shared_ptr<graph_impl> &Impl,
+      std::shared_ptr<sycl::detail::kernel_impl> Kernel,
+      sycl::detail::NDRDescT NDRDesc,
+      sycl::detail::OSModuleHandle OSModuleHandle, std::string KernelName,
+      const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
+      const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
+      const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
+      const std::vector<sycl::detail::ArgDesc> &Args,
+      const std::vector<std::shared_ptr<node_impl>> &Dep = {});
+
+  std::shared_ptr<node_impl>
+  add(const std::shared_ptr<graph_impl> &Impl,
+      std::function<void(handler &)> CGF,
       const std::vector<sycl::detail::ArgDesc> &Args,
       const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 

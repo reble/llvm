@@ -79,6 +79,10 @@ __SYCL_INLINE_VER_NAMESPACE(_V1) {
 class handler;
 template <typename T, int Dimensions, typename AllocatorT, typename Enable>
 class buffer;
+
+namespace ext::oneapi::experimental::detail {
+class graph_impl;
+}
 namespace detail {
 
 class handler_impl;
@@ -2610,6 +2614,8 @@ private:
 
   friend class ::MockHandler;
   friend class detail::queue_impl;
+
+  friend class ext::oneapi::experimental::detail::graph_impl;
 
   bool DisableRangeRounding();
 
