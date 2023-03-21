@@ -118,9 +118,10 @@ std::shared_ptr<node_impl> graph_impl::add(
   // Copy deps so we can modify them
   auto Deps = Dep;
   // A unique set of dependencies obtained by checking kernel arguments
+  // for accessors
   std::set<std::shared_ptr<node_impl>> UniqueDeps;
   for (auto &Arg : Args) {
-    if (Arg.MType != sycl::detail::kernel_param_kind_t::kind_pointer) {
+    if (Arg.MType != sycl::detail::kernel_param_kind_t::kind_accessor) {
       continue;
     }
     // Look through the graph for nodes which share this argument
@@ -129,7 +130,7 @@ std::shared_ptr<node_impl> graph_impl::add(
     }
   }
 
-  // Add any deps determined from arguments into the dependency list
+  // Add any deps determined from accessor arguments into the dependency list
   Deps.insert(Deps.end(), UniqueDeps.begin(), UniqueDeps.end());
   if (!Deps.empty()) {
     for (auto N : Deps) {
