@@ -42,11 +42,11 @@ void graph_impl::exec_and_wait(
     MFirst = false;
   }
 #else
-  exec(q);
+  exec(Queue);
 #endif
-  if (!isSubGraph) {
-    q->setIsGraphSubmitting(false);
-    q->wait();
+  if (!IsSubGraph) {
+    Queue->setIsGraphSubmitting(false);
+    Queue->wait();
   }
 }
 

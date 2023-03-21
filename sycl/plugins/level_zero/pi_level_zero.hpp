@@ -939,9 +939,7 @@ struct _pi_queue : _pi_object {
   // Map of all command lists used in this queue.
   pi_command_list_map_t CommandListMap;
   // TODO: Assign Graph related command lists to command_graph object
-#if SYCL_EXT_ONEAPI_GRAPH
   pi_command_list_map_t LazyCommandListMap;
-#endif
 
   // Helper data structure to hold all variables related to batching
   typedef struct CommandBatch {

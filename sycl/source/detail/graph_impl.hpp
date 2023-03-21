@@ -170,11 +170,7 @@ struct graph_impl {
       const std::vector<sycl::detail::ArgDesc> &Args,
       const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
-#if SYCL_EXT_ONEAPI_GRAPH
   graph_impl() : MFirst(true) {}
-#else
-  graph_impl() {}
-#endif
 
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
