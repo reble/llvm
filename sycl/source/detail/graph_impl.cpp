@@ -87,6 +87,26 @@ bool check_for_arg(const sycl::detail::ArgDesc &Arg,
 
 std::shared_ptr<node_impl>
 graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
+                const std::vector<std::shared_ptr<node_impl>> &Dep) {
+  const std::shared_ptr<node_impl> &NodeImpl =
+      std::make_shared<node_impl>(Impl);
+
+  // TODO: Encapsulate in separate function to avoid duplication
+  if (!Dep.empty()) {
+    for (auto N : Dep) {
+      N->register_successor(NodeImpl); // register successor
+      this->remove_root(NodeImpl);     // remove receiver from root node
+                                       // list
+    }
+  } else {
+    this->add_root(NodeImpl);
+  }
+
+  return NodeImpl;
+}
+
+std::shared_ptr<node_impl>
+graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
                 std::function<void(handler &)> CGF,
                 const std::vector<sycl::detail::ArgDesc> &Args,
                 const std::vector<std::shared_ptr<node_impl>> &Dep) {
