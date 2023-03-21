@@ -55,7 +55,7 @@ public:
   command_graph(const property_list &propList = {});
 
   // Adding empty node with [0..n] predecessors:
-  node add(const std::vector<node> &dep = {});
+  node add(const std::vector<node> &dep = {}) { return add_impl(dep); }
 
   // Adding device node:
   template <typename T> node add(T cgf, const std::vector<node> &dep = {}) {
