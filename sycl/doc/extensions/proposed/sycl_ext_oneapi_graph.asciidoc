@@ -139,6 +139,12 @@ Another reason for deferring a serialize/deserialize API (8) is that its scope
 could extend from emitting the graph in a binary format, to emitting a
 standardized IR format that enables further device specific graph optimizations.
 
+Multi-device support (7) is something that has been designed for in this
+extension, with the definition of a graph node being device specific. However,
+the ability for a user to define a single graph with nodes targeting different
+devices is still disallowed until such a time as this feature can be backed up
+by implementation coverage.
+
 === Graph Building Mechanisms
 
 This extension contains two different API mechanisms for constructing a graph
@@ -634,6 +640,9 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the graph contains a
   node which targets a device not present in `syclContext`.
 
+* Throws synchronously with error code `invalid` if more than one device is
+  targeted by the nodes of the graph.
+
 |===
 
 Table {counter: tableNumber}. Member functions of the `command_graph` class for queue recording.
@@ -1127,16 +1136,7 @@ are the advantage of USM.
 
 Design 3) needs specific backend support for deferred allocation.
 
-=== Multi-device Graph
-
-A user can compose a graph with nodes targeting different devices. This allows
-the benefits of defining an execution graph ahead of submission to be extended
-to multi-device platforms. Without this capability a user would have to submit
-individual single-device graphs and use events for dependencies, which is a
-usage model this extension is aiming to optimize. Automatic load balancing of
-commands across devices is not a problem this extension currently aims to solve,
-it is the responsibility of the user to decide the device each command will be
-be processed for, not the SYCL runtime.
+=== Device Specific Graph
 
 A modifiable state `command_graph` contains nodes targeting specific devices,
 rather than being a device agnostic representation only tied to devices on
@@ -1144,6 +1144,16 @@ finalization. This allows the implementation to process nodes which require
 device information when the command group function is evaluated. For example,
 a SYCL reduction implementation may desire the work-group/sub-group size, which
 is normally gathered by the runtime from the device associated with the queue.
+
+This design also enables the future capability for a user to compose a graph
+with nodes targeting different devices, allowing the benefits of defining an
+execution graph ahead of submission to be extended to multi-device platforms.
+Without this capability a user currently has to submit individual single-device
+graphs and use events for dependencies, which is a usage model this extension is
+aiming to optimize. Automatic load balancing of commands across devices is not a
+problem this extension currently aims to solve, it is the responsibility of the
+user to decide the device each command will be be processed for, not the SYCL
+runtime.
 
 A drawback of this design is that it is less convenient for the use-case where
 a user would like to run the same graph on N devices. Rather than finalizing a
@@ -1345,6 +1355,15 @@ submitted in its entirety for execution via
 ----
 
 == Issues
+
+=== Multi Device Graph
+
+Allow an executable graph to contain nodes targeting different devices.
+
+**Outcome:** This feature has been designed for with the definition of a graph
+node being device specific. However, the ability for a user to define a single
+graph with nodes targeting different devices is still disallowed until such a
+time as this feature can be backed up by implementation coverage.
 
 === Memory Allocation API
 
