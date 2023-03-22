@@ -379,7 +379,7 @@ private:
   /// Constructs SYCL handler from Graph.
   ///
   /// The hander will add the command-group as a node to the graph rather than
-  /// processing it straight away.
+  /// enqueueing it straight away.
   ///
   /// \param Graph is a SYCL command_graph
   handler(std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> Graph);
