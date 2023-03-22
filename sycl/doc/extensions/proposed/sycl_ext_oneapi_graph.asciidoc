@@ -139,12 +139,6 @@ Another reason for deferring a serialize/deserialize API (8) is that its scope
 could extend from emitting the graph in a binary format, to emitting a
 standardized IR format that enables further device specific graph optimizations.
 
-Multi-device support (7) is something that has been designed for in this
-extension, with the definition of a graph node being device specific. However,
-the ability for a user to define a single graph with nodes targeting different
-devices is still disallowed until such a time as this feature can be backed up
-by implementation coverage.
-
 === Graph Building Mechanisms
 
 This extension contains two different API mechanisms for constructing a graph
@@ -570,9 +564,6 @@ Exceptions:
 * Throws synchronously with error code `invalid` if a queue is recording
   commands to the graph.
 
-* Throws synchronously with error code `invalid` if `syclDevice` is a different
-  device from the device targeted by the existing nodes of the graph.
-
 |
 [source,c++]
 ----
@@ -673,10 +664,6 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if `recordingQueue` is
   already recording to a different graph.
-
-* Throws synchronously with error code `invalid` if `recordingQueue` is
-  associated with a device which is different from the device already targeted
-  by the nodes of the graph.
 
 |
 [source, c++]
@@ -1014,10 +1001,7 @@ result in a synchronous exception.
 When a queue is in recording mode asynchronous exceptions will not be
 generated, as no device execution is occurring. Synchronous errors specified as
 being thrown in the default queue executing state, will still be thrown when a
-queue is in the recording state. A synchronous error with error code `invalid`
-will also be thrown if a queue in recording mode tries to record a command to a
-graph which already has nodes that target a device different from the device
-associated with the recording queue.
+queue is in the recording state.
 
 The `command_graph::begin_recording` and `command_graph::end_recording`
 entry-points return a `bool` value informing the user whether a related queue
@@ -1152,15 +1136,14 @@ device information when the command group function is evaluated. For example,
 a SYCL reduction implementation may desire the work-group/sub-group size, which
 is normally gathered by the runtime from the device associated with the queue.
 
-This design also enables the future capability for a user to compose a graph
-with nodes targeting different devices, allowing the benefits of defining an
-execution graph ahead of submission to be extended to multi-device platforms.
-Without this capability a user currently has to submit individual single-device
-graphs and use events for dependencies, which is a usage model this extension is
-aiming to optimize. Automatic load balancing of commands across devices is not a
-problem this extension currently aims to solve, it is the responsibility of the
-user to decide the device each command will be processed for, not the SYCL
-runtime.
+A user can compose a graph with nodes targeting different devices. This allows
+the benefits of defining an execution graph ahead of submission to be extended
+to multi-device platforms. Without this capability a user would have to submit
+individual single-device graphs and use events for dependencies, which is a
+usage model this extension is aiming to optimize. Automatic load balancing of
+commands across devices is not a problem this extension currently aims to solve,
+it is the responsibility of the user to decide the device each command will be
+processed for, not the SYCL runtime.
 
 A drawback of this design is that it is less convenient for the use-case where
 a user would like to run the same graph on N devices. Rather than finalizing a
@@ -1362,15 +1345,6 @@ submitted in its entirety for execution via
 ----
 
 == Issues
-
-=== Multi Device Graph
-
-Allow an executable graph to contain nodes targeting different devices.
-
-**Outcome:** This feature has been designed for with the definition of a graph
-node being device specific. However, the ability for a user to define a single
-graph with nodes targeting different devices is still disallowed until such a
-time as this feature can be backed up by implementation coverage.
 
 === Memory Allocation API
 
