@@ -376,6 +376,14 @@ private:
           std::shared_ptr<detail::queue_impl> PrimaryQueue,
           std::shared_ptr<detail::queue_impl> SecondaryQueue, bool IsHost);
 
+  /// Constructs SYCL handler from Graph.
+  ///
+  /// The hander will add the command-group as a node to the graph rather than
+  /// enqueueing it straight away.
+  ///
+  /// \param Graph is a SYCL command_graph
+  handler(std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> Graph);
+
   /// Stores copy of Arg passed to the MArgsStorage.
   template <typename T, typename F = typename detail::remove_const_t<
                             typename detail::remove_reference_t<T>>>
@@ -2532,6 +2540,8 @@ public:
 private:
   std::shared_ptr<detail::handler_impl> MImpl;
   std::shared_ptr<detail::queue_impl> MQueue;
+  std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph;
+
   /// The storage for the arguments passed.
   /// We need to store a copy of values that are passed explicitly through
   /// set_arg, require and so on, because we need them to be alive after
