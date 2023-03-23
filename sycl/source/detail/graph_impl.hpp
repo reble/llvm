@@ -67,7 +67,7 @@ struct node_impl {
 
   /// Store arg descriptors for the kernel arguments
   std::vector<sycl::detail::ArgDesc> MArgs;
-  // We need to store local copies of the values pointed to by MArgssince they
+  // We need to store local copies of the values pointed to by MArgs since they
   // may go out of scope before execution.
   std::vector<std::vector<std::byte>> MArgStorage;
 
