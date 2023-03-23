@@ -65,16 +65,21 @@ int main() {
   });
 
   q.submit([&](sycl::handler &h) {
-    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
-      const size_t i = it[0];
+#ifdef TEST_GRAPH_REDUCTIONS
+    h.parallel_for(sycl::range<1>{n}, sycl::reduction(dotp, 0.0f, std::plus()),
+                   [=](sycl::id<1> it, auto &sum) {
+                     const size_t i = it[0];
+                     sum += x[i] * z[i];
+                   });
+#else
+    h.single_task([=]() {
       // Doing a manual reduction here because reduction objects cause issues
       // with graphs.
-      if (i == 0) {
-        for (size_t j = 0; j < n; j++) {
-          dotp[0] += x[j] * z[j];
-        }
+      for (size_t j = 0; j < n; j++) {
+        dotp[0] += x[j] * z[j];
       }
     });
+#endif
   });
 
   g.end_recording();
