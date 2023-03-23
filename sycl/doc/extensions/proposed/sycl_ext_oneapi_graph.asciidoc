@@ -1152,7 +1152,7 @@ Without this capability a user currently has to submit individual single-device
 graphs and use events for dependencies, which is a usage model this extension is
 aiming to optimize. Automatic load balancing of commands across devices is not a
 problem this extension currently aims to solve, it is the responsibility of the
-user to decide the device each command will be be processed for, not the SYCL
+user to decide the device each command will be processed for, not the SYCL
 runtime.
 
 A drawback of this design is that it is less convenient for the use-case where
@@ -1160,7 +1160,7 @@ a user would like to run the same graph on N devices. Rather than finalizing a
 single modifiable graph N times for N devices in this scenario, the user now has
 to record N modifiable graphs and then as finalize each of them. If this use
 case does become a usability issue, we could provide a specific API to support
-it. For example an update API for the modifiable `command_graph`, similar to
+it. For example, an update API for the modifiable `command_graph`, similar to
 parameters, so that the same modifiable graph can be updated to new devices then
 re-finalized. There may need to be limitations on what devices a graph can be
 updated to however, as device specific processing might not be possible to roll
