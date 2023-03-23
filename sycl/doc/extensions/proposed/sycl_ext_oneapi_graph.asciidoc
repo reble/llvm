@@ -570,6 +570,9 @@ Exceptions:
 * Throws synchronously with error code `invalid` if a queue is recording
   commands to the graph.
 
+* Throws synchronously with error code `invalid` if `syclDevice` is a different
+  device from the device targeted by the existing nodes of the graph.
+
 |
 [source,c++]
 ----
@@ -640,9 +643,6 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the graph contains a
   node which targets a device not present in `syclContext`.
 
-* Throws synchronously with error code `invalid` if more than one device is
-  targeted by the nodes of the graph.
-
 |===
 
 Table {counter: tableNumber}. Member functions of the `command_graph` class for queue recording.
@@ -673,6 +673,10 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if `recordingQueue` is
   already recording to a different graph.
+
+* Throws synchronously with error code `invalid` if `recordingQueue` is
+  associated with a device which is different from the device already targeted
+  by the nodes of the graph.
 
 |
 [source, c++]
@@ -1000,8 +1004,8 @@ Errors are reported through exceptions, as usual in the SYCL API. For new APIs,
 submitting a graph for execution can generate unspecified asynchronous errors,
 while `command_graph::finalize()` may throw unspecified synchronous exceptions.
 Synchronous exception errors codes are defined for all of
-`command_graph::begin_recording()`, `command_graph::end_recording()` and
-`command_graph::update()`.
+`command_graph::add()`, `command_graph::make_edge()`, `command_graph::update()`,
+`command_graph::begin_recording()`, and `command_graph::end_recording()`.
 
 Submitting an executable graph using `handler::ext_oneapi_graph()` to
 a queue with a different SYCL context than that of the executable graph will
@@ -1010,7 +1014,10 @@ result in a synchronous exception.
 When a queue is in recording mode asynchronous exceptions will not be
 generated, as no device execution is occurring. Synchronous errors specified as
 being thrown in the default queue executing state, will still be thrown when a
-queue is in the recording state.
+queue is in the recording state. A synchronous error with error code `invalid`
+will also be thrown if a queue in recording mode tries to record a command to a
+graph which already has nodes that target a device different from the device
+associated with the recording queue.
 
 The `command_graph::begin_recording` and `command_graph::end_recording`
 entry-points return a `bool` value informing the user whether a related queue
