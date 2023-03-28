@@ -10,7 +10,6 @@
 
 #include <sycl/detail/cg_types.hpp>
 #include <sycl/detail/os_util.hpp>
-#include <sycl/feature_test.hpp>
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 #include <sycl/handler.hpp>
 
