@@ -215,6 +215,18 @@ command_graph<graph_state::modifiable>::command_graph(
 
 template <>
 node command_graph<graph_state::modifiable>::add_impl(
+    const std::vector<node> &Deps) {
+  std::vector<std::shared_ptr<detail::node_impl>> DepImpls;
+  for (auto &D : Deps) {
+    DepImpls.push_back(sycl::detail::getSyclObjImpl(D));
+  }
+
+  std::shared_ptr<detail::node_impl> NodeImpl = impl->add(impl, DepImpls);
+  return sycl::detail::createSyclObjFromImpl<node>(NodeImpl);
+}
+
+template <>
+node command_graph<graph_state::modifiable>::add_impl(
     std::function<void(handler &)> CGF, const std::vector<node> &Deps) {
   std::vector<std::shared_ptr<detail::node_impl>> DepImpls;
   for (auto &D : Deps) {

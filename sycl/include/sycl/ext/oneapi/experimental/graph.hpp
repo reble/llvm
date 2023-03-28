@@ -110,6 +110,8 @@ private:
   node add_impl(std::function<void(handler &)> cgf,
                 const std::vector<node> &dep);
 
+  node add_impl(const std::vector<node> &dep);
+
   template <class Obj>
   friend decltype(Obj::impl)
   sycl::detail::getSyclObjImpl(const Obj &SyclObject);
