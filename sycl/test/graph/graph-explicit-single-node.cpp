@@ -37,7 +37,9 @@ int main() {
     assert(arr[i] == 0);
   }
 
-  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); });
+  q.submit([&](sycl::handler &h) {
+     h.ext_oneapi_graph(executable_graph);
+   }).wait();
 
   for (int i = 0; i < n; i++)
     assert(arr[i] == 1);
