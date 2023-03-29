@@ -6,11 +6,7 @@
 
 int main() {
 
-  sycl::property_list properties{
-      sycl::property::queue::in_order{},
-      sycl::ext::oneapi::property::queue::lazy_execution{}};
-
-  sycl::queue q{sycl::gpu_selector_v, properties};
+  sycl::queue q{sycl::gpu_selector_v};
 
   sycl::ext::oneapi::experimental::command_graph g;
 
@@ -23,7 +19,7 @@ int main() {
   g.add([&](sycl::handler &h) {
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> idx) {
       size_t i = idx;
-      arr[i] = 1;
+      arr[i] = 3.14f;
     });
   });
 
@@ -42,7 +38,7 @@ int main() {
    }).wait();
 
   for (int i = 0; i < n; i++)
-    assert(arr[i] == 1);
+    assert(arr[i] == 3.14f);
 
   sycl::free(arr, q);
 

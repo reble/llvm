@@ -1,7 +1,4 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-
-// Modified version of the dotp example which submits part of the graph as a
-// sub-graph
 #include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
@@ -27,12 +24,9 @@ int main() {
   float beta = 2.0f;
   float gamma = 3.0f;
 
-  sycl::property_list properties{sycl::property::queue::in_order{}};
-
-  sycl::queue q{sycl::gpu_selector_v, properties};
+  sycl::queue q{sycl::gpu_selector_v};
 
   sycl::ext::oneapi::experimental::command_graph g;
-  sycl::ext::oneapi::experimental::command_graph subGraph;
 
   float *dotp = sycl::malloc_shared<float>(1, q);
 
@@ -47,55 +41,55 @@ int main() {
       x[i] = 1.0f;
       y[i] = 2.0f;
       z[i] = 3.0f;
+      dotp[0] = 0.0f;
     });
   });
 
-  auto node_a = subGraph.add([&](sycl::handler &h) {
-    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
-      const size_t i = it[0];
-      x[i] = alpha * x[i] + beta * y[i];
-    });
-  });
+  auto node_a = g.add(
+      [&](sycl::handler &h) {
+        h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
+          const size_t i = it[0];
+          x[i] = alpha * x[i] + beta * y[i];
+        });
+      },
+      {n_i});
 
-  auto node_b = subGraph.add([&](sycl::handler &h) {
-    h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
-      const size_t i = it[0];
-      z[i] = gamma * z[i] + beta * y[i];
-    });
-  });
-
-  auto subGraphExec = subGraph.finalize(q.get_context());
-
-  auto node_sub =
-      g.add([&](sycl::handler &h) { h.ext_oneapi_graph(subGraphExec); }, {n_i});
+  auto node_b = g.add(
+      [&](sycl::handler &h) {
+        h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
+          const size_t i = it[0];
+          z[i] = gamma * z[i] + beta * y[i];
+        });
+      },
+      {n_i});
 
   auto node_c = g.add(
       [&](sycl::handler &h) {
-#ifdef TEST_GRAPH_REDUCTIONS
-        h.parallel_for(sycl::range<1>{n},
-                       sycl::reduction(dotp, 0.0f, std::plus()),
-                       [=](sycl::id<1> it, auto &sum) {
-                         const size_t i = it[0];
-                         sum += x[i] * z[i];
-                       });
-#else
         h.single_task([=]() {
-          // Doing a manual reduction here because reduction objects cause
-          // issues with graphs.
           for (size_t j = 0; j < n; j++) {
             dotp[0] += x[j] * z[j];
           }
         });
-#endif
       },
-      {node_sub});
+      {node_a, node_b});
 
   auto executable_graph = g.finalize(q.get_context());
+
+  // Add an extra node for the second executable graph which modifies the output
+  auto node_d =
+      g.add([&](sycl::handler &h) { h.single_task([=]() { dotp[0] += 1; }); },
+            {node_c});
+
+  auto executable_graph_2 = g.finalize(q.get_context());
 
   // Using shortcut for executing a graph of commands
   q.ext_oneapi_graph(executable_graph).wait();
 
   assert(*dotp == host_gold_result());
+
+  q.ext_oneapi_graph(executable_graph_2).wait();
+
+  assert(*dotp == host_gold_result() + 1);
 
   sycl::free(dotp, q);
   sycl::free(x, q);

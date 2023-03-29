@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <detail/graph_impl.hpp>
+#include <detail/program_manager/program_manager.hpp>
 #include <detail/queue_impl.hpp>
 #include <detail/scheduler/commands.hpp>
 #include <sycl/queue.hpp>
@@ -20,48 +21,29 @@ namespace oneapi {
 namespace experimental {
 namespace detail {
 
-void graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
+void exec_graph_impl::schedule() {
   if (MSchedule.empty()) {
-    for (auto Node : MRoots) {
-      Node->topology_sort(MSchedule);
+    for (auto Node : MGraphImpl->MRoots) {
+      Node->topology_sort(Node, MSchedule);
     }
   }
-  for (auto Node : MSchedule)
-    Node->exec(Queue);
 }
 
-void graph_impl::exec_and_wait(
-    const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
-  bool IsSubGraph = Queue->getIsGraphSubmitting();
-  if (!IsSubGraph) {
-    Queue->setIsGraphSubmitting(true);
-  }
-#if SYCL_EXT_ONEAPI_GRAPH
-  if (MFirst) {
-    exec(Queue);
-    MFirst = false;
-  }
-#else
-  exec(Queue);
-#endif
-  if (!IsSubGraph) {
-    Queue->setIsGraphSubmitting(false);
-    Queue->wait();
-  }
+sycl::event
+exec_graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
+  // TODO: Support subgraphs
+  sycl::event RetEvent = enqueue(Queue);
+  // TODO: Why is this still required?
+  Queue->wait();
+  return RetEvent;
 }
 
 void graph_impl::add_root(const std::shared_ptr<node_impl> &Root) {
   MRoots.insert(Root);
-  for (auto Node : MSchedule)
-    Node->MScheduled = false;
-  MSchedule.clear();
 }
 
 void graph_impl::remove_root(const std::shared_ptr<node_impl> &Root) {
   MRoots.erase(Root);
-  for (auto Node : MSchedule)
-    Node->MScheduled = false;
-  MSchedule.clear();
 }
 
 // Recursive check if a graph node or its successors contains a given kernel
@@ -118,10 +100,11 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
   sycl::handler Handler{Impl};
   CGF(Handler);
 
+  // TODO: Do we need to pass event dependencies here for the explicit API?
   return this->add(Impl, Handler.MKernel, Handler.MNDRDesc,
                    Handler.MOSModuleHandle, Handler.MKernelName,
                    Handler.MAccStorage, Handler.MLocalAccStorage,
-                   Handler.MRequirements, Handler.MArgs, {});
+                   Handler.MRequirements, Handler.MArgs, Dep);
 }
 
 std::shared_ptr<node_impl> graph_impl::add(
@@ -133,7 +116,8 @@ std::shared_ptr<node_impl> graph_impl::add(
     const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
     const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
     const std::vector<sycl::detail::ArgDesc> &Args,
-    const std::vector<std::shared_ptr<node_impl>> &Dep) {
+    const std::vector<std::shared_ptr<node_impl>> &Dep,
+    const std::vector<std::shared_ptr<sycl::detail::event_impl>> &DepEvents) {
   const std::shared_ptr<node_impl> &NodeImpl = std::make_shared<node_impl>(
       Impl, Kernel, NDRDesc, OSModuleHandle, KernelName, AccStorage,
       LocalAccStorage, Requirements, Args);
@@ -154,9 +138,21 @@ std::shared_ptr<node_impl> graph_impl::add(
 
   // Add any deps determined from accessor arguments into the dependency list
   Deps.insert(Deps.end(), UniqueDeps.begin(), UniqueDeps.end());
+
+  // Add any nodes specified by event dependencies into the dependency list
+  for (auto Dep : DepEvents) {
+    if (auto NodeImpl = MEventsMap.find(Dep); NodeImpl != MEventsMap.end()) {
+      Deps.push_back(NodeImpl->second);
+    } else {
+      throw sycl::exception(errc::invalid,
+                            "Event dependency from handler::depends_on does "
+                            "not correspond to a node within the graph");
+    }
+  }
+
   if (!Deps.empty()) {
     for (auto N : Deps) {
-      N->register_successor(NodeImpl); // register successor
+      N->register_successor(NodeImpl, N); // register successor
       this->remove_root(NodeImpl);     // remove receiver from root node
                                        // list
     }
@@ -177,14 +173,118 @@ bool graph_impl::clear_queues() {
   return AnyQueuesCleared;
 }
 
-void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
-                         _CODELOCPARAMDEF(&CodeLoc)) {
-  std::vector<sycl::event> Deps;
-  for (auto Sender : MPredecessors)
-    Deps.push_back(Sender->get_event());
+void exec_graph_impl::create_pi_command_buffers(sycl::device D,
+                                                const sycl::context &Ctx) {
+  // TODO we only have a single command-buffer per graph here, but
+  // this will need to be multiple command-buffers for non-trivial graphs
+  pi_ext_command_buffer OutCommandBuffer;
+  pi_ext_command_buffer_desc Desc{};
+  auto ContextImpl = sycl::detail::getSyclObjImpl(Ctx);
+  const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
+  auto DeviceImpl = sycl::detail::getSyclObjImpl(D);
+  pi_result Res =
+      Plugin.call_nocheck<sycl::detail::PiApiKind::piextCommandBufferCreate>(
+          ContextImpl->getHandleRef(), DeviceImpl->getHandleRef(), &Desc,
+          &OutCommandBuffer);
+  if (Res != pi_result::PI_SUCCESS) {
+    throw sycl::exception(errc::invalid, "Failed to create PI command-buffer");
+  }
 
-  // Enqueue kernel here instead of submit
+  MPiCommandBuffers[D] = OutCommandBuffer;
 
+  // TODO extract logic from enqueueImpKernel
+  MSchedule.size();
+  for (auto Node : MSchedule) {
+    pi_kernel PiKernel = nullptr;
+    std::mutex *KernelMutex = nullptr;
+    pi_program PiProgram = nullptr;
+
+    auto Kernel = Node->MKernel;
+    if (Kernel != nullptr) {
+      PiKernel = Kernel->getHandleRef();
+    } else {
+      std::tie(PiKernel, KernelMutex, PiProgram) =
+          sycl::detail::ProgramManager::getInstance().getOrCreateKernel(
+              Node->MOSModuleHandle, ContextImpl, DeviceImpl, Node->MKernelName,
+              nullptr);
+    }
+
+    // Ignoring filtered args for now
+    size_t ArgIndex = 0;
+    for (auto &Arg : Node->MArgs) {
+      sycl::detail::SetArgBasedOnType(
+          Plugin, PiKernel,
+          nullptr /* TODO: Handle spec constants and pass device image here */,
+          nullptr /* TODO: Psss getMemAllocation function for buffers */, Ctx,
+          false, Arg, ArgIndex);
+      ArgIndex++;
+    }
+
+    std::vector<pi_ext_sync_point> Deps;
+    for (auto &N : Node->MPredecessors) {
+      Deps.push_back(N.lock()->MPiSyncPoint);
+    }
+
+    // add commands
+    // Remember this information before the range dimensions are reversed
+    const bool HasLocalSize = (Node->MNDRDesc.LocalSize[0] != 0);
+
+    size_t RequiredWGSize[3] = {0, 0, 0};
+    size_t *LocalSize = nullptr;
+
+    if (HasLocalSize)
+      LocalSize = &Node->MNDRDesc.LocalSize[0];
+    else {
+      Plugin.call<sycl::detail::PiApiKind::piKernelGetGroupInfo>(
+          PiKernel, DeviceImpl->getHandleRef(),
+          PI_KERNEL_GROUP_INFO_COMPILE_WORK_GROUP_SIZE, sizeof(RequiredWGSize),
+          RequiredWGSize, /* param_value_size_ret = */ nullptr);
+
+      const bool EnforcedLocalSize =
+          (RequiredWGSize[0] != 0 || RequiredWGSize[1] != 0 ||
+           RequiredWGSize[2] != 0);
+      if (EnforcedLocalSize)
+        LocalSize = RequiredWGSize;
+    }
+
+    Res = Plugin.call_nocheck<
+        sycl::detail::PiApiKind::piextCommandBufferNDRangeKernel>(
+        OutCommandBuffer, PiKernel, Node->MNDRDesc.Dims,
+        &Node->MNDRDesc.GlobalOffset[0], &Node->MNDRDesc.GlobalSize[0],
+        LocalSize, Deps.size(), Deps.size() ? Deps.data() : nullptr,
+        &Node->MPiSyncPoint);
+
+    if (Res != pi_result::PI_SUCCESS) {
+      throw sycl::exception(errc::invalid,
+                            "Failed to add kernel to PI command-buffer");
+    }
+  }
+
+  Res =
+      Plugin.call_nocheck<sycl::detail::PiApiKind::piextCommandBufferFinalize>(
+          OutCommandBuffer);
+  if (Res != pi_result::PI_SUCCESS) {
+    throw sycl::exception(errc::invalid,
+                          "Failed to finalize PI command-buffer");
+  }
+}
+
+exec_graph_impl::~exec_graph_impl() {
+  MSchedule.clear();
+  for (auto Iter : MPiCommandBuffers) {
+    const sycl::detail::plugin &Plugin =
+        sycl::detail::getSyclObjImpl(MContext)->getPlugin();
+    auto CmdBuf = Iter.second;
+    pi_result Res =
+        Plugin.call_nocheck<sycl::detail::PiApiKind::piextCommandBufferRelease>(
+            CmdBuf);
+    (void)Res;
+    assert(Res == pi_result::PI_SUCCESS);
+  }
+}
+
+sycl::event exec_graph_impl::enqueue(
+    const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
   std::vector<pi_event> RawEvents;
   pi_event *OutEvent = nullptr;
   auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
@@ -200,16 +300,19 @@ void node_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
                           "Failed to create event for node submission");
   }
 
-  pi_int32 Result = enqueueImpKernel(
-      Queue, MNDRDesc, MArgs, /* KernelBundleImpPtr */ nullptr, MKernel,
-      MKernelName, MOSModuleHandle, RawEvents, OutEvent, nullptr);
-  if (Result != pi_result::PI_SUCCESS) {
-    throw sycl::exception(errc::kernel, "Error enqueuing graph node kernel");
+  auto CommandBuffer = MPiCommandBuffers[Queue->get_device()];
+  Res = Queue->getPlugin()
+            .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
+                CommandBuffer, Queue->getHandleRef(), RawEvents.size(),
+                RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
+  if (Res != pi_result::PI_SUCCESS) {
+    throw sycl::exception(errc::event,
+                          "Failed to enqueue event for node submission");
   }
+
   sycl::event QueueEvent =
       sycl::detail::createSyclObjFromImpl<sycl::event>(NewEvent);
-  Queue->addEvent(QueueEvent);
-  MEvent = QueueEvent;
+  return QueueEvent;
 }
 } // namespace detail
 
@@ -251,7 +354,8 @@ void command_graph<graph_state::modifiable>::make_edge(node Sender,
   std::shared_ptr<detail::node_impl> ReceiverImpl =
       sycl::detail::getSyclObjImpl(Receiver);
 
-  SenderImpl->register_successor(ReceiverImpl); // register successor
+  SenderImpl->register_successor(ReceiverImpl,
+                                 SenderImpl); // register successor
   impl->remove_root(ReceiverImpl); // remove receiver from root node list
 }
 
@@ -320,6 +424,21 @@ bool command_graph<graph_state::modifiable>::end_recording(
     QueueStateChanged |= this->end_recording(Queue);
   }
   return QueueStateChanged;
+}
+
+command_graph<graph_state::executable>::command_graph(
+    const std::shared_ptr<detail::graph_impl> &Graph, const sycl::context &Ctx)
+    : MTag(rand()), MCtx(Ctx),
+      impl(std::make_shared<detail::exec_graph_impl>(Ctx, Graph)) {
+  finalize_impl(); // Create backend representation for executable graph
+}
+
+void command_graph<graph_state::executable>::finalize_impl() {
+  // Create PI command-buffers for each device in the finalized context
+  impl->schedule();
+  for (auto device : MCtx.get_devices()) {
+    impl->create_pi_command_buffers(device, MCtx);
+  }
 }
 
 } // namespace experimental

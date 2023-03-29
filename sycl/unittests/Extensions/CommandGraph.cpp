@@ -35,15 +35,6 @@ protected:
   experimental::command_graph<experimental::graph_state::modifiable> Graph;
 };
 
-TEST_F(CommandGraphTest, LazyQueueProperty) {
-  sycl::property_list Props{
-      sycl::ext::oneapi::property::queue::lazy_execution{}};
-
-  sycl::queue Queue{Dev, Props};
-  bool hasProp =
-      Queue.has_property<sycl::ext::oneapi::property::queue::lazy_execution>();
-  ASSERT_TRUE(hasProp);
-}
 
 TEST_F(CommandGraphTest, AddNode) {
   using namespace sycl::ext::oneapi;
@@ -98,11 +89,8 @@ TEST_F(CommandGraphTest, MakeEdge) {
 TEST_F(CommandGraphTest, BeginEndRecording) {
   using namespace sycl::ext::oneapi;
 
-  sycl::property_list Props{
-      sycl::ext::oneapi::property::queue::lazy_execution{}};
-
-  sycl::queue Queue{Dev, Props};
-  sycl::queue Queue2{Dev, Props};
+  sycl::queue Queue{Dev};
+  sycl::queue Queue2{Dev};
 
   // Test throwing behaviour
   // Check we can repeatedly begin recording on the same queues

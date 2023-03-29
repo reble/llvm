@@ -52,11 +52,10 @@
 // 10.13 Added new PI_EXT_ONEAPI_QUEUE_DISCARD_EVENTS queue property.
 // 10.14 Add PI_EXT_INTEL_DEVICE_INFO_FREE_MEMORY as an extension for
 // piDeviceGetInfo.
-// 10.15 Add new PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION queue property
-// 10.16 Add command-buffer extension methods
+// 10.15 Add command-buffer extension methods
 
 #define _PI_H_VERSION_MAJOR 10
-#define _PI_H_VERSION_MINOR 16
+#define _PI_H_VERSION_MINOR 15
 
 #define _PI_STRING_HELPER(a) #a
 #define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
@@ -572,14 +571,6 @@ constexpr pi_queue_properties PI_QUEUE_PROFILING_ENABLE = (1 << 1);
 constexpr pi_queue_properties PI_QUEUE_ON_DEVICE = (1 << 2);
 constexpr pi_queue_properties PI_QUEUE_ON_DEVICE_DEFAULT = (1 << 3);
 constexpr pi_queue_properties PI_EXT_ONEAPI_QUEUE_DISCARD_EVENTS = (1 << 4);
-// In a lazy queue, enqueued commands are not submitted for execution
-// immediately, instead they are submitted for execution once the queue is
-// flushed.
-//
-// This is to enable prototyping of the SYCL_EXT_ONEAPI_GRAPH extension,
-// before a native command-list interface in PI can be designed and
-// implemented.
-constexpr pi_queue_properties PI_EXT_ONEAPI_QUEUE_LAZY_EXECUTION = (1 << 5);
 
 using pi_result = _pi_result;
 using pi_platform_info = _pi_platform_info;

@@ -24,11 +24,7 @@ int main() {
   float beta = 2.0f;
   float gamma = 3.0f;
 
-  sycl::property_list properties{
-      sycl::property::queue::in_order(),
-      sycl::ext::oneapi::property::queue::lazy_execution{}};
-
-  sycl::queue q{sycl::gpu_selector_v, properties};
+  sycl::queue q{sycl::gpu_selector_v};
 
   sycl::ext::oneapi::experimental::command_graph g;
 

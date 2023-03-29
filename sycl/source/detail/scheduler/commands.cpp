@@ -1985,6 +1985,72 @@ static void ReverseRangeDimensionsForKernel(NDRDescT &NDR) {
   }
 }
 
+void SetArgBasedOnType(
+    const detail::plugin &Plugin, RT::PiKernel Kernel,
+    const std::shared_ptr<device_image_impl> &DeviceImageImpl,
+    const std::function<void *(Requirement *Req)> &getMemAllocationFunc,
+    const sycl::context &Context, bool IsHost, detail::ArgDesc &Arg,
+    size_t NextTrueIndex) {
+  switch (Arg.MType) {
+  case kernel_param_kind_t::kind_stream:
+    break;
+  case kernel_param_kind_t::kind_accessor: {
+    Requirement *Req = (Requirement *)(Arg.MPtr);
+    if (getMemAllocationFunc == nullptr)
+      throw sycl::exception(make_error_code(errc::kernel_argument),
+                            "placeholder accessor must be bound by calling "
+                            "handler::require() before it can be used.");
+
+    RT::PiMem MemArg = (RT::PiMem)getMemAllocationFunc(Req);
+    if (Plugin.getBackend() == backend::opencl) {
+      Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
+                                             sizeof(RT::PiMem), &MemArg);
+    } else {
+      Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
+                                                      &MemArg);
+    }
+    break;
+  }
+  case kernel_param_kind_t::kind_std_layout: {
+    Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex, Arg.MSize,
+                                           Arg.MPtr);
+    break;
+  }
+  case kernel_param_kind_t::kind_sampler: {
+    sampler *SamplerPtr = (sampler *)Arg.MPtr;
+    RT::PiSampler Sampler =
+        detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
+    Plugin.call<PiApiKind::piextKernelSetArgSampler>(Kernel, NextTrueIndex,
+                                                     &Sampler);
+    break;
+  }
+  case kernel_param_kind_t::kind_pointer: {
+    Plugin.call<PiApiKind::piextKernelSetArgPointer>(Kernel, NextTrueIndex,
+                                                     Arg.MSize, Arg.MPtr);
+    break;
+  }
+  case kernel_param_kind_t::kind_specialization_constants_buffer: {
+    if (IsHost) {
+      throw sycl::feature_not_supported(
+          "SYCL2020 specialization constants are not yet supported on host "
+          "device",
+          PI_ERROR_INVALID_OPERATION);
+    }
+    assert(DeviceImageImpl != nullptr);
+    RT::PiMem SpecConstsBuffer = DeviceImageImpl->get_spec_const_buffer_ref();
+    // Avoid taking an address of nullptr
+    RT::PiMem *SpecConstsBufferArg =
+        SpecConstsBuffer ? &SpecConstsBuffer : nullptr;
+    Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
+                                                    SpecConstsBufferArg);
+    break;
+  }
+  case kernel_param_kind_t::kind_invalid:
+    throw runtime_error("Invalid kernel param kind", PI_ERROR_INVALID_VALUE);
+    break;
+  }
+}
+
 static pi_result SetKernelParamsAndLaunch(
     const QueueImplPtr &Queue, std::vector<ArgDesc> &Args,
     const std::shared_ptr<device_image_impl> &DeviceImageImpl,
@@ -1996,64 +2062,9 @@ static pi_result SetKernelParamsAndLaunch(
 
   auto setFunc = [&Plugin, Kernel, &DeviceImageImpl, &getMemAllocationFunc,
                   &Queue](detail::ArgDesc &Arg, size_t NextTrueIndex) {
-    switch (Arg.MType) {
-    case kernel_param_kind_t::kind_stream:
-      break;
-    case kernel_param_kind_t::kind_accessor: {
-      Requirement *Req = (Requirement *)(Arg.MPtr);
-      if (getMemAllocationFunc == nullptr)
-        throw sycl::exception(make_error_code(errc::kernel_argument),
-                              "placeholder accessor must be bound by calling "
-                              "handler::require() before it can be used.");
-
-      RT::PiMem MemArg = (RT::PiMem)getMemAllocationFunc(Req);
-      if (Plugin.getBackend() == backend::opencl) {
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
-                                               sizeof(RT::PiMem), &MemArg);
-      } else {
-        Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
-                                                        &MemArg);
-      }
-      break;
-    }
-    case kernel_param_kind_t::kind_std_layout: {
-      Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex, Arg.MSize,
-                                             Arg.MPtr);
-      break;
-    }
-    case kernel_param_kind_t::kind_sampler: {
-      sampler *SamplerPtr = (sampler *)Arg.MPtr;
-      RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
-                                  ->getOrCreateSampler(Queue->get_context());
-      Plugin.call<PiApiKind::piextKernelSetArgSampler>(Kernel, NextTrueIndex,
-                                                       &Sampler);
-      break;
-    }
-    case kernel_param_kind_t::kind_pointer: {
-      Plugin.call<PiApiKind::piextKernelSetArgPointer>(Kernel, NextTrueIndex,
-                                                       Arg.MSize, Arg.MPtr);
-      break;
-    }
-    case kernel_param_kind_t::kind_specialization_constants_buffer: {
-      if (Queue->is_host()) {
-        throw sycl::feature_not_supported(
-            "SYCL2020 specialization constants are not yet supported on host "
-            "device",
-            PI_ERROR_INVALID_OPERATION);
-      }
-      assert(DeviceImageImpl != nullptr);
-      RT::PiMem SpecConstsBuffer = DeviceImageImpl->get_spec_const_buffer_ref();
-      // Avoid taking an address of nullptr
-      RT::PiMem *SpecConstsBufferArg =
-          SpecConstsBuffer ? &SpecConstsBuffer : nullptr;
-      Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
-                                                      SpecConstsBufferArg);
-      break;
-    }
-    case kernel_param_kind_t::kind_invalid:
-      throw runtime_error("Invalid kernel param kind", PI_ERROR_INVALID_VALUE);
-      break;
-    }
+    SetArgBasedOnType(Plugin, Kernel, DeviceImageImpl, getMemAllocationFunc,
+                      Queue->get_context(), Queue->is_host(), Arg,
+                      NextTrueIndex);
   };
 
   applyFuncOnFilteredArgs(EliminatedArgMask, Args, setFunc);

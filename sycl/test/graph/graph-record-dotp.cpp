@@ -24,9 +24,7 @@ int main() {
   float beta = 2.0f;
   float gamma = 3.0f;
 
-  sycl::property_list properties{
-      sycl::property::queue::in_order(),
-      sycl::ext::oneapi::property::queue::lazy_execution{}};
+  sycl::property_list properties{sycl::property::queue::in_order()};
 
   sycl::queue q{sycl::gpu_selector_v, properties};
 
@@ -41,7 +39,7 @@ int main() {
   g.begin_recording(q);
 
   /* init data on the device */
-  q.submit([&](sycl::handler &h) {
+  auto initEvent = q.submit([&](sycl::handler &h) {
     h.parallel_for(n, [=](sycl::id<1> it) {
       const size_t i = it[0];
       x[i] = 1.0f;
@@ -50,14 +48,16 @@ int main() {
     });
   });
 
-  q.submit([&](sycl::handler &h) {
+  auto eventA = q.submit([&](sycl::handler &h) {
+    h.depends_on(initEvent);
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
       const size_t i = it[0];
       x[i] = alpha * x[i] + beta * y[i];
     });
   });
 
-  q.submit([&](sycl::handler &h) {
+  auto eventB = q.submit([&](sycl::handler &h) {
+    h.depends_on(initEvent);
     h.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
       const size_t i = it[0];
       z[i] = gamma * z[i] + beta * y[i];
@@ -65,6 +65,7 @@ int main() {
   });
 
   q.submit([&](sycl::handler &h) {
+    h.depends_on({eventA, eventB});
 #ifdef TEST_GRAPH_REDUCTIONS
     h.parallel_for(sycl::range<1>{n}, sycl::reduction(dotp, 0.0f, std::plus()),
                    [=](sycl::id<1> it, auto &sum) {
