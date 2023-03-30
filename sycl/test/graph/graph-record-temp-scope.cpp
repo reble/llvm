@@ -36,7 +36,7 @@ int main() {
 
   auto exec_graph = g.finalize(q.get_context());
 
-  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); });
+  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); }).wait();
 
   // Verify results
   for (size_t i = 0; i < n; i++) {

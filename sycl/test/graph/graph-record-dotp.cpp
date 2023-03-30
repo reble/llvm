@@ -86,7 +86,7 @@ int main() {
 
   auto exec_graph = g.finalize(q.get_context());
 
-  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); });
+  q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); }).wait();
 
   assert(dotp[0] == host_gold_result());
 
