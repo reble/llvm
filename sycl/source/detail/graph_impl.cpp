@@ -10,6 +10,7 @@
 #include <detail/queue_impl.hpp>
 #include <detail/scheduler/commands.hpp>
 #include <sycl/queue.hpp>
+#include <sycl/feature_test.hpp>
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
@@ -35,10 +36,14 @@ void graph_impl::exec_and_wait(
   if (!IsSubGraph) {
     Queue->setIsGraphSubmitting(true);
   }
+#if SYCL_EXT_ONEAPI_GRAPH
   if (MFirst) {
     exec(Queue);
     MFirst = false;
   }
+#else
+  exec(Queue);
+#endif
   if (!IsSubGraph) {
     Queue->setIsGraphSubmitting(false);
     Queue->wait();

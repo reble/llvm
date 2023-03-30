@@ -12,6 +12,7 @@
 #include <sycl/context.hpp>
 #include <sycl/detail/pi.hpp>
 #include <sycl/device.hpp>
+#include <sycl/feature_test.hpp>
 
 #include <cstring>
 #include <utility>
@@ -278,11 +279,13 @@ void queue_impl::wait(const detail::code_location &CodeLoc) {
   TelemetryEvent = instrumentationProlog(CodeLoc, Name, StreamID, IId);
 #endif
 
+#if SYCL_EXT_ONEAPI_GRAPH
   if (has_property<ext::oneapi::property::queue::lazy_execution>()) {
     const detail::plugin &Plugin = getPlugin();
     if (Plugin.getBackend() == backend::ext_oneapi_level_zero)
       Plugin.call<detail::PiApiKind::piQueueFlush>(getHandleRef());
   }
+#endif
 
   std::vector<std::weak_ptr<event_impl>> WeakEvents;
   std::vector<event> SharedEvents;
