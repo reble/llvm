@@ -192,8 +192,7 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D,
 
   MPiCommandBuffers[D] = OutCommandBuffer;
 
-  // TODO extract logic from enqueueImpKernel
-  MSchedule.size();
+  // TODO extract kernel bundle logic from enqueueImpKernel
   for (auto Node : MSchedule) {
     pi_kernel PiKernel = nullptr;
     std::mutex *KernelMutex = nullptr;
@@ -215,7 +214,7 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D,
       sycl::detail::SetArgBasedOnType(
           Plugin, PiKernel,
           nullptr /* TODO: Handle spec constants and pass device image here */,
-          nullptr /* TODO: Psss getMemAllocation function for buffers */, Ctx,
+          nullptr /* TODO: Pass getMemAllocation function for buffers */, Ctx,
           false, Arg, ArgIndex);
       ArgIndex++;
     }

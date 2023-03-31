@@ -35,7 +35,10 @@ struct node_impl {
   /// a modifiable graph
   pi_ext_sync_point MPiSyncPoint;
 
+  // List of successors to this node.
   std::vector<std::shared_ptr<node_impl>> MSuccessors;
+  // List of predecessors to this node. Using weak_ptr here to prevent circular
+  // references between nodes.
   std::vector<std::weak_ptr<node_impl>> MPredecessors;
 
   /// Kernel to be executed by this node
