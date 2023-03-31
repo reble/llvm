@@ -540,9 +540,9 @@ node add(const device& syclDevice, T cgf, const property_list& propList = {});
 ----
 |This function adds a command group function object to a graph. The function
 object statically contains a group of commands, of which a single command is
-executed at runtime. A function object can be a host task which is scheduled by
-the SYCL runtime, a SYCL function for invoking kernels or for explicit memory 
-operations, with all restrictions that apply as described in the core specification.
+executed at runtime. A command group function object may submit any command
+as defined by the core SYCL specification, and any SYCL extensions unless explicitly
+stated otherwise.
 The requisites of `cgf` will be used to identify any dependent nodes in the graph
 to form edges with.
 
