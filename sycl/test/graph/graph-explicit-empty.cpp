@@ -14,6 +14,7 @@ int main() {
   sycl::ext::oneapi::experimental::command_graph g;
 
   const size_t n = 10;
+  float *h_arr = sycl::malloc_host<float>(n, q);
   float *arr = sycl::malloc_device<float>(n, q);
   
   auto start = g.add();
@@ -38,6 +39,12 @@ int main() {
 
   q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(executable_graph); }).wait();
 
+  q.memcpy(&(h_arr[0]), arr, n).wait();
+
+  for (int i = 0; i < n; i++)
+    assert(h_arr[i] == 1.0f);
+
+  sycl::free(h_arr, q);
   sycl::free(arr, q);
 
   return 0;
