@@ -85,6 +85,9 @@ struct node_impl {
 
   sycl::event get_event(void) const { return MEvent; }
 
+  node_impl(const std::shared_ptr<graph_impl> &Graph)
+      : MScheduled(false), MGraph(Graph) {}
+
   node_impl(
       const std::shared_ptr<graph_impl> &Graph,
       std::shared_ptr<sycl::detail::kernel_impl> Kernel,
@@ -119,7 +122,8 @@ struct node_impl {
       if (!Next->MScheduled)
         Next->topology_sort(Schedule);
     }
-    Schedule.push_front(std::shared_ptr<node_impl>(this));
+    if (MKernel != nullptr)
+      Schedule.push_front(std::shared_ptr<node_impl>(this));
   }
 
   bool has_arg(const sycl::detail::ArgDesc &Arg) {
@@ -167,6 +171,10 @@ struct graph_impl {
   add(const std::shared_ptr<graph_impl> &Impl,
       std::function<void(handler &)> CGF,
       const std::vector<sycl::detail::ArgDesc> &Args,
+      const std::vector<std::shared_ptr<node_impl>> &Dep = {});
+
+  std::shared_ptr<node_impl>
+  add(const std::shared_ptr<graph_impl> &Impl,
       const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
   graph_impl() : MFirst(true) {}
