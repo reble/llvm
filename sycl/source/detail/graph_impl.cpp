@@ -208,16 +208,25 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D,
               nullptr);
     }
 
-    // Ignoring filtered args for now
-    size_t ArgIndex = 0;
-    for (auto &Arg : Node->MArgs) {
+    sycl::detail::ProgramManager::KernelArgMask EliminatedArgMask;
+    if (nullptr == Node->MKernel || !Node->MKernel->isCreatedFromSource()) {
+      EliminatedArgMask =
+          sycl::detail::ProgramManager::getInstance()
+              .getEliminatedKernelArgMask(Node->MOSModuleHandle, PiProgram,
+                                          Node->MKernelName);
+    }
+
+    auto SetFunc = [&Plugin, &PiKernel, &Ctx](sycl::detail::ArgDesc &Arg,
+                                              size_t NextTrueIndex) {
       sycl::detail::SetArgBasedOnType(
           Plugin, PiKernel,
           nullptr /* TODO: Handle spec constants and pass device image here */,
           nullptr /* TODO: Pass getMemAllocation function for buffers */, Ctx,
-          false, Arg, ArgIndex);
-      ArgIndex++;
-    }
+          false, Arg, NextTrueIndex);
+    };
+    std::vector<sycl::detail::ArgDesc> Args;
+    sycl::detail::applyFuncOnFilteredArgs(EliminatedArgMask, Node->MArgs,
+                                          SetFunc);
 
     std::vector<pi_ext_sync_point> Deps;
     for (auto &N : Node->MPredecessors) {

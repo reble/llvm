@@ -608,6 +608,11 @@ void SetArgBasedOnType(
     const sycl::context &Context, bool IsHost, detail::ArgDesc &Arg,
     size_t NextTrueIndex);
 
+void applyFuncOnFilteredArgs(
+    const ProgramManager::KernelArgMask &EliminatedArgMask,
+    std::vector<ArgDesc> &Args,
+    std::function<void(detail::ArgDesc &Arg, int NextTrueIndex)> Func);
+
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl

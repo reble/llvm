@@ -84,7 +84,7 @@ static std::string deviceToString(device Device) {
     return "UNKNOWN";
 }
 
-static void applyFuncOnFilteredArgs(
+void applyFuncOnFilteredArgs(
     const ProgramManager::KernelArgMask &EliminatedArgMask,
     std::vector<ArgDesc> &Args,
     std::function<void(detail::ArgDesc &Arg, int NextTrueIndex)> Func) {
