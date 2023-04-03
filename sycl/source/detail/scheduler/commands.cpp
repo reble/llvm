@@ -1985,9 +1985,6 @@ static void ReverseRangeDimensionsForKernel(NDRDescT &NDR) {
   }
 }
 
-// Sets arguments for a given kernel and device based on the argument type.
-// Refactored from SetKernelParamsAndLaunch to allow it to be used in the graphs
-// extension.
 void SetArgBasedOnType(
     const detail::plugin &Plugin, RT::PiKernel Kernel,
     const std::shared_ptr<device_image_impl> &DeviceImageImpl,
