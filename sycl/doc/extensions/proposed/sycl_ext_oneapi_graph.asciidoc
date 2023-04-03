@@ -1058,7 +1058,6 @@ synchronous error being thrown with error code `invalid`.
 === Host Tasks
 
 :host-task: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#subsec:interfaces.hosttasks
-:cg-scope: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#sec:command.group.scope
 
 A {host-task}[host task] is a native C++ callable, scheduled according to SYCL
 dependency rules. It is valid to record a host task as part of graph, though it
