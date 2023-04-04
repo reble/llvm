@@ -789,6 +789,18 @@ Exceptions:
   the same order.
 |===
 
+==== Graph Properties
+
+There are the following properties defined that can be passed to a `command_graph`
+on construction via the property list parameter.
+
+1. `property::graph::no_cycle_error_check` - This property disables any checks if
+   a newly added dependency will lead to a cycle in a specific `command_graph`.
+   As a result, no errors are reported when a function tries to create a cyclic
+   dependency. Thus, it's the user's responsibility to create an acyclic graph 
+   for execution when this property is set. Executing any graph with cyclic
+   dependencies is undefined behavior.
+
 === Queue Class Modifications
 
 :queue-class: https://www.khronos.org/registry/SYCL/specs/sycl-2020/html/sycl-2020.html#sec:interface.queue.class
