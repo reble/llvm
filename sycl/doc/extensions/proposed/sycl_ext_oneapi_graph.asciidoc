@@ -302,6 +302,16 @@ enum class queue_state {
 };
 
 namespace property {
+
+namespace graph {
+
+class no_cycle_error_check {
+  public:
+    no_cycle_error_check() = default; 
+};
+
+} // namespace graph
+
 namespace node {
 
 class depends_on {
