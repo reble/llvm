@@ -321,7 +321,7 @@ enum class graph_state {
   executable
 };
 
-namespace property{ 
+namespace property { 
 namespace graph {
 
 class no_host_copy;
