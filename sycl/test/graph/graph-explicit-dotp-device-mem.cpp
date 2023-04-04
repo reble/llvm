@@ -24,11 +24,7 @@ int main() {
   float beta = 2.0f;
   float gamma = 3.0f;
 
-  sycl::property_list properties{
-      sycl::property::queue::in_order{},
-      sycl::ext::oneapi::property::queue::lazy_execution{}};
-
-  sycl::queue q{sycl::gpu_selector_v, properties};
+  sycl::queue q{sycl::gpu_selector_v};
 
   sycl::ext::oneapi::experimental::command_graph g;
 
@@ -68,12 +64,22 @@ int main() {
 
   auto node_c = g.add(
       [&](sycl::handler &h) {
+#ifdef TEST_GRAPH_REDUCTIONS
         h.parallel_for(sycl::range<1>{n},
                        sycl::reduction(dotp, 0.0f, std::plus()),
                        [=](sycl::id<1> it, auto &sum) {
                          const size_t i = it[0];
                          sum += x[i] * z[i];
                        });
+#else
+        h.single_task([=]() {
+          // Doing a manual reduction here because reduction objects cause
+          // issues with graphs.
+          for (size_t j = 0; j < n; j++) {
+            dotp[0] += x[j] * z[j];
+          }
+        });
+#endif
       },
       {node_a, node_b});
 

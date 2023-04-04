@@ -60,6 +60,8 @@ struct node_impl {
   // may go out of scope before execution.
   std::vector<std::vector<std::byte>> MArgStorage;
 
+  bool MIsEmpty = false;
+
   void register_successor(const std::shared_ptr<node_impl> &Node,
                           const std::shared_ptr<node_impl> &Prev) {
     MSuccessors.push_back(Node);
@@ -71,7 +73,7 @@ struct node_impl {
   }
 
   node_impl(const std::shared_ptr<graph_impl> &Graph)
-      : MGraph(Graph) {}
+      : MGraph(Graph), MIsEmpty(true) {}
 
   node_impl(
       const std::shared_ptr<graph_impl> &Graph,
@@ -108,8 +110,10 @@ struct node_impl {
       if (std::find(Schedule.begin(), Schedule.end(), Next) == Schedule.end())
         Next->topology_sort(Next, Schedule);
     }
-    if (MKernel != nullptr)
-    Schedule.push_front(NodeImpl);
+    // We don't need to schedule empty nodes as they are only used when
+    // calculating dependencies
+    if (!NodeImpl->is_empty())
+      Schedule.push_front(NodeImpl);
   }
 
   bool has_arg(const sycl::detail::ArgDesc &Arg) {
@@ -126,6 +130,8 @@ struct node_impl {
     }
     return false;
   }
+
+  bool is_empty() const { return MIsEmpty; }
 };
 
 struct graph_impl {

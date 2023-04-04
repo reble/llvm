@@ -81,7 +81,7 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
   // TODO: Encapsulate in separate function to avoid duplication
   if (!Dep.empty()) {
     for (auto N : Dep) {
-      N->register_successor(NodeImpl); // register successor
+      N->register_successor(NodeImpl, N); // register successor
       this->remove_root(NodeImpl);     // remove receiver from root node
                                        // list
     }
@@ -173,6 +173,30 @@ bool graph_impl::clear_queues() {
   return AnyQueuesCleared;
 }
 
+// Check if nodes are empty and if so loop back through predecessors until we
+// find the real dependency.
+void find_real_deps(std::vector<pi_ext_sync_point> &Deps,
+                    std::shared_ptr<node_impl> CurrentNode) {
+  if (CurrentNode->is_empty()) {
+    for (auto &N : CurrentNode->MPredecessors) {
+      auto NodeImpl = N.lock();
+      if (NodeImpl->is_empty()) {
+        find_real_deps(Deps, NodeImpl);
+      } else {
+        // Check if the dependency has already been added.
+        if (std::find(Deps.begin(), Deps.end(), NodeImpl->MPiSyncPoint) ==
+            Deps.end())
+          Deps.push_back(NodeImpl->MPiSyncPoint);
+      }
+    }
+  } else {
+    // Check if the dependency has already been added.
+    if (std::find(Deps.begin(), Deps.end(), CurrentNode->MPiSyncPoint) ==
+        Deps.end())
+      Deps.push_back(CurrentNode->MPiSyncPoint);
+  }
+}
+
 void exec_graph_impl::create_pi_command_buffers(sycl::device D,
                                                 const sycl::context &Ctx) {
   // TODO we only have a single command-buffer per graph here, but
@@ -230,7 +254,7 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D,
 
     std::vector<pi_ext_sync_point> Deps;
     for (auto &N : Node->MPredecessors) {
-      Deps.push_back(N.lock()->MPiSyncPoint);
+      find_real_deps(Deps, N.lock());
     }
 
     // add commands
