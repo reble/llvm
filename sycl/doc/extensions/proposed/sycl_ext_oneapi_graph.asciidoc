@@ -470,7 +470,7 @@ graph LR
 
 The `no_host_copy` property is defined by this extension and can be passed to
 either the `command_graph` constructor or the `command_graph::begin_recording()`
-member function. This property will disable the host data copy and that may
+member function. This property will disable the host data copy that may
 occur as detailed in the <<storage-lifetimes, storage lifetimes>> section of
 this specification.
 
