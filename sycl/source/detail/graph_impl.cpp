@@ -318,20 +318,25 @@ exec_graph_impl::~exec_graph_impl() {
 sycl::event exec_graph_impl::enqueue(
     const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
   std::vector<pi_event> RawEvents;
-  pi_event *OutEvent = nullptr;
-  auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
-  NewEvent->setContextImpl(Queue->getContextImplPtr());
-  NewEvent->setStateIncomplete();
-  OutEvent = &NewEvent->getHandleRef();
-  pi_result Res =
-      Queue->getPlugin().call_nocheck<sycl::detail::PiApiKind::piEventCreate>(
-          sycl::detail::getSyclObjImpl(Queue->get_context())->getHandleRef(),
-          OutEvent);
-  if (Res != pi_result::PI_SUCCESS) {
-    throw sycl::exception(errc::event,
-                          "Failed to create event for node submission");
-  }
-
+  auto CreateNewEvent([&]() {
+    pi_event *OutEvent = nullptr;
+    auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
+    NewEvent->setContextImpl(Queue->getContextImplPtr());
+    NewEvent->setStateIncomplete();
+    OutEvent = &NewEvent->getHandleRef();
+    pi_result Res =
+        Queue->getPlugin().call_nocheck<sycl::detail::PiApiKind::piEventCreate>(
+            sycl::detail::getSyclObjImpl(Queue->get_context())->getHandleRef(),
+            OutEvent);
+    if (Res != pi_result::PI_SUCCESS) {
+      throw sycl::exception(errc::event,
+                            "Failed to create event for node submission");
+    }
+    return NewEvent;
+  });
+#if SYCL_EXT_ONEAPI_GRAPH
+  auto NewEvent = CreateNewEvent();
+  pi_event *OutEvent = &NewEvent->getHandleRef();
   auto CommandBuffer = MPiCommandBuffers[Queue->get_device()];
   Res = Queue->getPlugin()
             .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
@@ -341,6 +346,30 @@ sycl::event exec_graph_impl::enqueue(
     throw sycl::exception(errc::event,
                           "Failed to enqueue event for node submission");
   }
+
+#else
+  std::vector<std::shared_ptr<sycl::detail::event_impl>> ScheduledEvents;
+  for (auto &NodeImpl : MSchedule) {
+    std::vector<RT::PiEvent> RawEvents;
+    auto NewEvent = CreateNewEvent();
+    pi_event *OutEvent = &NewEvent->getHandleRef();
+    pi_int32 Res = sycl::detail::enqueueImpKernel(
+        Queue, NodeImpl->MNDRDesc, NodeImpl->MArgs,
+        nullptr /* TODO: Handle KernelBundles */, NodeImpl->MKernel,
+        NodeImpl->MKernelName, NodeImpl->MOSModuleHandle, RawEvents, OutEvent,
+        nullptr /* TODO: Pass mem allocation func for accessors */);
+    if (Res != pi_result::PI_SUCCESS) {
+      throw sycl::exception(
+          sycl::errc::kernel,
+          "Error during emulated graph command group submission.");
+    }
+    ScheduledEvents.push_back(NewEvent);
+  }
+  // Create an event which has all kernel events as dependencies
+  auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
+  NewEvent->setStateIncomplete();
+  NewEvent->getPreparedDepsEvents() = ScheduledEvents;
+#endif
 
   sycl::event QueueEvent =
       sycl::detail::createSyclObjFromImpl<sycl::event>(NewEvent);
@@ -468,9 +497,11 @@ command_graph<graph_state::executable>::command_graph(
 void command_graph<graph_state::executable>::finalize_impl() {
   // Create PI command-buffers for each device in the finalized context
   impl->schedule();
+#if SYCLSYCL_EXT_ONEAPI_GRAPH
   for (auto device : MCtx.get_devices()) {
     impl->create_pi_command_buffers(device, MCtx);
   }
+#endif
 }
 
 } // namespace experimental
