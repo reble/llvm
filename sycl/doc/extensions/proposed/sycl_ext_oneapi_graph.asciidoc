@@ -504,8 +504,8 @@ Parameters:
 * `syclDevice` - Device that all nodes added to the graph will target,
   an immutable characteristic of the graph.
 
-* `propList` - Optional parameter for passing properties. No `command_graph`
-  constructor properties are defined by this extension.
+* `propList` - Optional parameter for passing properties. Valid `command_graph`
+  constructor properties are listed in Section <<graph-properties, Graph Properties>>.
 
 |===
 
