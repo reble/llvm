@@ -305,9 +305,9 @@ namespace property {
 
 namespace graph {
 
-class no_cycle_error_check {
+class no_cycle_check {
   public:
-    no_cycle_error_check() = default; 
+    no_cycle_check() = default; 
 };
 
 } // namespace graph
@@ -791,15 +791,16 @@ Exceptions:
 
 ==== Graph Properties
 
-There are the following properties defined that can be passed to a `command_graph`
+There is the one following property defined that can be passed to a `command_graph`
 on construction via the property list parameter.
 
-1. `property::graph::no_cycle_error_check` - This property disables any checks if
+1. `property::graph::no_cycle_check` - This property disables any checks if
    a newly added dependency will lead to a cycle in a specific `command_graph`.
    As a result, no errors are reported when a function tries to create a cyclic
    dependency. Thus, it's the user's responsibility to create an acyclic graph 
-   for execution when this property is set. Executing any graph with cyclic
-   dependencies is undefined behavior.
+   for execution when this property is set. Creating a `command_graph` in
+   executable state through `finalize` from a graph with cyclic dependencies
+   is undefined behavior.
 
 === Queue Class Modifications
 
