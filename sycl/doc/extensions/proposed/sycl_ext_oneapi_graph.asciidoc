@@ -800,7 +800,7 @@ on construction via the property list parameter.
    dependency. Thus, it's the user's responsibility to create an acyclic graph 
    for execution when this property is set. Creating a `command_graph` in
    executable state through `finalize` from a graph with cyclic dependencies
-   is undefined behavior.
+   is not allowed and results in undefined behavior.
 
 === Queue Class Modifications
 
