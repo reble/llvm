@@ -338,10 +338,11 @@ sycl::event exec_graph_impl::enqueue(
   auto NewEvent = CreateNewEvent();
   pi_event *OutEvent = &NewEvent->getHandleRef();
   auto CommandBuffer = MPiCommandBuffers[Queue->get_device()];
-  Res = Queue->getPlugin()
-            .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
-                CommandBuffer, Queue->getHandleRef(), RawEvents.size(),
-                RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
+  pi_result Res =
+      Queue->getPlugin()
+          .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
+              CommandBuffer, Queue->getHandleRef(), RawEvents.size(),
+              RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
   if (Res != pi_result::PI_SUCCESS) {
     throw sycl::exception(errc::event,
                           "Failed to enqueue event for node submission");
@@ -497,7 +498,7 @@ command_graph<graph_state::executable>::command_graph(
 void command_graph<graph_state::executable>::finalize_impl() {
   // Create PI command-buffers for each device in the finalized context
   impl->schedule();
-#if SYCLSYCL_EXT_ONEAPI_GRAPH
+#if SYCL_EXT_ONEAPI_GRAPH
   for (auto device : MCtx.get_devices()) {
     impl->create_pi_command_buffers(device, MCtx);
   }
