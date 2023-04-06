@@ -180,14 +180,7 @@ void find_real_deps(std::vector<pi_ext_sync_point> &Deps,
   if (CurrentNode->is_empty()) {
     for (auto &N : CurrentNode->MPredecessors) {
       auto NodeImpl = N.lock();
-      if (NodeImpl->is_empty()) {
-        find_real_deps(Deps, NodeImpl);
-      } else {
-        // Check if the dependency has already been added.
-        if (std::find(Deps.begin(), Deps.end(), NodeImpl->MPiSyncPoint) ==
-            Deps.end())
-          Deps.push_back(NodeImpl->MPiSyncPoint);
-      }
+      find_real_deps(Deps, NodeImpl);
     }
   } else {
     // Check if the dependency has already been added.
