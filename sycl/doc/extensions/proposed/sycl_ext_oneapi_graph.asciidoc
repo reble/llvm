@@ -324,7 +324,10 @@ enum class graph_state {
 namespace property { 
 namespace graph {
 
-class no_host_copy;
+class no_host_copy {
+public:
+  no_host_copy() = default;
+};
 
 } // namespace graph
 } // namespace property
@@ -466,7 +469,9 @@ graph LR
     Modifiable -->|Finalize| Executable
 ....
 
-==== No-Host-Copy Property
+==== Graph Properties [[graph-properties]]
+
+===== No-Host-Copy Property
 
 The `no_host_copy` property is defined by this extension and can be passed to
 either the `command_graph` constructor or the `command_graph::begin_recording()`
@@ -515,8 +520,8 @@ Parameters:
 * `syclDevice` - Device that all nodes added to the graph will target,
   an immutable characteristic of the graph.
 
-* `propList` - Optional parameter for passing properties. No `command_graph`
-  constructor properties are defined by this extension.
+* `propList` - Optional parameter for passing properties. Properties for
+  the `command_graph` class are defined in <<graph-properties, Graph Properties>>.
 
 |===
 
@@ -661,7 +666,7 @@ Table {counter: tableNumber}. Member functions of the `command_graph` class for 
 |
 [source, c++]
 ----
-bool begin_recording(queue& recordingQueue)
+bool begin_recording(queue& recordingQueue, const property_list& propList = {})
 ----
 
 |Synchronously changes the state of `recordingQueue` to the
@@ -672,6 +677,9 @@ Parameters:
 * `recordingQueue` - A `sycl::queue` object to change to the
   `queue_state::recording` state and start recording commands to the graph
   instance.
+
+* `propList` - Optional parameter for passing properties. Properties for
+  the `command_graph` class are defined in <<graph-properties, Graph Properties>>.
 
 Returns: `true` if `recordingQueue` has its state changed from
 `queue_state::executing` to `queue_state::recording`, `false` otherwise.
@@ -687,7 +695,8 @@ Exceptions:
 |
 [source, c++]
 ----
-bool begin_recording(const std::vector<queue>& recordingQueues)
+bool begin_recording(const std::vector<queue>& recordingQueues, 
+const property_list& propList = {})
 ----
 
 |Synchronously changes the state of each queue in `recordingQueues` to the
@@ -698,6 +707,9 @@ Parameters:
 * `recordingQueues` - List of `sycl::queue` objects to change to the
   `queue_state::recording` state and start recording commands to the graph
   instance.
+
+* `propList` - Optional parameter for passing properties. Properties for
+  the `command_graph` class are defined in <<graph-properties, Graph Properties>>.
 
 Returns: `true` if any queue in `recordingQueues` has its state changed from
 `queue_state::executing` to `queue_state::recording`, `false` otherwise.
