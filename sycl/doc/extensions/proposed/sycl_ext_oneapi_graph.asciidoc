@@ -479,8 +479,8 @@ Table {counter: tableNumber}. Constructor of the `command_graph` class.
 |
 [source,c++]
 ----
-command_graph(const context& syclContext, const device& syclDevice, const
-property_list& propList = {});
+command_graph(const context& syclContext, const device& syclDevice,
+              const property_list& propList = {});
 ----
 |Creates a SYCL `command_graph` object in the modifiable state for context
 `syclContext` and device `syclDevice`. Zero or more properties can be provided
@@ -797,7 +797,7 @@ Exceptions:
 * Throws synchronously with error code `invalid` if `graph` contains any node
   which is not a kernel command or host-task, e.g.
   {handler-copy-functions}[memory operations].
-  
+
 * Throws synchronously with error code `invalid` if the context associated with
   `graph` does not match that of the `command_graph` being updated.
 |===
