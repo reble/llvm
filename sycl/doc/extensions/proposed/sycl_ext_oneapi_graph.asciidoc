@@ -695,8 +695,8 @@ Exceptions:
 |
 [source, c++]
 ----
-bool begin_recording(const std::vector<queue>& recordingQueues, 
-const property_list& propList = {})
+bool begin_recording(const std::vector<queue>& recordingQueues,
+                     const property_list& propList = {})
 ----
 
 |Synchronously changes the state of each queue in `recordingQueues` to the
