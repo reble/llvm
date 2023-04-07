@@ -329,7 +329,7 @@ template<>
 class command_graph<graph_state::modifiable> {
 public:
   command_graph(const context& syclContext, const device& syclDevice,
-  const property_list& propList = {});
+                const property_list& propList = {});
 
   command_graph<graph_state::executable>
   finalize(const property_list& propList = {}) const;
@@ -494,7 +494,7 @@ Preconditions:
 Parameters:
 
 * `syclContext` - Context which will be associated with this graph and all
-  nodes within it. An immutable characteristic of the graph.
+  nodes within it. This is an immutable characteristic of the graph.
 
 * `syclDevice` - Device that all nodes added to the graph will target,
   an immutable characteristic of the graph. Must be associated with
@@ -797,6 +797,9 @@ Exceptions:
 * Throws synchronously with error code `invalid` if `graph` contains any node
   which is not a kernel command or host-task, e.g.
   {handler-copy-functions}[memory operations].
+  
+* Throws synchronously with error code `invalid` if the context associated with
+  `graph` does not match that of the `command_graph` being updated.
 |===
 
 === Queue Class Modifications
