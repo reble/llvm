@@ -97,15 +97,25 @@ event handler::finalize() {
   if (MIsFinalized)
     return MLastEvent;
   MIsFinalized = true;
-  if (auto GraphImpl = MQueue->getCommandGraph(); GraphImpl != nullptr) {
+  // If the queue has a graph impl we are in recording mode
+  if (auto GraphImpl = MQueue->getCommandGraph(); GraphImpl) {
+    auto EventImpl = std::make_shared<detail::event_impl>();
+
+    // If we have a subgraph node that means that a subgraph was recorded as
+    // part of this queue submission, so we skip adding a new node here since
+    // they have already been added, and return the event associated with the
+    // subgraph node.
+    if (MSubgraphNode) {
+      return detail::createSyclObjFromImpl<event>(
+          GraphImpl->get_event_for_node(MSubgraphNode));
+    }
     // Extract relevant data from the handler and pass to graph to create a new
     // node representing this command group.
-    auto NodeImpl = GraphImpl->add(
-        GraphImpl, MKernel, MNDRDesc, MOSModuleHandle, MKernelName, MAccStorage,
-        MLocalAccStorage, MRequirements, MArgs, {}, MEvents);
+    auto NodeImpl = GraphImpl->add(MKernel, MNDRDesc, MOSModuleHandle,
+                                   MKernelName, MAccStorage, MLocalAccStorage,
+                                   MRequirements, MArgs, {}, MEvents);
 
     // Create and associated an event with this new node
-    auto EventImpl = std::make_shared<detail::event_impl>();
     GraphImpl->add_event_for_node(EventImpl, NodeImpl);
 
     return detail::createSyclObjFromImpl<event>(EventImpl);
@@ -721,9 +731,26 @@ void handler::ext_oneapi_graph(
         ext::oneapi::experimental::graph_state::executable>
         Graph) {
   auto GraphImpl = detail::getSyclObjImpl(Graph);
-  auto GraphCompletionEvent = GraphImpl->exec(MQueue);
-  auto EventImpl = detail::getSyclObjImpl(GraphCompletionEvent);
-  MEvents.push_back(EventImpl);
+  std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> ParentGraph;
+  if (MQueue) {
+    ParentGraph = MQueue->getCommandGraph();
+  } else {
+    ParentGraph = MGraph;
+  }
+
+  // If a parent graph is set that means we are adding or recording a subgraph
+  if (ParentGraph) {
+    // Store the node representing the subgraph in the handler so that we can
+    // return it to the user later.
+    MSubgraphNode = ParentGraph->add_subgraph_nodes(GraphImpl->get_schedule());
+    // Associate an event with the subgraph node.
+    auto SubgraphEvent = std::make_shared<event_impl>();
+    ParentGraph->add_event_for_node(SubgraphEvent, MSubgraphNode);
+  } else {
+    auto GraphCompletionEvent = GraphImpl->exec(MQueue);
+    auto EventImpl = detail::getSyclObjImpl(GraphCompletionEvent);
+    MEvents.push_back(EventImpl);
+  }
 }
 
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)

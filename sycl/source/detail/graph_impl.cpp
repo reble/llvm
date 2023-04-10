@@ -29,13 +29,53 @@ void exec_graph_impl::schedule() {
   }
 }
 
+// Recursively check if a given node is an exit node and add the new nodes as
+// successors if so.
+void connect_to_exit_nodes(
+    std::shared_ptr<node_impl> CurrentNode,
+    const std::vector<std::shared_ptr<node_impl>> &NewInputs) {
+  if (CurrentNode->MSuccessors.size() > 0) {
+    for (auto Successor : CurrentNode->MSuccessors) {
+      connect_to_exit_nodes(Successor, NewInputs);
+    }
+
+  } else {
+    for (auto Input : NewInputs) {
+      CurrentNode->register_successor(Input, CurrentNode);
+    }
+  }
+}
+
+std::shared_ptr<node_impl> graph_impl::add_subgraph_nodes(
+    const std::list<std::shared_ptr<node_impl>> &NodeList) {
+  // Find all input and output nodes from the node list
+  std::vector<std::shared_ptr<node_impl>> Inputs;
+  std::vector<std::shared_ptr<node_impl>> Outputs;
+  for (auto &NodeImpl : NodeList) {
+    if (NodeImpl->MPredecessors.size() == 0) {
+      Inputs.push_back(NodeImpl);
+    }
+    if (NodeImpl->MSuccessors.size() == 0) {
+      Outputs.push_back(NodeImpl);
+    }
+  }
+
+  // Recursively walk the graph to find exit nodes and connect up the inputs
+  // TODO: Consider caching exit nodes so we don't have to do this
+  for (auto NodeImpl : MRoots) {
+    connect_to_exit_nodes(NodeImpl, Inputs);
+  }
+
+  return this->add(Outputs);
+}
+
 sycl::event
 exec_graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
-  // TODO: Support subgraphs
   sycl::event RetEvent = enqueue(Queue);
   // TODO: Remove this queue wait. Currently waiting on the event returned from
   // graph execution does not work.
   Queue->wait();
+
   return RetEvent;
 }
 
@@ -74,10 +114,8 @@ bool check_for_arg(const sycl::detail::ArgDesc &Arg,
 }
 
 std::shared_ptr<node_impl>
-graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
-                const std::vector<std::shared_ptr<node_impl>> &Dep) {
-  const std::shared_ptr<node_impl> &NodeImpl =
-      std::make_shared<node_impl>(Impl);
+graph_impl::add(const std::vector<std::shared_ptr<node_impl>> &Dep) {
+  const std::shared_ptr<node_impl> &NodeImpl = std::make_shared<node_impl>();
 
   // TODO: Encapsulate in separate function to avoid duplication
   if (!Dep.empty()) {
@@ -101,15 +139,20 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
   sycl::handler Handler{Impl};
   CGF(Handler);
 
+  // If the handler recorded a subgraph return that here as the relevant nodes
+  // have already been added. The node returned here is an empty node with
+  // dependencies on all the exit nodes of the subgraph.
+  if (Handler.MSubgraphNode) {
+    return Handler.MSubgraphNode;
+  }
   // TODO: Do we need to pass event dependencies here for the explicit API?
-  return this->add(Impl, Handler.MKernel, Handler.MNDRDesc,
-                   Handler.MOSModuleHandle, Handler.MKernelName,
-                   Handler.MAccStorage, Handler.MLocalAccStorage,
-                   Handler.MRequirements, Handler.MArgs, Dep);
+  return this->add(Handler.MKernel, Handler.MNDRDesc, Handler.MOSModuleHandle,
+                   Handler.MKernelName, Handler.MAccStorage,
+                   Handler.MLocalAccStorage, Handler.MRequirements,
+                   Handler.MArgs, Dep);
 }
 
 std::shared_ptr<node_impl> graph_impl::add(
-    const std::shared_ptr<graph_impl> &Impl,
     std::shared_ptr<sycl::detail::kernel_impl> Kernel,
     sycl::detail::NDRDescT NDRDesc, sycl::detail::OSModuleHandle OSModuleHandle,
     std::string KernelName,
@@ -120,8 +163,8 @@ std::shared_ptr<node_impl> graph_impl::add(
     const std::vector<std::shared_ptr<node_impl>> &Dep,
     const std::vector<std::shared_ptr<sycl::detail::event_impl>> &DepEvents) {
   const std::shared_ptr<node_impl> &NodeImpl = std::make_shared<node_impl>(
-      Impl, Kernel, NDRDesc, OSModuleHandle, KernelName, AccStorage,
-      LocalAccStorage, Requirements, Args);
+      Kernel, NDRDesc, OSModuleHandle, KernelName, AccStorage, LocalAccStorage,
+      Requirements, Args);
   // Copy deps so we can modify them
   auto Deps = Dep;
   // A unique set of dependencies obtained by checking kernel arguments
@@ -176,18 +219,26 @@ bool graph_impl::clear_queues() {
 
 // Check if nodes are empty and if so loop back through predecessors until we
 // find the real dependency.
-void find_real_deps(std::vector<pi_ext_sync_point> &Deps,
-                    std::shared_ptr<node_impl> CurrentNode) {
+void exec_graph_impl::find_real_deps(std::vector<pi_ext_sync_point> &Deps,
+                                     std::shared_ptr<node_impl> CurrentNode) {
   if (CurrentNode->is_empty()) {
     for (auto &N : CurrentNode->MPredecessors) {
       auto NodeImpl = N.lock();
       find_real_deps(Deps, NodeImpl);
     }
   } else {
-    // Check if the dependency has already been added.
-    if (std::find(Deps.begin(), Deps.end(), CurrentNode->MPiSyncPoint) ==
-        Deps.end())
-      Deps.push_back(CurrentNode->MPiSyncPoint);
+    // Verify that the sync point has actually been set for this node.
+    if (auto SyncPoint = MPiSyncPoints.find(CurrentNode);
+        SyncPoint != MPiSyncPoints.end()) {
+      // Check if the dependency has already been added.
+      if (std::find(Deps.begin(), Deps.end(), SyncPoint->second) ==
+          Deps.end()) {
+        Deps.push_back(SyncPoint->second);
+      }
+    } else {
+      // If no sync point was found something has gone wrong.
+      assert(false);
+    }
   }
 }
 
@@ -273,17 +324,21 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D,
         LocalSize = RequiredWGSize;
     }
 
+    pi_ext_sync_point NewSyncPoint;
     Res = Plugin.call_nocheck<
         sycl::detail::PiApiKind::piextCommandBufferNDRangeKernel>(
         OutCommandBuffer, PiKernel, Node->MNDRDesc.Dims,
         &Node->MNDRDesc.GlobalOffset[0], &Node->MNDRDesc.GlobalSize[0],
         LocalSize, Deps.size(), Deps.size() ? Deps.data() : nullptr,
-        &Node->MPiSyncPoint);
+        &NewSyncPoint);
 
     if (Res != pi_result::PI_SUCCESS) {
       throw sycl::exception(errc::invalid,
                             "Failed to add kernel to PI command-buffer");
     }
+
+    // Associate the new syncpoint with the current node
+    MPiSyncPoints[Node] = NewSyncPoint;
   }
 
   Res =
@@ -385,7 +440,7 @@ node command_graph<graph_state::modifiable>::add_impl(
     DepImpls.push_back(sycl::detail::getSyclObjImpl(D));
   }
 
-  std::shared_ptr<detail::node_impl> NodeImpl = impl->add(impl, DepImpls);
+  std::shared_ptr<detail::node_impl> NodeImpl = impl->add(DepImpls);
   return sycl::detail::createSyclObjFromImpl<node>(NodeImpl);
 }
 

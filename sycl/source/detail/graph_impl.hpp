@@ -29,12 +29,6 @@ namespace experimental {
 namespace detail {
 
 struct node_impl {
-  std::shared_ptr<graph_impl> MGraph;
-  /// ID representing this node in the graph
-  /// TODO this should be attached to an executable graph, rather than
-  /// a modifiable graph
-  pi_ext_sync_point MPiSyncPoint;
-
   // List of successors to this node.
   std::vector<std::shared_ptr<node_impl>> MSuccessors;
   // List of predecessors to this node. Using weak_ptr here to prevent circular
@@ -72,11 +66,9 @@ struct node_impl {
     MPredecessors.push_back(Node);
   }
 
-  node_impl(const std::shared_ptr<graph_impl> &Graph)
-      : MGraph(Graph), MIsEmpty(true) {}
+  node_impl() : MIsEmpty(true) {}
 
   node_impl(
-      const std::shared_ptr<graph_impl> &Graph,
       std::shared_ptr<sycl::detail::kernel_impl> Kernel,
       sycl::detail::NDRDescT NDRDesc,
       sycl::detail::OSModuleHandle OSModuleHandle, std::string KernelName,
@@ -84,10 +76,10 @@ struct node_impl {
       const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
       const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
       const std::vector<sycl::detail::ArgDesc> &args)
-      : MGraph(Graph), MKernel(Kernel), MNDRDesc(NDRDesc),
-        MOSModuleHandle(OSModuleHandle), MKernelName(KernelName),
-        MAccStorage(AccStorage), MLocalAccStorage(LocalAccStorage),
-        MRequirements(Requirements), MArgs(args), MArgStorage() {
+      : MKernel(Kernel), MNDRDesc(NDRDesc), MOSModuleHandle(OSModuleHandle),
+        MKernelName(KernelName), MAccStorage(AccStorage),
+        MLocalAccStorage(LocalAccStorage), MRequirements(Requirements),
+        MArgs(args), MArgStorage() {
 
     // Need to copy the arg values to node local storage so that they don't go
     // out of scope before execution
@@ -143,8 +135,7 @@ struct graph_impl {
   void remove_root(const std::shared_ptr<node_impl> &);
 
   std::shared_ptr<node_impl>
-  add(const std::shared_ptr<graph_impl> &Impl,
-      std::shared_ptr<sycl::detail::kernel_impl> Kernel,
+  add(std::shared_ptr<sycl::detail::kernel_impl> Kernel,
       sycl::detail::NDRDescT NDRDesc,
       sycl::detail::OSModuleHandle OSModuleHandle, std::string KernelName,
       const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
@@ -162,8 +153,7 @@ struct graph_impl {
       const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
   std::shared_ptr<node_impl>
-  add(const std::shared_ptr<graph_impl> &Impl,
-      const std::vector<std::shared_ptr<node_impl>> &Dep = {});
+  add(const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
   graph_impl() = default;
 
@@ -191,6 +181,25 @@ struct graph_impl {
     MEventsMap[EventImpl] = NodeImpl;
   }
 
+  std::shared_ptr<sycl::detail::event_impl>
+  get_event_for_node(std::shared_ptr<node_impl> NodeImpl) const {
+    if (auto EventImpl = std::find_if(
+            MEventsMap.begin(), MEventsMap.end(),
+            [NodeImpl](auto &it) { return it.second == NodeImpl; });
+        EventImpl != MEventsMap.end()) {
+      return EventImpl->first;
+    }
+
+    throw sycl::exception(
+        sycl::errc::invalid,
+        "No event has been recorded for the specified graph node");
+  }
+
+  /// Adds subgraph nodes from an executable graph to this graph, returns
+  /// an empty node is used to schedule dependencies on this sub graph.
+  std::shared_ptr<node_impl>
+  add_subgraph_nodes(const std::list<std::shared_ptr<node_impl>> &NodeList);
+
 private:
   std::set<std::shared_ptr<sycl::detail::queue_impl>> MRecordingQueues;
   // Map of events to their associated recorded nodes.
@@ -204,7 +213,7 @@ public:
   exec_graph_impl(sycl::context Context,
                   const std::shared_ptr<graph_impl> &GraphImpl)
       : MSchedule(), MGraphImpl(GraphImpl), MPiCommandBuffers(),
-        MContext(Context) {}
+        MPiSyncPoints(), MContext(Context) {}
   ~exec_graph_impl();
   /// Add nodes to MSchedule
   void schedule();
@@ -217,12 +226,22 @@ public:
   /// device
   void create_pi_command_buffers(sycl::device D, const sycl::context &Ctx);
 
+  const std::list<std::shared_ptr<node_impl>> &get_schedule() const {
+    return MSchedule;
+  }
+
 private:
+  void find_real_deps(std::vector<pi_ext_sync_point> &Deps,
+                      std::shared_ptr<node_impl> CurrentNode);
   std::list<std::shared_ptr<node_impl>> MSchedule;
   // Pointer to the modifiable graph impl associated with this executable graph
   std::shared_ptr<graph_impl> MGraphImpl;
   // Map of devices to command buffers
   std::unordered_map<sycl::device, pi_ext_command_buffer> MPiCommandBuffers;
+  /// Map of nodes in the exec graph to the sync point representing their
+  /// execution in the command buffer.
+  std::unordered_map<std::shared_ptr<node_impl>, pi_ext_sync_point>
+      MPiSyncPoints;
   // Context associated with this executable graph
   sycl::context MContext;
 };
