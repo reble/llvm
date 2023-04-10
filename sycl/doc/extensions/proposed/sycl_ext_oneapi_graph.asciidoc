@@ -1015,7 +1015,7 @@ preemptively changed the state of the queue.
 === Exception Safety
 
 In addition to the destruction semantics provided by the SYCL
-{crs}[common reference semantics], when the last copy a modifiable
+{crs}[common reference semantics], when the last copy of a modifiable
 `command_graph` is destroyed recording is ended on any queues that are recording
 to that graph, equivalent to `+this->end_recording()+`.
 
