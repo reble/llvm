@@ -604,7 +604,7 @@ Exceptions:
   are the same node.
   
 * Throws synchronously with error code `invalid` if the resulting dependency would
-  lead to a cycle.
+  lead to a cycle. This error is omitted when `property::graph::no_cycle_check` is set.
 
 |
 [source,c++]
