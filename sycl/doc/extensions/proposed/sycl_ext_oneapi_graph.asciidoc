@@ -602,6 +602,9 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if `src` and `dest`
   are the same node.
+  
+* Throws synchronously with error code `invalid` if the resulting dependency would
+  lead to a cycle.
 
 |
 [source,c++]
@@ -633,10 +636,6 @@ Parameters:
 Returns: A new executable graph object which can be submitted to a queue.
 
 Exceptions:
-
-* Throws synchronously with error code `invalid` if the graph contains a cycle.
-  A cycle may be introduced to the graph via a call to `make_edge()` that
-  creates a forward dependency.
 
 * Throws synchronously with error code `invalid` if the graph contains a
   node which targets a device not present in `syclContext`.
