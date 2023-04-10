@@ -616,6 +616,8 @@ void applyFuncOnFilteredArgs(
     std::vector<ArgDesc> &Args,
     std::function<void(detail::ArgDesc &Arg, int NextTrueIndex)> Func);
 
+void ReverseRangeDimensionsForKernel(NDRDescT &NDR);
+
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl

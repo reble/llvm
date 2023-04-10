@@ -306,11 +306,15 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D,
     // Remember this information before the range dimensions are reversed
     const bool HasLocalSize = (Node->MNDRDesc.LocalSize[0] != 0);
 
+    // Reverse kernel dims
+    auto NDRDesc = Node->MNDRDesc;
+    sycl::detail::ReverseRangeDimensionsForKernel(NDRDesc);
+
     size_t RequiredWGSize[3] = {0, 0, 0};
     size_t *LocalSize = nullptr;
 
     if (HasLocalSize)
-      LocalSize = &Node->MNDRDesc.LocalSize[0];
+      LocalSize = &NDRDesc.LocalSize[0];
     else {
       Plugin.call<sycl::detail::PiApiKind::piKernelGetGroupInfo>(
           PiKernel, DeviceImpl->getHandleRef(),
@@ -327,10 +331,9 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D,
     pi_ext_sync_point NewSyncPoint;
     Res = Plugin.call_nocheck<
         sycl::detail::PiApiKind::piextCommandBufferNDRangeKernel>(
-        OutCommandBuffer, PiKernel, Node->MNDRDesc.Dims,
-        &Node->MNDRDesc.GlobalOffset[0], &Node->MNDRDesc.GlobalSize[0],
-        LocalSize, Deps.size(), Deps.size() ? Deps.data() : nullptr,
-        &NewSyncPoint);
+        OutCommandBuffer, PiKernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
+        &NDRDesc.GlobalSize[0], LocalSize, Deps.size(),
+        Deps.size() ? Deps.data() : nullptr, &NewSyncPoint);
 
     if (Res != pi_result::PI_SUCCESS) {
       throw sycl::exception(errc::invalid,
