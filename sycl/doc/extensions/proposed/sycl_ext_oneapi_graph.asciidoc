@@ -331,6 +331,17 @@ enum class graph_state {
   executable
 };
 
+namespace property { 
+namespace graph {
+
+class no_host_copy {
+public:
+  no_host_copy() = default;
+};
+
+} // namespace graph
+} // namespace property
+
 // New object representing graph
 template<graph_state State = graph_state::modifiable>
 class command_graph {};
@@ -338,13 +349,14 @@ class command_graph {};
 template<>
 class command_graph<graph_state::modifiable> {
 public:
-  command_graph(const device& syclDevice, const property_list& propList = {});
+  command_graph(const context& syclContext, const device& syclDevice,
+                const property_list& propList = {});
 
   command_graph<graph_state::executable>
-  finalize(const context& syclContext, const property_list& propList = {}) const;
+  finalize(const property_list& propList = {}) const;
 
-  bool begin_recording(queue& recordingQueue);
-  bool begin_recording(const std::vector<queue>& recordingQueues);
+  bool begin_recording(queue& recordingQueue, const property_list& propList = {});
+  bool begin_recording(const std::vector<queue>& recordingQueues, const property_list& propList = {});
 
   bool end_recording();
   bool end_recording(queue& recordingQueue);
@@ -468,6 +480,21 @@ graph LR
     Modifiable -->|Finalize| Executable
 ....
 
+==== Graph Properties [[graph-properties]]
+
+===== No-Host-Copy Property
+
+The `no_host_copy` property is defined by this extension and can be passed to
+either the `command_graph` constructor or the `command_graph::begin_recording()`
+member function. This property will disable the host data copy that may
+occur as detailed in the <<storage-lifetimes, storage lifetimes>> section of
+this specification.
+
+Passing this property represents a promise from the user that host data
+associated with a buffer that was created using a host data pointer will
+outlive any executable graphs created from a modifiable graph which uses
+that buffer.
+
 ==== Executable Graph Update
 
 A graph in the executable state can have each nodes inputs & outputs updated
@@ -488,11 +515,12 @@ Table {counter: tableNumber}. Constructor of the `command_graph` class.
 |
 [source,c++]
 ----
-command_graph(const device& syclDevice, const property_list& propList = {});
+command_graph(const context& syclContext, const device& syclDevice,
+              const property_list& propList = {});
 ----
-|Creates a SYCL `command_graph` object in the modifiable state for device
-`syclDevice`. Zero or more properties can be provided to the constructed SYCL
-`command_graph` via an instance of `property_list`.
+|Creates a SYCL `command_graph` object in the modifiable state for context
+`syclContext` and device `syclDevice`. Zero or more properties can be provided
+to the constructed SYCL `command_graph` via an instance of `property_list`.
 
 Preconditions:
 
@@ -501,11 +529,20 @@ Preconditions:
 
 Parameters:
 
+* `syclContext` - Context which will be associated with this graph and all
+  nodes within it. This is an immutable characteristic of the graph.
+
 * `syclDevice` - Device that all nodes added to the graph will target,
-  an immutable characteristic of the graph.
+  an immutable characteristic of the graph. Must be associated with
+  `syclContext`.
 
 * `propList` - Optional parameter for passing properties. Valid `command_graph`
   constructor properties are listed in Section <<graph-properties, Graph Properties>>.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if `syclDevice` is not
+associated with `syclContext`.
 
 |===
 
@@ -610,15 +647,15 @@ Exceptions:
 [source,c++]
 ----
 command_graph<graph_state::executable>
-finalize(const context& syclContext, const property_list& propList = {}) const;
+finalize(const property_list& propList = {}) const;
 ----
 
 |Synchronous operation that creates a new graph in the executable state with a
 fixed topology that can be submitted for execution on any queue sharing the
-supplied context. It is valid to call this method multiple times to create
-subsequent executable graphs. It is also valid to continue to add new nodes to
-the modifiable graph instance after calling this function. It is valid to
-finalize an empty graph instance with no recorded commands.
+context associated with the graph. It is valid to call this method multiple times
+to create subsequent executable graphs. It is also valid to continue to add new
+nodes to the modifiable graph instance after calling this function. It is valid
+to finalize an empty graph instance with no recorded commands.
 
 Preconditions:
 
@@ -626,9 +663,6 @@ Preconditions:
   `graph_state::modifiable`.
 
 Parameters:
-
-* `syclContext` - The context associated with the queues to which the
-  executable graph will be able to be submitted.
 
 * `propList` - Optional parameter for passing properties. No finalization
   properties are defined by this extension.
@@ -640,6 +674,10 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the graph contains a
   node which targets a device not present in `syclContext`.
 
+* Throws synchronously with error code `invalid` if the graph contains a cycle.
+  A cycle may be introduced to the graph via a call to `make_edge()` that
+  creates a forward dependency.
+
 |===
 
 Table {counter: tableNumber}. Member functions of the `command_graph` class for queue recording.
@@ -650,7 +688,7 @@ Table {counter: tableNumber}. Member functions of the `command_graph` class for 
 |
 [source, c++]
 ----
-bool begin_recording(queue& recordingQueue)
+bool begin_recording(queue& recordingQueue, const property_list& propList = {})
 ----
 
 |Synchronously changes the state of `recordingQueue` to the
@@ -662,6 +700,9 @@ Parameters:
   `queue_state::recording` state and start recording commands to the graph
   instance.
 
+* `propList` - Optional parameter for passing properties. Properties for
+  the `command_graph` class are defined in <<graph-properties, Graph Properties>>.
+
 Returns: `true` if `recordingQueue` has its state changed from
 `queue_state::executing` to `queue_state::recording`, `false` otherwise.
 
@@ -671,12 +712,13 @@ Exceptions:
   already recording to a different graph.
 
 * Throws synchronously with error code `invalid` if `recordingQueue` is
-  associated with a device that is different from the device used on creation
-  of the graph.
+  associated with a device or context that is different from the device
+  and context used on creation of the graph.
 |
 [source, c++]
 ----
-bool begin_recording(const std::vector<queue>& recordingQueues)
+bool begin_recording(const std::vector<queue>& recordingQueues,
+                     const property_list& propList = {})
 ----
 
 |Synchronously changes the state of each queue in `recordingQueues` to the
@@ -688,6 +730,9 @@ Parameters:
   `queue_state::recording` state and start recording commands to the graph
   instance.
 
+* `propList` - Optional parameter for passing properties. Properties for
+  the `command_graph` class are defined in <<graph-properties, Graph Properties>>.
+
 Returns: `true` if any queue in `recordingQueues` has its state changed from
 `queue_state::executing` to `queue_state::recording`, `false` otherwise.
 
@@ -695,6 +740,10 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if the any queue in
   `recordingQueues` is already recording to a different graph.
+
+* Throws synchronously with error code `invalid` if any of `recordingQueues`
+  is associated with a device or context that is different from the device
+  and context used on creation of the graph.
 
 |
 [source, c++]
@@ -765,10 +814,15 @@ void command_graph<graph_state::executable> update(const command_graph<graph_sta
 ----
 
 |Updates the executable graph node inputs & outputs from a topologically
-identical modifiable graph. The effects of the update will be visible
-on the next submission of the executable graph without the need for additional
-user synchronization. No changes to commands themselves will occur, such as to
-updating kernel or host task code to match that of the modifiable graph.
+identical modifiable graph. A topologically identical graph is one with the
+same structure of nodes and edges, and the nodes added in the same order to
+both graphs. Equivalent nodes in topologically identical graphs each have the
+same command, targeting the same device. There is the additional limitation that
+to update an executable graph, every node in the graph must be either a kernel
+command or a host-task.
+
+The effects of the update will be visible on the next submission of the
+executable graph without the need for additional user synchronization.
 
 Preconditions:
 
@@ -786,6 +840,15 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the topology of `graph` is
   not the same as the existing graph topology, or if the nodes were not added in
   the same order.
+
+:handler-copy-functions: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#table.members.handler.copy
+
+* Throws synchronously with error code `invalid` if `graph` contains any node
+  which is not a kernel command or host-task, e.g.
+  {handler-copy-functions}[memory operations].
+
+* Throws synchronously with error code `invalid` if the context associated with
+  `graph` does not match that of the `command_graph` being updated.
 |===
 
 ==== Graph Properties
@@ -954,9 +1017,9 @@ Table {counter: tableNumber}. Additional member functions of the `sycl::handler`
 void handler::ext_oneapi_graph(command_graph<graph_state::executable>& graph)
 ----
 
-|Invokes the execution of a graph. Support for invoking an executable graph,
-before a previous execution of the same graph has been completed is backend
-specific. The runtime may throw an error.
+|Invokes the execution of a graph. Only one instance of `graph` may be executing,
+or pending execution, at any time. Concurrent graph execution can be achieved by
+finalizing a graph in modifiable state into multiple graphs in executable state.
 
 Parameters:
 
@@ -967,6 +1030,9 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the handler is submitted
   to a queue which doesn't have a SYCL context which matches the context of
   the executable graph.
+
+* Throws synchronously with error code `invalid` if a previous submission of
+  `graph` has yet to complete execution.
 |===
 
 === Thread Safety
@@ -990,9 +1056,9 @@ preemptively changed the state of the queue.
 === Exception Safety
 
 In addition to the destruction semantics provided by the SYCL
-{crs}[common reference semantics], when a modifiable `command_graph` is
-destroyed recording is ended on any queues that are recording to that
-graph, equivalent to `+this->end_recording()+`.
+{crs}[common reference semantics], when the last copy of a modifiable
+`command_graph` is destroyed recording is ended on any queues that are recording
+to that graph, equivalent to `+this->end_recording()+`.
 
 As a result, users don't need to manually wrap queue recording code in a
 `try` / `catch` block to reset the state of recording queues on an exception
@@ -1001,21 +1067,11 @@ modifiable graph will perform this action, useful in RAII pattern usage.
 
 === Error Handling
 
-Errors are reported through exceptions, as usual in the SYCL API. For new APIs,
-submitting a graph for execution can generate unspecified asynchronous errors,
-while `command_graph::finalize()` may throw unspecified synchronous exceptions.
-Synchronous exception errors codes are defined for all of
-`command_graph::add()`, `command_graph::make_edge()`, `command_graph::update()`,
-`command_graph::begin_recording()`, and `command_graph::end_recording()`.
-
-Submitting an executable graph using `handler::ext_oneapi_graph()` to
-a queue with a different SYCL context than that of the executable graph will
-result in a synchronous exception.
-
 When a queue is in recording mode asynchronous exceptions will not be
 generated, as no device execution is occurring. Synchronous errors specified as
 being thrown in the default queue executing state, will still be thrown when a
-queue is in the recording state.
+queue is in the recording state. Queue query methods operate as usual in
+recording mode, as opposed to throwing.
 
 The `command_graph::begin_recording` and `command_graph::end_recording`
 entry-points return a `bool` value informing the user whether a related queue
@@ -1024,16 +1080,7 @@ no queue state is changed. This design is because the queues are already in
 the state the user desires, so if the function threw an exception in this case,
 the application would likely swallow it and then proceed.
 
-While a queue is in the recording state, methods performed on that queue which
-are not command submissions behave as normal except for waits. Waiting on a
-queue in the recording state is an error and will throw a synchronous
-exception. Other methods are ignored by the graph system as opposed to
-throwing in recording mode. As any query about the state of the queue may
-be immediately stale, any code which relies on queue waits should take care
-to ensure waits are not performed on queues in recording mode. For example, by
-using separate queues for graph recording and normal queue operations.
-
-=== Storage Lifetimes
+=== Storage Lifetimes [[storage-lifetimes]]
 
 The lifetime of any buffer recorded as part of a submission
 to a command graph will be extended in keeping with the common reference
@@ -1042,9 +1089,20 @@ extended either for the lifetime of the graph (including both modifiable graphs
 and the executable graphs created from them) or until the buffer is no longer
 required by the graph (such as after being replaced through executable graph update).
 
-Because of the extension of storage lifetimes, users should avoid the use of the
-buffer copy-back on destruction mechanism. If used in code intended to be
-executed as part of a graph, it may not perform as expected.
+If a buffer created with a host data pointer is recorded as part of a submission to
+a command graph, the lifetime of that host data will also be extended by taking a
+copy of that data inside the buffer. This copy will occur during the call to
+`queue::submit()`. Users can opt-out of this behaviour by passing the property
+`graph::no_host_copy` to `command_graph::begin_recording()` or the constructor
+of the `command_graph` the commands will be recorded to. Passing the property to
+`begin_recording()` will prevent host copies only for commands recorded before
+`end_recording()` is called for a given queue. Passing the property to the
+`command_graph` constructor will prevent host copies for all commands recorded to
+the graph.
+
+The copy will not occur if the buffer is accessed inside the submitted command
+group function with an accessor with `access_mode::write` or the `no_init`
+property.
 
 === Buffer Limitations for Record & Replay API
 
@@ -1184,7 +1242,7 @@ int main() {
   float gamma = 3.0f;
 
   sycl::queue q;
-  sycl_ext::command_graph g(q.get_device());
+  sycl_ext::command_graph g(q.get_context(), q.get_device());
 
   float *dotp = sycl::malloc_shared<float>(1, q);
   float *x = sycl::malloc_device<float>(n, q);
@@ -1234,7 +1292,7 @@ int main() {
       },
       { sycl_ext::property::node::depends_on(node_a, node_b)});
 
-  auto exec = g.finalize(q.get_context());
+  auto exec = g.finalize();
 
   // use queue shortcut for graph submission
   q.ext_oneapi_graph(exec).wait();
@@ -1268,7 +1326,7 @@ submitted in its entirety for execution via
   queue q{default_selector{}};
 
   // New object representing graph of command-groups
-  ext::oneapi::experimental::command_graph graph(q.get_device());
+  ext::oneapi::experimental::command_graph graph(q.get_context(), q.get_device());
   {
     buffer<T> bufferA{dataA.data(), range<1>{elements}};
     buffer<T> bufferB{dataB.data(), range<1>{elements}};
@@ -1326,7 +1384,7 @@ submitted in its entirety for execution via
 
   // Finalize the modifiable graph to create an executable graph that can be
   // submitted for execution.
-  auto exec_graph = graph.finalize(q.get_context());
+  auto exec_graph = graph.finalize();
 
   // Execute graph
   q.submit([&](handler& cgh) {
@@ -1336,6 +1394,14 @@ submitted in its entirety for execution via
 ----
 
 == Issues
+
+=== Simultaneous Graph Submission
+
+Enable an instance of a graph in executable state to be submitted for execution
+when a previous submission of the same graph has yet to complete execution.
+
+**Outcome:** Backend support for this is inconsistent, but the runtime could
+schedule the submissions sequentially for backends which don't support it.
 
 === Multi Device Graph
 
