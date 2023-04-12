@@ -371,19 +371,9 @@ sycl::event exec_graph_impl::enqueue(
     const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
   std::vector<pi_event> RawEvents;
   auto CreateNewEvent([&]() {
-    pi_event *OutEvent = nullptr;
     auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
     NewEvent->setContextImpl(Queue->getContextImplPtr());
     NewEvent->setStateIncomplete();
-    OutEvent = &NewEvent->getHandleRef();
-    pi_result Res =
-        Queue->getPlugin().call_nocheck<sycl::detail::PiApiKind::piEventCreate>(
-            sycl::detail::getSyclObjImpl(Queue->get_context())->getHandleRef(),
-            OutEvent);
-    if (Res != pi_result::PI_SUCCESS) {
-      throw sycl::exception(errc::event,
-                            "Failed to create event for node submission");
-    }
     return NewEvent;
   });
 #if SYCL_EXT_ONEAPI_GRAPH
