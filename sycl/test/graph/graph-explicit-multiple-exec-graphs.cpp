@@ -41,6 +41,7 @@ int main() {
       x[i] = 1.0f;
       y[i] = 2.0f;
       z[i] = 3.0f;
+      dotp[0] = 0.0f;
     });
   });
 
@@ -64,31 +65,31 @@ int main() {
 
   auto node_c = g.add(
       [&](sycl::handler &h) {
-#ifdef TEST_GRAPH_REDUCTIONS
-        h.parallel_for(sycl::range<1>{n},
-                       sycl::reduction(dotp, 0.0f, std::plus()),
-                       [=](sycl::id<1> it, auto &sum) {
-                         const size_t i = it[0];
-                         sum += x[i] * z[i];
-                       });
-#else
         h.single_task([=]() {
-          // Doing a manual reduction here because reduction objects cause
-          // issues with graphs.
           for (size_t j = 0; j < n; j++) {
             dotp[0] += x[j] * z[j];
           }
         });
-#endif
       },
       {node_a, node_b});
 
   auto executable_graph = g.finalize(q.get_context());
 
+  // Add an extra node for the second executable graph which modifies the output
+  auto node_d =
+      g.add([&](sycl::handler &h) { h.single_task([=]() { dotp[0] += 1; }); },
+            {node_c});
+
+  auto executable_graph_2 = g.finalize(q.get_context());
+
   // Using shortcut for executing a graph of commands
   q.ext_oneapi_graph(executable_graph).wait();
 
   assert(*dotp == host_gold_result());
+
+  q.ext_oneapi_graph(executable_graph_2).wait();
+
+  assert(*dotp == host_gold_result() + 1);
 
   sycl::free(dotp, q);
   sycl::free(x, q);

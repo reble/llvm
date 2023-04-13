@@ -28,29 +28,18 @@ namespace oneapi {
 namespace experimental {
 namespace detail {
 
-class wrapper {
-  using T = std::function<void(sycl::handler &)>;
-  T MFunc;
-  std::vector<sycl::event> MDeps;
-
-public:
-  wrapper(T Func, const std::vector<sycl::event> &Deps)
-      : MFunc(Func), MDeps(Deps){};
-
-  void operator()(sycl::handler &CGH) {
-    CGH.depends_on(MDeps);
-    std::invoke(MFunc, CGH);
-  }
-};
-
 struct node_impl {
-  bool MScheduled;
-
   std::shared_ptr<graph_impl> MGraph;
-  sycl::event MEvent;
+  /// ID representing this node in the graph
+  /// TODO this should be attached to an executable graph, rather than
+  /// a modifiable graph
+  pi_ext_sync_point MPiSyncPoint;
 
+  // List of successors to this node.
   std::vector<std::shared_ptr<node_impl>> MSuccessors;
-  std::vector<std::shared_ptr<node_impl>> MPredecessors;
+  // List of predecessors to this node. Using weak_ptr here to prevent circular
+  // references between nodes.
+  std::vector<std::weak_ptr<node_impl>> MPredecessors;
 
   /// Kernel to be executed by this node
   std::shared_ptr<sycl::detail::kernel_impl> MKernel;
@@ -71,22 +60,20 @@ struct node_impl {
   // may go out of scope before execution.
   std::vector<std::vector<std::byte>> MArgStorage;
 
-  void exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue
-                _CODELOCPARAM(&CodeLoc));
+  bool MIsEmpty = false;
 
-  void register_successor(const std::shared_ptr<node_impl> &Node) {
+  void register_successor(const std::shared_ptr<node_impl> &Node,
+                          const std::shared_ptr<node_impl> &Prev) {
     MSuccessors.push_back(Node);
-    Node->register_predecessor(std::shared_ptr<node_impl>(this));
+    Node->register_predecessor(Prev);
   }
 
   void register_predecessor(const std::shared_ptr<node_impl> &Node) {
     MPredecessors.push_back(Node);
   }
 
-  sycl::event get_event(void) const { return MEvent; }
-
   node_impl(const std::shared_ptr<graph_impl> &Graph)
-      : MScheduled(false), MGraph(Graph) {}
+      : MGraph(Graph), MIsEmpty(true) {}
 
   node_impl(
       const std::shared_ptr<graph_impl> &Graph,
@@ -97,7 +84,7 @@ struct node_impl {
       const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
       const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
       const std::vector<sycl::detail::ArgDesc> &args)
-      : MScheduled(false), MGraph(Graph), MKernel(Kernel), MNDRDesc(NDRDesc),
+      : MGraph(Graph), MKernel(Kernel), MNDRDesc(NDRDesc),
         MOSModuleHandle(OSModuleHandle), MKernelName(KernelName),
         MAccStorage(AccStorage), MLocalAccStorage(LocalAccStorage),
         MRequirements(Requirements), MArgs(args), MArgStorage() {
@@ -116,14 +103,17 @@ struct node_impl {
   }
 
   // Recursively adding nodes to execution stack:
-  void topology_sort(std::list<std::shared_ptr<node_impl>> &Schedule) {
-    MScheduled = true;
+  void topology_sort(std::shared_ptr<node_impl> NodeImpl,
+                     std::list<std::shared_ptr<node_impl>> &Schedule) {
     for (auto Next : MSuccessors) {
-      if (!Next->MScheduled)
-        Next->topology_sort(Schedule);
+      // Check if we've already scheduled this node
+      if (std::find(Schedule.begin(), Schedule.end(), Next) == Schedule.end())
+        Next->topology_sort(Next, Schedule);
     }
-    if (MKernel != nullptr)
-      Schedule.push_front(std::shared_ptr<node_impl>(this));
+    // We don't need to schedule empty nodes as they are only used when
+    // calculating dependencies
+    if (!NodeImpl->is_empty())
+      Schedule.push_front(NodeImpl);
   }
 
   bool has_arg(const sycl::detail::ArgDesc &Arg) {
@@ -140,18 +130,14 @@ struct node_impl {
     }
     return false;
   }
+
+  bool is_empty() const { return MIsEmpty; }
 };
 
 struct graph_impl {
   std::set<std::shared_ptr<node_impl>> MRoots;
-  std::list<std::shared_ptr<node_impl>> MSchedule;
-  // TODO: Change one time initialization to per executable object
-  bool MFirst;
 
   std::shared_ptr<graph_impl> MParent;
-
-  void exec(const std::shared_ptr<sycl::detail::queue_impl> &);
-  void exec_and_wait(const std::shared_ptr<sycl::detail::queue_impl> &);
 
   void add_root(const std::shared_ptr<node_impl> &);
   void remove_root(const std::shared_ptr<node_impl> &);
@@ -165,7 +151,9 @@ struct graph_impl {
       const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
       const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
       const std::vector<sycl::detail::ArgDesc> &Args,
-      const std::vector<std::shared_ptr<node_impl>> &Dep = {});
+      const std::vector<std::shared_ptr<node_impl>> &Dep = {},
+      const std::vector<std::shared_ptr<sycl::detail::event_impl>> &DepEvents =
+          {});
 
   std::shared_ptr<node_impl>
   add(const std::shared_ptr<graph_impl> &Impl,
@@ -177,7 +165,7 @@ struct graph_impl {
   add(const std::shared_ptr<graph_impl> &Impl,
       const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
-  graph_impl() : MFirst(true) {}
+  graph_impl() = default;
 
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
@@ -198,8 +186,45 @@ struct graph_impl {
   /// removed.
   bool clear_queues();
 
+  void add_event_for_node(std::shared_ptr<sycl::detail::event_impl> EventImpl,
+                          std::shared_ptr<node_impl> NodeImpl) {
+    MEventsMap[EventImpl] = NodeImpl;
+  }
+
 private:
   std::set<std::shared_ptr<sycl::detail::queue_impl>> MRecordingQueues;
+  // Map of events to their associated recorded nodes.
+  std::unordered_map<std::shared_ptr<sycl::detail::event_impl>,
+                     std::shared_ptr<node_impl>>
+      MEventsMap;
+};
+
+class exec_graph_impl {
+public:
+  exec_graph_impl(sycl::context Context,
+                  const std::shared_ptr<graph_impl> &GraphImpl)
+      : MSchedule(), MGraphImpl(GraphImpl), MPiCommandBuffers(),
+        MContext(Context) {}
+  ~exec_graph_impl();
+  /// Add nodes to MSchedule
+  void schedule();
+  /// Enqueues the backend objects for the graph to the parametrized queue
+  sycl::event enqueue(const std::shared_ptr<sycl::detail::queue_impl> &);
+  /// Called by handler::ext_oneapi_command_graph() to schedule graph for
+  /// execution
+  sycl::event exec(const std::shared_ptr<sycl::detail::queue_impl> &);
+  /// Turns our internal graph representation into PI command-buffers for a
+  /// device
+  void create_pi_command_buffers(sycl::device D, const sycl::context &Ctx);
+
+private:
+  std::list<std::shared_ptr<node_impl>> MSchedule;
+  // Pointer to the modifiable graph impl associated with this executable graph
+  std::shared_ptr<graph_impl> MGraphImpl;
+  // Map of devices to command buffers
+  std::unordered_map<sycl::device, pi_ext_command_buffer> MPiCommandBuffers;
+  // Context associated with this executable graph
+  sycl::context MContext;
 };
 
 } // namespace detail

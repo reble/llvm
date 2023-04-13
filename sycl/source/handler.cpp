@@ -100,10 +100,15 @@ event handler::finalize() {
   if (auto GraphImpl = MQueue->getCommandGraph(); GraphImpl != nullptr) {
     // Extract relevant data from the handler and pass to graph to create a new
     // node representing this command group.
-    GraphImpl->add(GraphImpl, MKernel, MNDRDesc, MOSModuleHandle, MKernelName,
-                   MAccStorage, MLocalAccStorage, MRequirements, MArgs, {});
-    return detail::createSyclObjFromImpl<event>(
-        std::make_shared<detail::event_impl>());
+    auto NodeImpl = GraphImpl->add(
+        GraphImpl, MKernel, MNDRDesc, MOSModuleHandle, MKernelName, MAccStorage,
+        MLocalAccStorage, MRequirements, MArgs, {}, MEvents);
+
+    // Create and associated an event with this new node
+    auto EventImpl = std::make_shared<detail::event_impl>();
+    GraphImpl->add_event_for_node(EventImpl, NodeImpl);
+
+    return detail::createSyclObjFromImpl<event>(EventImpl);
   }
 
   std::shared_ptr<detail::kernel_bundle_impl> KernelBundleImpPtr = nullptr;
@@ -716,7 +721,9 @@ void handler::ext_oneapi_graph(
         ext::oneapi::experimental::graph_state::executable>
         Graph) {
   auto GraphImpl = detail::getSyclObjImpl(Graph);
-  GraphImpl->exec_and_wait(MQueue);
+  auto GraphCompletionEvent = GraphImpl->exec(MQueue);
+  auto EventImpl = detail::getSyclObjImpl(GraphCompletionEvent);
+  MEvents.push_back(EventImpl);
 }
 
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)

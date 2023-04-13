@@ -601,6 +601,21 @@ private:
   void **MDstPtr = nullptr;
 };
 
+// Sets arguments for a given kernel and device based on the argument type.
+// Refactored from SetKernelParamsAndLaunch to allow it to be used in the graphs
+// extension.
+void SetArgBasedOnType(
+    const detail::plugin &Plugin, RT::PiKernel Kernel,
+    const std::shared_ptr<device_image_impl> &DeviceImageImpl,
+    const std::function<void *(Requirement *Req)> &getMemAllocationFunc,
+    const sycl::context &Context, bool IsHost, detail::ArgDesc &Arg,
+    size_t NextTrueIndex);
+
+void applyFuncOnFilteredArgs(
+    const ProgramManager::KernelArgMask &EliminatedArgMask,
+    std::vector<ArgDesc> &Args,
+    std::function<void(detail::ArgDesc &Arg, int NextTrueIndex)> Func);
+
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl

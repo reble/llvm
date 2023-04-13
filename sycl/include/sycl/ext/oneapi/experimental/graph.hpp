@@ -27,6 +27,7 @@ namespace experimental {
 namespace detail {
 struct node_impl;
 struct graph_impl;
+class exec_graph_impl;
 
 } // namespace detail
 
@@ -125,18 +126,20 @@ template <> class __SYCL_EXPORT command_graph<graph_state::executable> {
 public:
   command_graph() = delete;
 
-  command_graph(const std::shared_ptr<detail::graph_impl> &g,
-                const sycl::context &ctx)
-      : MTag(rand()), MCtx(ctx), impl(g) {}
+  command_graph(const std::shared_ptr<detail::graph_impl> &Graph,
+                const sycl::context &Ctx);
 
 private:
   template <class Obj>
   friend decltype(Obj::impl)
   sycl::detail::getSyclObjImpl(const Obj &SyclObject);
 
+  // Creates a backend representation of the graph in impl
+  void finalize_impl();
+
   int MTag;
   const sycl::context &MCtx;
-  std::shared_ptr<detail::graph_impl> impl;
+  std::shared_ptr<detail::exec_graph_impl> impl;
 };
 } // namespace experimental
 } // namespace oneapi
