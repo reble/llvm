@@ -33,7 +33,8 @@ sycl::event
 exec_graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
   // TODO: Support subgraphs
   sycl::event RetEvent = enqueue(Queue);
-  // TODO: Why is this still required?
+  // TODO: Remove this queue wait. Currently waiting on the event returned from
+  // graph execution does not work.
   Queue->wait();
   return RetEvent;
 }
