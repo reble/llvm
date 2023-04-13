@@ -234,7 +234,7 @@ public:
   sycl::event exec(const std::shared_ptr<sycl::detail::queue_impl> &);
   /// Turns our internal graph representation into PI command-buffers for a
   /// device
-  void create_pi_command_buffers(sycl::device D, const sycl::context &Ctx);
+  void create_pi_command_buffers(sycl::device D);
 
   const std::list<std::shared_ptr<node_impl>> &get_schedule() const {
     return MSchedule;
