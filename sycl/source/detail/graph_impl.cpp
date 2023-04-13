@@ -534,7 +534,7 @@ bool command_graph<graph_state::modifiable>::end_recording(
 
 command_graph<graph_state::executable>::command_graph(
     const std::shared_ptr<detail::graph_impl> &Graph, const sycl::context &Ctx)
-    : MTag(rand()), MCtx(Ctx),
+    : MTag(rand()),
       impl(std::make_shared<detail::exec_graph_impl>(Ctx, Graph)) {
   finalize_impl(); // Create backend representation for executable graph
 }
@@ -543,8 +543,8 @@ void command_graph<graph_state::executable>::finalize_impl() {
   // Create PI command-buffers for each device in the finalized context
   impl->schedule();
 #if SYCL_EXT_ONEAPI_GRAPH
-  for (auto device : MCtx.get_devices()) {
-    impl->create_pi_command_buffers(device, MCtx);
+  for (auto device : impl->get_context().get_devices()) {
+    impl->create_pi_command_buffers(device, impl->get_context());
   }
 #endif
 }

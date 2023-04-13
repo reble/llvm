@@ -138,7 +138,6 @@ private:
   void finalize_impl();
 
   int MTag;
-  const sycl::context &MCtx;
   std::shared_ptr<detail::exec_graph_impl> impl;
 };
 } // namespace experimental

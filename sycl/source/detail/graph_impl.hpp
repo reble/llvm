@@ -239,6 +239,7 @@ public:
   const std::list<std::shared_ptr<node_impl>> &get_schedule() const {
     return MSchedule;
   }
+  sycl::context get_context() const { return MContext; }
 
 private:
   void find_real_deps(std::vector<pi_ext_sync_point> &Deps,
