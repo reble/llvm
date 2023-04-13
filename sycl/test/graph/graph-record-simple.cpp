@@ -11,7 +11,8 @@ int main() {
   sycl::queue q{sycl::default_selector_v};
   sycl::queue q2;
 
-  sycl::ext::oneapi::experimental::command_graph g;
+  sycl::ext::oneapi::experimental::command_graph g{q.get_context(),
+                                                   q.get_device()};
 
   float *arr = sycl::malloc_shared<float>(n, q);
 
@@ -27,7 +28,7 @@ int main() {
   g.end_recording(q);
   g.end_recording(q2);
 
-  auto exec_graph = g.finalize(q.get_context());
+  auto exec_graph = g.finalize();
 
   q.submit([&](sycl::handler &h) { h.ext_oneapi_graph(exec_graph); }).wait();
 

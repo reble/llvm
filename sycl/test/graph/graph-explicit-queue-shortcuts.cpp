@@ -9,7 +9,8 @@ int main() {
 
   // Test passing empty property list, which is the default
   sycl::property_list empty_properties;
-  sycl::ext::oneapi::experimental::command_graph g(empty_properties);
+  sycl::ext::oneapi::experimental::command_graph g(
+      q.get_context(), q.get_device(), empty_properties);
 
   const size_t n = 10;
   float *arr = sycl::malloc_shared<float>(n, q);
@@ -21,7 +22,7 @@ int main() {
     });
   });
 
-  auto executable_graph = g.finalize(q.get_context(), empty_properties);
+  auto executable_graph = g.finalize(empty_properties);
 
   auto e1 = q.ext_oneapi_graph(executable_graph);
   auto e2 = q.ext_oneapi_graph(executable_graph, e1);

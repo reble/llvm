@@ -7,7 +7,8 @@ int main() {
 
   sycl::queue q{sycl::gpu_selector_v};
 
-  sycl::ext::oneapi::experimental::command_graph g;
+  sycl::ext::oneapi::experimental::command_graph g{q.get_context(),
+                                                   q.get_device()};
 
   const size_t n = 1000;
   const float a = 3.0f;
@@ -31,7 +32,7 @@ int main() {
 
   g.make_edge(init, compute);
 
-  auto executable_graph = g.finalize(q.get_context());
+  auto executable_graph = g.finalize();
 
   q.submit([&](sycl::handler &h) {
      h.ext_oneapi_graph(executable_graph);

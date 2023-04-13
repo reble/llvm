@@ -422,8 +422,9 @@ sycl::event exec_graph_impl::enqueue(
 
 template <>
 command_graph<graph_state::modifiable>::command_graph(
+    const sycl::context &syclContext, const sycl::device &syclDevice,
     const sycl::property_list &)
-    : impl(std::make_shared<detail::graph_impl>()) {}
+    : impl(std::make_shared<detail::graph_impl>(syclContext, syclDevice)) {}
 
 template <>
 node command_graph<graph_state::modifiable>::add_impl(
@@ -466,8 +467,9 @@ void command_graph<graph_state::modifiable>::make_edge(node Sender,
 template <>
 command_graph<graph_state::executable>
 command_graph<graph_state::modifiable>::finalize(
-    const sycl::context &CTX, const sycl::property_list &) const {
-  return command_graph<graph_state::executable>{this->impl, CTX};
+    const sycl::property_list &) const {
+  return command_graph<graph_state::executable>{this->impl,
+                                                this->impl->get_context()};
 }
 
 template <>
