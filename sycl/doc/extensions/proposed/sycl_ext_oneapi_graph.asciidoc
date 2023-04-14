@@ -673,6 +673,12 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if the graph contains a
   node which targets a device not present in `syclContext`.
+  
+* Throws synchronously with error code `invalid` if the graph contains
+  any isolated node which is not reachable from all other nodes.
+  
+* Throws synchronously with error code `invalid` if the graph is empty, 
+  i.e. contains no nodes or only empty nodes.  
 
 |===
 
