@@ -1225,7 +1225,7 @@ extensions.
 
 When recording a `sycl::queue` which has been created with the
 `ext::oneapi::property::queue::discard_event` property, it is invalid to
-used thes events returned from queue submissions to create graph edges. This is
+use these events returned from queue submissions to create graph edges. This is
 in-keeping with the
 link:../supported/sycl_ext_oneapi_discard_queue_events.asciidoc[sycl_ext_oneapi_discard_queue_events]
 specification wording that `handler::depends_on()` throws an exception when
@@ -1261,7 +1261,7 @@ is ignored during queue recording.
 
 The `queue::ext_oneapi_empty()` query defined by the
 link:../supported/sycl_ext_oneapi_queue_empty.asciidoc[sycl_ext_oneapi_queue_empty]
-extension behaves as normal during queue recording, and is not captured to the graph.
+extension behaves as normal during queue recording and is not captured to the graph.
 Recorded commands are not counted as submitted for the purposes of this query.
 
 ==== sycl_ext_intel_queue_index
@@ -1305,7 +1305,7 @@ Removing this restriction is something we may look at for future revisions of
 
 The new `sycl::queue::ext_oneapi_prod()` method added by
 link:../proposed/sycl_ext_oneapi_prod.asciidoc[sycl_ext_oneapi_prod]
-behaves as normal during queue recording, and is not captured to the graph.
+behaves as normal during queue recording and is not captured to the graph.
 Recorded commands are not counted as submitted for the purposes of its operation.
 
 ==== sycl_ext_oneapi_device_global
