@@ -1281,7 +1281,8 @@ extension also introduces state to a `sycl::queue`, there are restrictions on
 its usage when combined with `sycl_ext_oneapi_graph`. Exceptions with error code
 `invalid` are thrown in the following cases:
 
-* A `fusion_wrapper` object is constructed with a queue in the recording state.
+* `fusion_wrapper::start_fusion()` is called when its associated queue
+  is in the recording state.
 * `command_graph::begin_recording()` is called passing a queue in fusion mode.
 
 The `sycl::ext::codeplay::experimental::property::queue::enable_fusion` property
