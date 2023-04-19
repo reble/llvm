@@ -236,8 +236,7 @@ void exec_graph_impl::find_real_deps(std::vector<pi_ext_sync_point> &Deps,
         Deps.push_back(SyncPoint->second);
       }
     } else {
-      // If no sync point was found something has gone wrong.
-      assert(false);
+      assert(false && "No sync point has been set for node dependency.");
     }
   }
 }
