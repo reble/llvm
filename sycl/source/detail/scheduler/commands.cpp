@@ -1977,7 +1977,7 @@ static void adjustNDRangePerKernel(NDRDescT &NDR, RT::PiKernel Kernel,
 // Initially we keep the order of NDRDescT as it provided by the user, this
 // simplifies overall handling and do the reverse only when
 // the kernel is enqueued.
-static void ReverseRangeDimensionsForKernel(NDRDescT &NDR) {
+void ReverseRangeDimensionsForKernel(NDRDescT &NDR) {
   if (NDR.Dims > 1) {
     std::swap(NDR.GlobalSize[0], NDR.GlobalSize[NDR.Dims - 1]);
     std::swap(NDR.LocalSize[0], NDR.LocalSize[NDR.Dims - 1]);

@@ -2541,6 +2541,7 @@ private:
   std::shared_ptr<detail::handler_impl> MImpl;
   std::shared_ptr<detail::queue_impl> MQueue;
   std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph;
+  std::shared_ptr<ext::oneapi::experimental::detail::node_impl> MSubgraphNode;
 
   /// The storage for the arguments passed.
   /// We need to store a copy of values that are passed explicitly through
