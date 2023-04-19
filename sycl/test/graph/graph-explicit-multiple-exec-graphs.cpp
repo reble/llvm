@@ -26,7 +26,8 @@ int main() {
 
   sycl::queue q{sycl::gpu_selector_v};
 
-  sycl::ext::oneapi::experimental::command_graph g;
+  sycl::ext::oneapi::experimental::command_graph g{q.get_context(),
+                                                   q.get_device()};
 
   float *dotp = sycl::malloc_shared<float>(1, q);
 
@@ -73,14 +74,14 @@ int main() {
       },
       {node_a, node_b});
 
-  auto executable_graph = g.finalize(q.get_context());
+  auto executable_graph = g.finalize();
 
   // Add an extra node for the second executable graph which modifies the output
   auto node_d =
       g.add([&](sycl::handler &h) { h.single_task([=]() { dotp[0] += 1; }); },
             {node_c});
 
-  auto executable_graph_2 = g.finalize(q.get_context());
+  auto executable_graph_2 = g.finalize();
 
   // Using shortcut for executing a graph of commands
   q.ext_oneapi_graph(executable_graph).wait();

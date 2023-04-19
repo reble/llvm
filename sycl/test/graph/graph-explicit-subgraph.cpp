@@ -29,8 +29,10 @@ int main() {
 
   sycl::queue q{sycl::gpu_selector_v};
 
-  sycl::ext::oneapi::experimental::command_graph g;
-  sycl::ext::oneapi::experimental::command_graph subGraph;
+  sycl::ext::oneapi::experimental::command_graph g{q.get_context(),
+                                                   q.get_device()};
+  sycl::ext::oneapi::experimental::command_graph subGraph{q.get_context(),
+                                                          q.get_device()};
 
   float *dotp = sycl::malloc_shared<float>(1, q);
 
@@ -62,7 +64,7 @@ int main() {
     });
   });
 
-  auto subGraphExec = subGraph.finalize(q.get_context());
+  auto subGraphExec = subGraph.finalize();
 
   auto node_sub =
       g.add([&](sycl::handler &h) { h.ext_oneapi_graph(subGraphExec); }, {n_i});
@@ -88,7 +90,7 @@ int main() {
       },
       {node_sub});
 
-  auto executable_graph = g.finalize(q.get_context());
+  auto executable_graph = g.finalize();
 
   // Using shortcut for executing a graph of commands
   q.ext_oneapi_graph(executable_graph).wait();

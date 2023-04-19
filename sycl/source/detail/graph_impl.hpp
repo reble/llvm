@@ -127,9 +127,10 @@ struct node_impl {
 };
 
 struct graph_impl {
-  std::set<std::shared_ptr<node_impl>> MRoots;
 
-  std::shared_ptr<graph_impl> MParent;
+  graph_impl(const sycl::context &syclContext, const sycl::device &syclDevice)
+      : MContext(syclContext), MDevice(syclDevice), MRecordingQueues(),
+        MEventsMap() {}
 
   void add_root(const std::shared_ptr<node_impl> &);
   void remove_root(const std::shared_ptr<node_impl> &);
@@ -154,8 +155,6 @@ struct graph_impl {
 
   std::shared_ptr<node_impl>
   add(const std::vector<std::shared_ptr<node_impl>> &Dep = {});
-
-  graph_impl() = default;
 
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
@@ -199,8 +198,18 @@ struct graph_impl {
   /// an empty node is used to schedule dependencies on this sub graph.
   std::shared_ptr<node_impl>
   add_subgraph_nodes(const std::list<std::shared_ptr<node_impl>> &NodeList);
+  sycl::context get_context() const { return MContext; }
+
+  std::set<std::shared_ptr<node_impl>> MRoots;
+  std::shared_ptr<graph_impl> MParent;
 
 private:
+  // Context associated with this graph.
+  sycl::context MContext;
+  // Device associated with this graph. All graph nodes will execute on this
+  // device.
+  sycl::device MDevice;
+  // Unique set of queues which are currently recording to this graph.
   std::set<std::shared_ptr<sycl::detail::queue_impl>> MRecordingQueues;
   // Map of events to their associated recorded nodes.
   std::unordered_map<std::shared_ptr<sycl::detail::event_impl>,
@@ -224,7 +233,9 @@ public:
   sycl::event exec(const std::shared_ptr<sycl::detail::queue_impl> &);
   /// Turns our internal graph representation into PI command-buffers for a
   /// device
-  void create_pi_command_buffers(sycl::device D, const sycl::context &Ctx);
+  void create_pi_command_buffers(sycl::device D);
+
+  sycl::context get_context() const { return MContext; }
 
   const std::list<std::shared_ptr<node_impl>> &get_schedule() const {
     return MSchedule;

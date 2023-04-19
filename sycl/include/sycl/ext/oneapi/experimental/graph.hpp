@@ -53,7 +53,8 @@ private:
 template <graph_state State = graph_state::modifiable>
 class __SYCL_EXPORT command_graph {
 public:
-  command_graph(const property_list &propList = {});
+  command_graph(const context &syclContext, const device &syclDevice,
+                const property_list &propList = {});
 
   // Adding empty node with [0..n] predecessors:
   node add(const std::vector<node> &dep = {}) { return add_impl(dep); }
@@ -67,8 +68,7 @@ public:
   void make_edge(node sender, node receiver);
 
   command_graph<graph_state::executable>
-  finalize(const sycl::context &syclContext,
-           const property_list &propList = {}) const;
+  finalize(const property_list &propList = {}) const;
 
   /// Change the state of a queue to be recording and associate this graph with
   /// it.
@@ -138,7 +138,6 @@ private:
   void finalize_impl();
 
   int MTag;
-  const sycl::context &MCtx;
   std::shared_ptr<detail::exec_graph_impl> impl;
 };
 } // namespace experimental

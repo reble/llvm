@@ -241,13 +241,12 @@ void exec_graph_impl::find_real_deps(std::vector<pi_ext_sync_point> &Deps,
   }
 }
 
-void exec_graph_impl::create_pi_command_buffers(sycl::device D,
-                                                const sycl::context &Ctx) {
+void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
   // TODO we only have a single command-buffer per graph here, but
   // this will need to be multiple command-buffers for non-trivial graphs
   pi_ext_command_buffer OutCommandBuffer;
   pi_ext_command_buffer_desc Desc{};
-  auto ContextImpl = sycl::detail::getSyclObjImpl(Ctx);
+  auto ContextImpl = sycl::detail::getSyclObjImpl(MContext);
   const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
   auto DeviceImpl = sycl::detail::getSyclObjImpl(D);
   pi_result Res =
@@ -284,13 +283,13 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D,
                                           Node->MKernelName);
     }
 
-    auto SetFunc = [&Plugin, &PiKernel, &Ctx](sycl::detail::ArgDesc &Arg,
+    auto SetFunc = [&Plugin, &PiKernel, this](sycl::detail::ArgDesc &Arg,
                                               size_t NextTrueIndex) {
       sycl::detail::SetArgBasedOnType(
           Plugin, PiKernel,
           nullptr /* TODO: Handle spec constants and pass device image here */,
-          nullptr /* TODO: Pass getMemAllocation function for buffers */, Ctx,
-          false, Arg, NextTrueIndex);
+          nullptr /* TODO: Pass getMemAllocation function for buffers */,
+          this->MContext, false, Arg, NextTrueIndex);
     };
     std::vector<sycl::detail::ArgDesc> Args;
     sycl::detail::applyFuncOnFilteredArgs(EliminatedArgMask, Node->MArgs,
@@ -421,8 +420,9 @@ sycl::event exec_graph_impl::enqueue(
 
 template <>
 command_graph<graph_state::modifiable>::command_graph(
+    const sycl::context &syclContext, const sycl::device &syclDevice,
     const sycl::property_list &)
-    : impl(std::make_shared<detail::graph_impl>()) {}
+    : impl(std::make_shared<detail::graph_impl>(syclContext, syclDevice)) {}
 
 template <>
 node command_graph<graph_state::modifiable>::add_impl(
@@ -465,8 +465,9 @@ void command_graph<graph_state::modifiable>::make_edge(node Sender,
 template <>
 command_graph<graph_state::executable>
 command_graph<graph_state::modifiable>::finalize(
-    const sycl::context &CTX, const sycl::property_list &) const {
-  return command_graph<graph_state::executable>{this->impl, CTX};
+    const sycl::property_list &) const {
+  return command_graph<graph_state::executable>{this->impl,
+                                                this->impl->get_context()};
 }
 
 template <>
@@ -531,7 +532,7 @@ bool command_graph<graph_state::modifiable>::end_recording(
 
 command_graph<graph_state::executable>::command_graph(
     const std::shared_ptr<detail::graph_impl> &Graph, const sycl::context &Ctx)
-    : MTag(rand()), MCtx(Ctx),
+    : MTag(rand()),
       impl(std::make_shared<detail::exec_graph_impl>(Ctx, Graph)) {
   finalize_impl(); // Create backend representation for executable graph
 }
@@ -540,8 +541,8 @@ void command_graph<graph_state::executable>::finalize_impl() {
   // Create PI command-buffers for each device in the finalized context
   impl->schedule();
 #if SYCL_EXT_ONEAPI_GRAPH
-  for (auto device : MCtx.get_devices()) {
-    impl->create_pi_command_buffers(device, MCtx);
+  for (auto device : impl->get_context().get_devices()) {
+    impl->create_pi_command_buffers(device);
   }
 #endif
 }

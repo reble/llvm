@@ -6,7 +6,8 @@
 int main() {
   sycl::queue q{sycl::gpu_selector_v};
 
-  sycl::ext::oneapi::experimental::command_graph g;
+  sycl::ext::oneapi::experimental::command_graph g{q.get_context(),
+                                                   q.get_device()};
 
   const size_t n = 10;
   float *input = sycl::malloc_shared<float>(n, q);
@@ -21,7 +22,7 @@ int main() {
                    [=](sycl::id<1> idx, auto &sum) { sum += input[idx]; });
   });
 
-  auto executable_graph = g.finalize(q.get_context());
+  auto executable_graph = g.finalize();
   q.ext_oneapi_graph(executable_graph).wait();
 
   assert(*output == 45);
