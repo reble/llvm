@@ -46,13 +46,18 @@ struct node_impl {
   std::string MKernelName;
   std::vector<sycl::detail::AccessorImplPtr> MAccStorage;
   std::vector<sycl::detail::LocalAccessorImplPtr> MLocalAccStorage;
+  std::vector<std::shared_ptr<sycl::detail::stream_impl>> MStreamStorage;
   std::vector<sycl::detail::AccessorImplHost *> MRequirements;
+  sycl::detail::CG::CGTYPE MCGType = sycl::detail::CG::None;
 
   /// Store arg descriptors for the kernel arguments
   std::vector<sycl::detail::ArgDesc> MArgs;
   // We need to store local copies of the values pointed to by MArgs since they
   // may go out of scope before execution.
-  std::vector<std::vector<std::byte>> MArgStorage;
+  std::vector<std::vector<char>> MArgStorage;
+
+  // Stores auxiliary resources used by internal operations.
+  std::vector<std::shared_ptr<const void>> MAuxiliaryResources;
 
   bool MIsEmpty = false;
 
@@ -74,12 +79,13 @@ struct node_impl {
       sycl::detail::OSModuleHandle OSModuleHandle, std::string KernelName,
       const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
       const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
-      const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
-      const std::vector<sycl::detail::ArgDesc> &args)
+      sycl::detail::CG::CGTYPE CGType,
+      const std::vector<sycl::detail::ArgDesc> &args,
+      const std::vector<std::shared_ptr<const void>> &AuxiliaryResources)
       : MKernel(Kernel), MNDRDesc(NDRDesc), MOSModuleHandle(OSModuleHandle),
         MKernelName(KernelName), MAccStorage(AccStorage),
-        MLocalAccStorage(LocalAccStorage), MRequirements(Requirements),
-        MArgs(args), MArgStorage() {
+        MLocalAccStorage(LocalAccStorage), MRequirements(), MCGType(CGType),
+        MArgs(args), MArgStorage(), MAuxiliaryResources(AuxiliaryResources) {
 
     // Need to copy the arg values to node local storage so that they don't go
     // out of scope before execution
@@ -91,6 +97,11 @@ struct node_impl {
         std::memcpy(StoragePtr, CurrentArg.MPtr, CurrentArg.MSize);
       // Set the arg descriptor to point to the new storage
       CurrentArg.MPtr = StoragePtr;
+      if (CurrentArg.MType ==
+          sycl::detail::kernel_param_kind_t::kind_accessor) {
+        MRequirements.push_back(
+            static_cast<sycl::detail::AccessorImplHost *>(CurrentArg.MPtr));
+      }
     }
   }
 
@@ -141,8 +152,9 @@ struct graph_impl {
       sycl::detail::OSModuleHandle OSModuleHandle, std::string KernelName,
       const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
       const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
-      const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
+      sycl::detail::CG::CGTYPE CGType,
       const std::vector<sycl::detail::ArgDesc> &Args,
+      const std::vector<std::shared_ptr<const void>> &AuxiliaryResources,
       const std::vector<std::shared_ptr<node_impl>> &Dep = {},
       const std::vector<std::shared_ptr<sycl::detail::event_impl>> &DepEvents =
           {});
@@ -242,6 +254,15 @@ public:
   }
 
 private:
+  pi_ext_sync_point enqueue_node(sycl::context Ctx,
+                                 sycl::detail::DeviceImplPtr DeviceImpl,
+                                 pi_ext_command_buffer CommandBuffer,
+                                 std::shared_ptr<node_impl> Node);
+  pi_ext_sync_point enqueue_node_direct(sycl::context Ctx,
+                                        sycl::detail::DeviceImplPtr DeviceImpl,
+                                        pi_ext_command_buffer CommandBuffer,
+                                        std::shared_ptr<node_impl> Node);
+
   void find_real_deps(std::vector<pi_ext_sync_point> &Deps,
                       std::shared_ptr<node_impl> CurrentNode);
   std::list<std::shared_ptr<node_impl>> MSchedule;
@@ -250,11 +271,16 @@ private:
   // Map of devices to command buffers
   std::unordered_map<sycl::device, pi_ext_command_buffer> MPiCommandBuffers;
   /// Map of nodes in the exec graph to the sync point representing their
-  /// execution in the command buffer.
+  /// execution in the command graph.
   std::unordered_map<std::shared_ptr<node_impl>, pi_ext_sync_point>
       MPiSyncPoints;
   // Context associated with this executable graph
   sycl::context MContext;
+  // List of requirements for enqueueing this command graph, accumulated from
+  // all nodes enqueued to the graph.
+  std::vector<sycl::detail::AccessorImplHost *> MRequirements;
+  // Queue used for alloc operations
+  std::shared_ptr<sycl::detail::queue_impl> MAllocQueue;
 };
 
 } // namespace detail

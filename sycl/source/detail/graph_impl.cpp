@@ -8,6 +8,8 @@
 
 #include <detail/graph_impl.hpp>
 #include <detail/kernel_arg_mask.hpp>
+#include <detail/handler_impl.hpp> 
+#include <detail/program_manager/program_manager.hpp>
 #include <detail/queue_impl.hpp>
 #include <detail/scheduler/commands.hpp>
 #include <sycl/feature_test.hpp>
@@ -148,8 +150,8 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
   // TODO: Do we need to pass event dependencies here for the explicit API?
   return this->add(Handler.MKernel, Handler.MNDRDesc, Handler.MOSModuleHandle,
                    Handler.MKernelName, Handler.MAccStorage,
-                   Handler.MLocalAccStorage, Handler.MRequirements,
-                   Handler.MArgs, Dep);
+                   Handler.MLocalAccStorage, Handler.MCGType, Handler.MArgs,
+                   Handler.MImpl->MAuxiliaryResources, Dep);
 }
 
 std::shared_ptr<node_impl> graph_impl::add(
@@ -158,13 +160,14 @@ std::shared_ptr<node_impl> graph_impl::add(
     std::string KernelName,
     const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
     const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
-    const std::vector<sycl::detail::AccessorImplHost *> &Requirements,
+    sycl::detail::CG::CGTYPE CGType,
     const std::vector<sycl::detail::ArgDesc> &Args,
+    const std::vector<std::shared_ptr<const void>> &AuxiliaryResources,
     const std::vector<std::shared_ptr<node_impl>> &Dep,
     const std::vector<std::shared_ptr<sycl::detail::event_impl>> &DepEvents) {
   const std::shared_ptr<node_impl> &NodeImpl = std::make_shared<node_impl>(
       Kernel, NDRDesc, OSModuleHandle, KernelName, AccStorage, LocalAccStorage,
-      Requirements, Args);
+      CGType, Args, AuxiliaryResources);
   // Copy deps so we can modify them
   auto Deps = Dep;
   // A unique set of dependencies obtained by checking kernel arguments
@@ -241,6 +244,134 @@ void exec_graph_impl::find_real_deps(std::vector<pi_ext_sync_point> &Deps,
   }
 }
 
+// Enqueue a node directly to the command buffer without going through the
+// scheduler.
+pi_ext_sync_point exec_graph_impl::enqueue_node_direct(
+    sycl::context Ctx, sycl::detail::DeviceImplPtr DeviceImpl,
+    pi_ext_command_buffer CommandBuffer, std::shared_ptr<node_impl> Node) {
+  auto ContextImpl = sycl::detail::getSyclObjImpl(Ctx);
+  const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
+  pi_kernel PiKernel = nullptr;
+  std::mutex *KernelMutex = nullptr;
+  pi_program PiProgram = nullptr;
+
+  auto Kernel = Node->MKernel;
+  if (Kernel != nullptr) {
+    PiKernel = Kernel->getHandleRef();
+  } else {
+    std::tie(PiKernel, KernelMutex, PiProgram) =
+        sycl::detail::ProgramManager::getInstance().getOrCreateKernel(
+            Node->MOSModuleHandle, ContextImpl, DeviceImpl, Node->MKernelName,
+            nullptr);
+  }
+
+  sycl::detail::ProgramManager::KernelArgMask EliminatedArgMask;
+  if (nullptr == Node->MKernel || !Node->MKernel->isCreatedFromSource()) {
+    EliminatedArgMask =
+        sycl::detail::ProgramManager::getInstance().getEliminatedKernelArgMask(
+            Node->MOSModuleHandle, PiProgram, Node->MKernelName);
+  }
+
+  auto SetFunc = [&Plugin, &PiKernel, &Ctx](sycl::detail::ArgDesc &Arg,
+                                            size_t NextTrueIndex) {
+    sycl::detail::SetArgBasedOnType(
+        Plugin, PiKernel,
+        nullptr /* TODO: Handle spec constants and pass device image here */
+        ,
+        nullptr, Ctx, false, Arg, NextTrueIndex);
+  };
+  std::vector<sycl::detail::ArgDesc> Args;
+  sycl::detail::applyFuncOnFilteredArgs(EliminatedArgMask, Node->MArgs,
+                                        SetFunc);
+
+  std::vector<pi_ext_sync_point> Deps;
+  for (auto &N : Node->MPredecessors) {
+    find_real_deps(Deps, N.lock());
+  }
+
+  // add commands
+  // Remember this information before the range dimensions are reversed
+  const bool HasLocalSize = (Node->MNDRDesc.LocalSize[0] != 0);
+
+  // Reverse kernel dims
+  auto NDRDesc = Node->MNDRDesc;
+  sycl::detail::ReverseRangeDimensionsForKernel(NDRDesc);
+
+  size_t RequiredWGSize[3] = {0, 0, 0};
+  size_t *LocalSize = nullptr;
+
+  if (HasLocalSize)
+    LocalSize = &NDRDesc.LocalSize[0];
+  else {
+    Plugin.call<sycl::detail::PiApiKind::piKernelGetGroupInfo>(
+        PiKernel, DeviceImpl->getHandleRef(),
+        PI_KERNEL_GROUP_INFO_COMPILE_WORK_GROUP_SIZE, sizeof(RequiredWGSize),
+        RequiredWGSize,
+        /* param_value_size_ret = */ nullptr);
+
+    const bool EnforcedLocalSize =
+        (RequiredWGSize[0] != 0 || RequiredWGSize[1] != 0 ||
+         RequiredWGSize[2] != 0);
+    if (EnforcedLocalSize)
+      LocalSize = RequiredWGSize;
+  }
+
+  pi_ext_sync_point NewSyncPoint;
+  pi_result Res = Plugin.call_nocheck<
+      sycl::detail::PiApiKind::piextCommandBufferNDRangeKernel>(
+      CommandBuffer, PiKernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
+      &NDRDesc.GlobalSize[0], LocalSize, Deps.size(),
+      Deps.size() ? Deps.data() : nullptr, &NewSyncPoint);
+
+  if (Res != pi_result::PI_SUCCESS) {
+    throw sycl::exception(errc::invalid,
+                          "Failed to add kernel to PI command-buffer");
+  }
+
+  return NewSyncPoint;
+}
+
+pi_ext_sync_point exec_graph_impl::enqueue_node(
+    sycl::context Ctx, std::shared_ptr<sycl::detail::device_impl> DeviceImpl,
+    pi_ext_command_buffer CommandBuffer, std::shared_ptr<node_impl> Node) {
+  std::unique_ptr<sycl::detail::CG> CommandGroup;
+  switch (Node->MCGType) {
+  case sycl::detail::CG::Kernel:
+    CommandGroup.reset(new sycl::detail::CGExecKernel(
+        Node->MNDRDesc, nullptr /* Host Kernel */, Node->MKernel,
+        nullptr /* Kernel Bundle */, Node->MArgStorage, Node->MAccStorage,
+        {} /* Shared pointer storage for copies */, Node->MRequirements,
+        {} /* Events */, Node->MArgs, Node->MKernelName, Node->MOSModuleHandle,
+        Node->MStreamStorage, Node->MAuxiliaryResources, Node->MCGType,
+        {} /* Code Location */));
+    break;
+
+  default:
+    assert(false && "Node types other than kernels are not supported!");
+    break;
+  }
+
+  if (!CommandGroup)
+    throw sycl::runtime_error(
+        "Internal Error. Command group cannot be constructed.",
+        PI_ERROR_INVALID_OPERATION);
+
+  // Queue which will be used for allocation operations for accessors.
+  auto AllocaQueue = std::make_shared<sycl::detail::queue_impl>(
+      DeviceImpl, sycl::detail::getSyclObjImpl(Ctx), sycl::async_handler{},
+      sycl::property_list{});
+
+  std::vector<pi_ext_sync_point> Deps;
+  for (auto &N : Node->MPredecessors) {
+    find_real_deps(Deps, N.lock());
+  }
+
+  sycl::detail::EventImplPtr Event =
+      sycl::detail::Scheduler::getInstance().addCGToCommandBuffer(
+          std::move(CommandGroup), CommandBuffer, Deps, AllocaQueue);
+
+  return Event->getSyncPoint();
+}
 void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
   // TODO we only have a single command-buffer per graph here, but
   // this will need to be multiple command-buffers for non-trivial graphs
@@ -261,78 +392,21 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
 
   // TODO extract kernel bundle logic from enqueueImpKernel
   for (auto Node : MSchedule) {
-    pi_kernel PiKernel = nullptr;
-    std::mutex *KernelMutex = nullptr;
-    pi_program PiProgram = nullptr;
-
-    auto Kernel = Node->MKernel;
-    const sycl::detail::KernelArgMask *EliminatedArgMask;
-    if (Kernel != nullptr) {
-      PiKernel = Kernel->getHandleRef();
+    sycl::detail::CG::CGTYPE type = Node->MCGType;
+    // If the node is a kernel with no special requirements we can enqueue it
+    // directly.
+    if (type == sycl::detail::CG::Kernel &&
+        Node->MRequirements.size() + Node->MStreamStorage.size() == 0) {
+      MPiSyncPoints[Node] =
+          enqueue_node_direct(MContext, DeviceImpl, OutCommandBuffer, Node);
     } else {
-      std::tie(PiKernel, KernelMutex, EliminatedArgMask, PiProgram) =
-          sycl::detail::ProgramManager::getInstance().getOrCreateKernel(
-              Node->MOSModuleHandle, ContextImpl, DeviceImpl, Node->MKernelName,
-              nullptr);
+      MPiSyncPoints[Node] =
+          enqueue_node(MContext, DeviceImpl, OutCommandBuffer, Node);
     }
 
-    auto SetFunc = [&Plugin, &PiKernel, this](sycl::detail::ArgDesc &Arg,
-                                              size_t NextTrueIndex) {
-      sycl::detail::SetArgBasedOnType(
-          Plugin, PiKernel,
-          nullptr /* TODO: Handle spec constants and pass device image here */,
-          nullptr /* TODO: Pass getMemAllocation function for buffers */,
-          this->MContext, false, Arg, NextTrueIndex);
-    };
-    std::vector<sycl::detail::ArgDesc> Args;
-    sycl::detail::applyFuncOnFilteredArgs(EliminatedArgMask, Node->MArgs,
-                                          SetFunc);
-
-    std::vector<pi_ext_sync_point> Deps;
-    for (auto &N : Node->MPredecessors) {
-      find_real_deps(Deps, N.lock());
-    }
-
-    // add commands
-    // Remember this information before the range dimensions are reversed
-    const bool HasLocalSize = (Node->MNDRDesc.LocalSize[0] != 0);
-
-    // Reverse kernel dims
-    auto NDRDesc = Node->MNDRDesc;
-    sycl::detail::ReverseRangeDimensionsForKernel(NDRDesc);
-
-    size_t RequiredWGSize[3] = {0, 0, 0};
-    size_t *LocalSize = nullptr;
-
-    if (HasLocalSize)
-      LocalSize = &NDRDesc.LocalSize[0];
-    else {
-      Plugin.call<sycl::detail::PiApiKind::piKernelGetGroupInfo>(
-          PiKernel, DeviceImpl->getHandleRef(),
-          PI_KERNEL_GROUP_INFO_COMPILE_WORK_GROUP_SIZE, sizeof(RequiredWGSize),
-          RequiredWGSize, /* param_value_size_ret = */ nullptr);
-
-      const bool EnforcedLocalSize =
-          (RequiredWGSize[0] != 0 || RequiredWGSize[1] != 0 ||
-           RequiredWGSize[2] != 0);
-      if (EnforcedLocalSize)
-        LocalSize = RequiredWGSize;
-    }
-
-    pi_ext_sync_point NewSyncPoint;
-    Res = Plugin.call_nocheck<
-        sycl::detail::PiApiKind::piextCommandBufferNDRangeKernel>(
-        OutCommandBuffer, PiKernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
-        &NDRDesc.GlobalSize[0], LocalSize, Deps.size(),
-        Deps.size() ? Deps.data() : nullptr, &NewSyncPoint);
-
-    if (Res != pi_result::PI_SUCCESS) {
-      throw sycl::exception(errc::invalid,
-                            "Failed to add kernel to PI command-buffer");
-    }
-
-    // Associate the new syncpoint with the current node
-    MPiSyncPoints[Node] = NewSyncPoint;
+    // Append Node requirements to overall graph requirements
+    MRequirements.insert(MRequirements.end(), Node->MRequirements.begin(),
+                         Node->MRequirements.end());
   }
 
   Res =
@@ -371,14 +445,26 @@ sycl::event exec_graph_impl::enqueue(
   auto NewEvent = CreateNewEvent();
   pi_event *OutEvent = &NewEvent->getHandleRef();
   auto CommandBuffer = MPiCommandBuffers[Queue->get_device()];
-  pi_result Res =
-      Queue->getPlugin()
-          .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
-              CommandBuffer, Queue->getHandleRef(), RawEvents.size(),
-              RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
-  if (Res != pi_result::PI_SUCCESS) {
-    throw sycl::exception(errc::event,
-                          "Failed to enqueue event for node submission");
+
+  // If we have no requirements for accessors for the command buffer, enqueue it
+  // directly
+  if (MRequirements.empty()) {
+    pi_result Res =
+        Queue->getPlugin()
+            .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
+                CommandBuffer, Queue->getHandleRef(), RawEvents.size(),
+                RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
+    if (Res != pi_result::PI_SUCCESS) {
+      throw sycl::exception(
+          errc::event, "Failed to enqueue event for command buffer submission");
+    }
+  } else {
+    std::unique_ptr<sycl::detail::CG> CommandGroup =
+        std::make_unique<sycl::detail::CGExecCommandBuffer>(CommandBuffer,
+                                                            MRequirements);
+
+    NewEvent = sycl::detail::Scheduler::getInstance().addCG(
+        std::move(CommandGroup), Queue);
   }
 
 #else

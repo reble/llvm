@@ -124,9 +124,10 @@ event handler::finalize() {
     }
     // Extract relevant data from the handler and pass to graph to create a new
     // node representing this command group.
-    auto NodeImpl = GraphImpl->add(MKernel, MNDRDesc, MOSModuleHandle,
-                                   MKernelName, MAccStorage, MLocalAccStorage,
-                                   MRequirements, MArgs, {}, MEvents);
+    auto NodeImpl =
+        GraphImpl->add(MKernel, MNDRDesc, MOSModuleHandle, MKernelName,
+                       MAccStorage, MLocalAccStorage, MCGType, MArgs,
+                       MImpl->MAuxiliaryResources, {}, MEvents);
 
     // Create and associated an event with this new node
     GraphImpl->add_event_for_node(EventImpl, NodeImpl);
@@ -406,6 +407,9 @@ event handler::finalize() {
         std::move(MRequirements), std::move(MEvents), MCodeLoc));
     break;
   }
+  case detail::CG::ExecCommandBuffer:
+    assert(false && "Error: Command graph submission should not be finalized");
+    break;
   case detail::CG::None:
     if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_ALL)) {
       std::cout << "WARNING: An empty command group is submitted." << std::endl;

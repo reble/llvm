@@ -109,7 +109,9 @@ public:
     UPDATE_REQUIREMENT,
     EMPTY_TASK,
     HOST_TASK,
-    FUSION
+    FUSION,
+    ENQUEUE_TO_CMD_BUFFER,
+    EXEC_CMD_BUFFER,
   };
 
   Command(CommandType Type, QueueImplPtr Queue);
@@ -696,6 +698,38 @@ private:
   std::vector<Command *> MAuxiliaryCommands;
 
   FusionStatus MStatus;
+};
+
+class CommandBufferEnqueueCGCommand : public Command {
+public:
+  CommandBufferEnqueueCGCommand(
+      std::unique_ptr<detail::CG> CommandGroup,
+      pi_ext_command_buffer CommandBuffer,
+      const std::vector<pi_ext_sync_point> &Dependencies, QueueImplPtr Queue);
+
+  detail::CG &getCG() const { return *MCommandGroup; }
+
+  std::vector<StreamImplPtr> getStreams() const;
+  std::vector<std::shared_ptr<const void>> getAuxiliaryResources() const;
+  void printDot(std::ostream &Stream) const final;
+  void emitInstrumentationData() final;
+
+  bool producesPiEvent() const final;
+
+  // MEmptyCmd is only employed if this command refers to host-task.
+  // The mechanism of lookup for single EmptyCommand amongst users of
+  // host-task-representing command is unreliable. This unreliability roots in
+  // the cleanup process.
+  EmptyCommand *MEmptyCmd = nullptr;
+
+private:
+  pi_int32 enqueueImp() final;
+  AllocaCommandBase *getAllocaForReq(Requirement *Req);
+  std::unique_ptr<detail::CG> MCommandGroup;
+  pi_ext_command_buffer MCommandBuffer;
+  pi_ext_sync_point MSyncPoint;
+  std::vector<pi_ext_sync_point> MDependencies;
+  friend class Command;
 };
 
 // Sets arguments for a given kernel and device based on the argument type.

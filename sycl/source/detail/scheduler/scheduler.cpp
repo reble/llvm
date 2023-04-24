@@ -87,6 +87,105 @@ void Scheduler::waitForRecordToFinish(MemObjRecord *Record,
   }
 }
 
+EventImplPtr Scheduler::addCGToCommandBuffer(
+    std::unique_ptr<detail::CG> CommandGroup,
+    pi_ext_command_buffer CommandBuffer,
+    const std::vector<pi_ext_sync_point> &Dependencies,
+    QueueImplPtr AllocaQueue) {
+  EventImplPtr NewEvent = nullptr;
+  const CG::CGTYPE Type = CommandGroup->getType();
+  std::vector<Command *> AuxiliaryCmds;
+  std::vector<StreamImplPtr> Streams;
+
+  if (Type == CG::Kernel) {
+    Streams = ((CGExecKernel *)CommandGroup.get())->getStreams();
+    // Stream's flush buffer memory is mainly initialized in stream's __init
+    // method. However, this method is not available on host device.
+    // Initializing stream's flush buffer on the host side in a separate task.
+    if (AllocaQueue->is_host()) {
+      for (const StreamImplPtr &Stream : Streams) {
+        initStream(Stream, AllocaQueue);
+      }
+    }
+  }
+
+  {
+    WriteLockT Lock(MGraphLock, std::defer_lock);
+    acquireWriteLock(Lock);
+
+    Command *NewCmd = nullptr;
+    switch (Type) {
+    case CG::UpdateHost:
+      NewCmd = MGraphBuilder.addCGUpdateHost(std::move(CommandGroup),
+                                             DefaultHostQueue, AuxiliaryCmds);
+      break;
+    case CG::CodeplayHostTask:
+      NewCmd = MGraphBuilder.addCG(std::move(CommandGroup), DefaultHostQueue,
+                                   AuxiliaryCmds);
+      break;
+    default:
+      NewCmd = MGraphBuilder.addCGToCommandBuffer(std::move(CommandGroup),
+                                                  CommandBuffer, Dependencies,
+                                                  AllocaQueue, AuxiliaryCmds);
+    }
+    NewEvent = NewCmd->getEvent();
+  }
+
+  std::vector<Command *> ToCleanUp;
+  {
+    ReadLockT Lock(MGraphLock);
+
+    Command *NewCmd = static_cast<Command *>(NewEvent->getCommand());
+
+    EnqueueResultT Res;
+    bool Enqueued;
+
+    auto CleanUp = [&]() {
+      if (NewCmd && (NewCmd->MDeps.size() == 0 && NewCmd->MUsers.size() == 0)) {
+        NewEvent->setCommand(nullptr);
+        delete NewCmd;
+      }
+    };
+
+    for (Command *Cmd : AuxiliaryCmds) {
+      Enqueued = GraphProcessor::enqueueCommand(Cmd, Res, ToCleanUp);
+      try {
+        if (!Enqueued && EnqueueResultT::SyclEnqueueFailed == Res.MResult)
+          throw runtime_error("Auxiliary enqueue process failed.",
+                              PI_ERROR_INVALID_OPERATION);
+      } catch (...) {
+        // enqueueCommand() func and if statement above may throw an exception,
+        // so destroy required resources to avoid memory leak
+        CleanUp();
+        std::rethrow_exception(std::current_exception());
+      }
+    }
+
+    if (NewCmd) {
+      // TODO: Check if lazy mode.
+      EnqueueResultT Res;
+      try {
+        bool Enqueued = GraphProcessor::enqueueCommand(NewCmd, Res, ToCleanUp);
+        if (!Enqueued && EnqueueResultT::SyclEnqueueFailed == Res.MResult)
+          throw runtime_error("Enqueue process failed.",
+                              PI_ERROR_INVALID_OPERATION);
+      } catch (...) {
+        // enqueueCommand() func and if statement above may throw an exception,
+        // so destroy required resources to avoid memory leak
+        CleanUp();
+        std::rethrow_exception(std::current_exception());
+      }
+    }
+  }
+  cleanupCommands(ToCleanUp);
+
+  for (auto StreamImplPtr : Streams) {
+    StreamImplPtr->flush();
+  }
+
+  return NewEvent;
+}
+
 EventImplPtr Scheduler::addCG(std::unique_ptr<detail::CG> CommandGroup,
                               const QueueImplPtr &Queue) {
   EventImplPtr NewEvent = nullptr;

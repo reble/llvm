@@ -371,6 +371,12 @@ public:
   EventImplPtr addCG(std::unique_ptr<detail::CG> CommandGroup,
                      const QueueImplPtr &Queue);
 
+  EventImplPtr
+  addCGToCommandBuffer(std::unique_ptr<detail::CG> CommandGroup,
+                       pi_ext_command_buffer CommandBuffer,
+                       const std::vector<pi_ext_sync_point> &Dependencies,
+                       QueueImplPtr Queue);
+
   /// Registers a command group, that copies most recent memory to the memory
   /// pointed by the requirement.
   ///
@@ -533,6 +539,13 @@ protected:
     GraphBuildResult addCG(std::unique_ptr<detail::CG> CommandGroup,
                            const QueueImplPtr &Queue,
                            std::vector<Command *> &ToEnqueue);
+
+    Command *
+    addCGToCommandBuffer(std::unique_ptr<detail::CG> CommandGroup,
+                         pi_ext_command_buffer CommandBuffer,
+                         const std::vector<pi_ext_sync_point> &Dependencies,
+                         QueueImplPtr AllocaQueue,
+                         std::vector<Command *> &ToEnqueue);
 
     /// Registers a \ref CG "command group" that updates host memory to the
     /// latest state.
