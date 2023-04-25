@@ -279,8 +279,6 @@ private:
   // List of requirements for enqueueing this command graph, accumulated from
   // all nodes enqueued to the graph.
   std::vector<sycl::detail::AccessorImplHost *> MRequirements;
-  // Queue used for alloc operations
-  std::shared_ptr<sycl::detail::queue_impl> MAllocQueue;
 };
 
 } // namespace detail
