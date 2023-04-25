@@ -2237,8 +2237,6 @@ pi_int32 enqueueImpCommandBufferKernel(
     const std::string &KernelName, const detail::OSModuleHandle &OSModuleHandle,
     std::vector<pi_ext_sync_point> &SyncPoints, pi_ext_sync_point *OutSyncPoint,
     const std::function<void *(Requirement *Req)> &getMemAllocationFunc) {
-
-  // TODO Tidy this up if it survives till the end of the task.
   auto ContextImpl = sycl::detail::getSyclObjImpl(Ctx);
   const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
   pi_kernel PiKernel = nullptr;
