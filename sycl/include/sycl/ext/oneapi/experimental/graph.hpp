@@ -57,7 +57,7 @@ class depends_on : public ::sycl::detail::PropertyWithData<
 public:
   template <typename... NodeTN> depends_on(NodeTN... nodes) : MDeps{nodes...} {}
   const std::vector<::sycl::ext::oneapi::experimental::node> &
-  get_dependencies() {
+  get_dependencies() const {
     return MDeps;
   }
 
