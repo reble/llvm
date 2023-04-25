@@ -8,7 +8,9 @@ int main() {
 
   sycl::queue q{sycl::gpu_selector_v};
 
-  sycl_ext::command_graph g{q.get_context(), q.get_device()};
+  auto my_properties =
+      sycl::property_list{sycl_ext::property::graph::no_cycle_check()};
+  sycl_ext::command_graph g{q.get_context(), q.get_device(), my_properties};
 
   const size_t n = 10;
   float *arr = sycl::malloc_device<float>(n, q);

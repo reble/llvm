@@ -42,6 +42,7 @@ class node;
 namespace property {
 namespace graph {
 
+// TODO: Cycle check not yet implemented.
 class no_cycle_check : public ::sycl::detail::DataLessProperty<
                            ::sycl::detail::GraphNoCycleCheck> {
 public:
