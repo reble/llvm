@@ -4,11 +4,11 @@
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
 int main() {
+  namespace sycl_ext = sycl::ext::oneapi::experimental;
 
   sycl::queue q{sycl::gpu_selector_v};
 
-  sycl::ext::oneapi::experimental::command_graph g{q.get_context(),
-                                                   q.get_device()};
+  sycl_ext::command_graph g{q.get_context(), q.get_device()};
 
   const size_t n = 10;
   float *arr = sycl::malloc_device<float>(n, q);
@@ -22,10 +22,10 @@ int main() {
           arr[i] = 0;
         });
       },
-      {start});
+      {sycl_ext::property::node::depends_on(start)});
 
-  auto empty = g.add({init});
-  auto empty2 = g.add({empty});
+  auto empty = g.add({sycl_ext::property::node::depends_on(init)});
+  auto empty2 = g.add({sycl_ext::property::node::depends_on(empty)});
 
   g.add(
       [&](sycl::handler &h) {
@@ -34,7 +34,7 @@ int main() {
           arr[i] = 1;
         });
       },
-      {empty2});
+      {sycl_ext::property::node::depends_on(empty2)});
 
   auto executable_graph = g.finalize();
 
