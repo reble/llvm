@@ -732,6 +732,7 @@ private:
   friend class Command;
 };
 
+// Enqueues a given kernel to a pi_ext_command_buffer
 pi_int32 enqueueImpCommandBufferKernel(
     context Ctx, DeviceImplPtr DeviceImpl, pi_ext_command_buffer CommandBuffer,
     NDRDescT NDRDesc, std::vector<ArgDesc> Args,
