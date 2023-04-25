@@ -249,79 +249,15 @@ void exec_graph_impl::find_real_deps(std::vector<pi_ext_sync_point> &Deps,
 pi_ext_sync_point exec_graph_impl::enqueue_node_direct(
     sycl::context Ctx, sycl::detail::DeviceImplPtr DeviceImpl,
     pi_ext_command_buffer CommandBuffer, std::shared_ptr<node_impl> Node) {
-  auto ContextImpl = sycl::detail::getSyclObjImpl(Ctx);
-  const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
-  pi_kernel PiKernel = nullptr;
-  std::mutex *KernelMutex = nullptr;
-  pi_program PiProgram = nullptr;
-
-  auto Kernel = Node->MKernel;
-  if (Kernel != nullptr) {
-    PiKernel = Kernel->getHandleRef();
-  } else {
-    std::tie(PiKernel, KernelMutex, PiProgram) =
-        sycl::detail::ProgramManager::getInstance().getOrCreateKernel(
-            Node->MOSModuleHandle, ContextImpl, DeviceImpl, Node->MKernelName,
-            nullptr);
-  }
-
-  sycl::detail::ProgramManager::KernelArgMask EliminatedArgMask;
-  if (nullptr == Node->MKernel || !Node->MKernel->isCreatedFromSource()) {
-    EliminatedArgMask =
-        sycl::detail::ProgramManager::getInstance().getEliminatedKernelArgMask(
-            Node->MOSModuleHandle, PiProgram, Node->MKernelName);
-  }
-
-  auto SetFunc = [&Plugin, &PiKernel, &Ctx](sycl::detail::ArgDesc &Arg,
-                                            size_t NextTrueIndex) {
-    sycl::detail::SetArgBasedOnType(
-        Plugin, PiKernel,
-        nullptr /* TODO: Handle spec constants and pass device image here */
-        ,
-        nullptr, Ctx, false, Arg, NextTrueIndex);
-  };
-  std::vector<sycl::detail::ArgDesc> Args;
-  sycl::detail::applyFuncOnFilteredArgs(EliminatedArgMask, Node->MArgs,
-                                        SetFunc);
-
   std::vector<pi_ext_sync_point> Deps;
   for (auto &N : Node->MPredecessors) {
     find_real_deps(Deps, N.lock());
   }
-
-  // add commands
-  // Remember this information before the range dimensions are reversed
-  const bool HasLocalSize = (Node->MNDRDesc.LocalSize[0] != 0);
-
-  // Reverse kernel dims
-  auto NDRDesc = Node->MNDRDesc;
-  sycl::detail::ReverseRangeDimensionsForKernel(NDRDesc);
-
-  size_t RequiredWGSize[3] = {0, 0, 0};
-  size_t *LocalSize = nullptr;
-
-  if (HasLocalSize)
-    LocalSize = &NDRDesc.LocalSize[0];
-  else {
-    Plugin.call<sycl::detail::PiApiKind::piKernelGetGroupInfo>(
-        PiKernel, DeviceImpl->getHandleRef(),
-        PI_KERNEL_GROUP_INFO_COMPILE_WORK_GROUP_SIZE, sizeof(RequiredWGSize),
-        RequiredWGSize,
-        /* param_value_size_ret = */ nullptr);
-
-    const bool EnforcedLocalSize =
-        (RequiredWGSize[0] != 0 || RequiredWGSize[1] != 0 ||
-         RequiredWGSize[2] != 0);
-    if (EnforcedLocalSize)
-      LocalSize = RequiredWGSize;
-  }
-
   pi_ext_sync_point NewSyncPoint;
-  pi_result Res = Plugin.call_nocheck<
-      sycl::detail::PiApiKind::piextCommandBufferNDRangeKernel>(
-      CommandBuffer, PiKernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
-      &NDRDesc.GlobalSize[0], LocalSize, Deps.size(),
-      Deps.size() ? Deps.data() : nullptr, &NewSyncPoint);
+  pi_int32 Res = sycl::detail::enqueueImpCommandBufferKernel(
+      Ctx, DeviceImpl, CommandBuffer, Node->MNDRDesc, Node->MArgs,
+      nullptr /* Kernel bundle ptr */, Node->MKernel, Node->MKernelName,
+      Node->MOSModuleHandle, Deps, &NewSyncPoint, nullptr);
 
   if (Res != pi_result::PI_SUCCESS) {
     throw sycl::exception(errc::invalid,

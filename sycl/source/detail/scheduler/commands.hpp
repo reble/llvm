@@ -732,6 +732,15 @@ private:
   friend class Command;
 };
 
+pi_int32 enqueueImpCommandBufferKernel(
+    context Ctx, DeviceImplPtr DeviceImpl, pi_ext_command_buffer CommandBuffer,
+    NDRDescT NDRDesc, std::vector<ArgDesc> Args,
+    const std::shared_ptr<detail::kernel_bundle_impl> &KernelBundleImplPtr,
+    const std::shared_ptr<detail::kernel_impl> &SyclKernel,
+    const std::string &KernelName, const detail::OSModuleHandle &OSModuleHandle,
+    std::vector<pi_ext_sync_point> &SyncPoints, pi_ext_sync_point *OutSyncPoint,
+    const std::function<void *(Requirement *Req)> &getMemAllocationFunc);
+
 // Sets arguments for a given kernel and device based on the argument type.
 // Refactored from SetKernelParamsAndLaunch to allow it to be used in the graphs
 // extension.
