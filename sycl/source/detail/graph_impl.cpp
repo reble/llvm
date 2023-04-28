@@ -303,8 +303,8 @@ RT::PiExtSyncPoint exec_graph_impl::enqueue_node(
   }
 
   sycl::detail::EventImplPtr Event =
-      sycl::detail::Scheduler::getInstance().addCGToCommandBuffer(
-          std::move(CommandGroup), CommandBuffer, Deps, AllocaQueue);
+      sycl::detail::Scheduler::getInstance().addCG(
+          std::move(CommandGroup), AllocaQueue, CommandBuffer, Deps);
 
   return Event->getSyncPoint();
 }

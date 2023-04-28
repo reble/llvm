@@ -929,14 +929,33 @@ static void combineAccessModesOfReqs(std::vector<Requirement *> &Reqs) {
   }
 }
 
-Scheduler::GraphBuildResult
-Scheduler::GraphBuilder::addCG(std::unique_ptr<detail::CG> CommandGroup,
-                               const QueueImplPtr &Queue,
-                               std::vector<Command *> &ToEnqueue) {
-  std::vector<Requirement *> &Reqs = CommandGroup->MRequirements;
-  std::vector<detail::EventImplPtr> &Events = CommandGroup->MEvents;
+// Explicit instantiations for Scheduler::GraphBuilder::addCG
+template Scheduler::GraphBuildResult Scheduler::GraphBuilder::addCG<ExecCGCommand>(
+    std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Queue,
+    std::vector<Command *> &ToEnqueue, RT::PiExtCommandBuffer CommandBuffer,
+    const std::vector<RT::PiExtSyncPoint> &Dependencies);
+template Scheduler::GraphBuildResult Scheduler::GraphBuilder::addCG<CommandBufferEnqueueCGCommand>(
+    std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Queue,
+    std::vector<Command *> &ToEnqueue, RT::PiExtCommandBuffer CommandBuffer,
+    const std::vector<RT::PiExtSyncPoint> &Dependencies);
 
-  auto NewCmd = std::make_unique<ExecCGCommand>(std::move(CommandGroup), Queue);
+template <typename CommandType>
+Scheduler::GraphBuildResult Scheduler::GraphBuilder::addCG(
+    std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Queue,
+    std::vector<Command *> &ToEnqueue, RT::PiExtCommandBuffer CommandBuffer,
+    const std::vector<RT::PiExtSyncPoint> &Dependencies) {
+  std::vector<Requirement *> &Reqs = CommandGroup->MRequirements;
+  const std::vector<detail::EventImplPtr> &Events = CommandGroup->MEvents;
+  const CG::CGTYPE CGType = CommandGroup->getType();
+  std::unique_ptr<CommandType> NewCmd;
+
+  if constexpr (std::is_same_v<CommandType, ExecCGCommand>) {
+    NewCmd = std::make_unique<CommandType>(std::move(CommandGroup), Queue);
+  } else if constexpr (std::is_same_v<CommandType,
+                                      CommandBufferEnqueueCGCommand>) {
+    NewCmd = std::make_unique<CommandType>(
+        std::move(CommandGroup), CommandBuffer, std::move(Dependencies), Queue);
+  }
   if (!NewCmd)
     throw runtime_error("Out of host memory", PI_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -1112,123 +1131,6 @@ void Scheduler::GraphBuilder::createGraphForCommand(
   for (Command *Cmd : ToCleanUp) {
     cleanupCommand(Cmd);
   }
-}
-
-Command *Scheduler::GraphBuilder::addCGToCommandBuffer(
-    std::unique_ptr<detail::CG> CommandGroup,
-    RT::PiExtCommandBuffer CommandBuffer,
-    const std::vector<RT::PiExtSyncPoint> &Dependencies,
-    QueueImplPtr AllocaQueue, std::vector<Command *> &ToEnqueue) {
-  std::vector<Requirement *> &Reqs = CommandGroup->MRequirements;
-  const std::vector<detail::EventImplPtr> &Events = CommandGroup->MEvents;
-  const CG::CGTYPE CGType = CommandGroup->getType();
-
-  auto NewCmd = std::make_unique<CommandBufferEnqueueCGCommand>(
-      std::move(CommandGroup), CommandBuffer, Dependencies, AllocaQueue);
-  if (!NewCmd)
-    throw runtime_error("Out of host memory", PI_ERROR_OUT_OF_HOST_MEMORY);
-
-  if (MPrintOptionsArray[BeforeAddCG])
-    printGraphAsDot("before_addCG");
-
-  // If there are multiple requirements for the same memory object, its
-  // AllocaCommand creation will be dependent on the access mode of the first
-  // requirement. Combine these access modes to take all of them into account.
-  combineAccessModesOfReqs(Reqs);
-  std::vector<Command *> ToCleanUp;
-  for (Requirement *Req : Reqs) {
-    MemObjRecord *Record = nullptr;
-    AllocaCommandBase *AllocaCmd = nullptr;
-
-    bool isSameCtx = false;
-
-    {
-      const QueueImplPtr &QueueForAlloca =
-          isInteropHostTask(NewCmd)
-              ? static_cast<detail::CGHostTask &>(NewCmd->getCG()).MQueue
-              : AllocaQueue;
-
-      Record = getOrInsertMemObjRecord(QueueForAlloca, Req, ToEnqueue);
-      markModifiedIfWrite(Record, Req);
-
-      AllocaCmd =
-          getOrCreateAllocaForReq(Record, Req, QueueForAlloca, ToEnqueue);
-
-      isSameCtx =
-          sameCtx(QueueForAlloca->getContextImplPtr(), Record->MCurContext);
-    }
-
-    // If there is alloca command we need to check if the latest memory is in
-    // required context.
-    if (isSameCtx) {
-      // If the memory is already in the required host context, check if the
-      // required access mode is valid, remap if not.
-      if (Record->MCurContext->is_host() &&
-          !isAccessModeAllowed(Req->MAccessMode, Record->MHostAccess))
-        remapMemoryObject(Record, Req, AllocaCmd, ToEnqueue);
-    } else {
-      // Cannot directly copy memory from OpenCL device to OpenCL device -
-      // create two copies: device->host and host->device.
-      bool NeedMemMoveToHost = false;
-      std::shared_ptr<queue_impl> MemMoveTargetQueue = nullptr;
-
-      if (isInteropHostTask(NewCmd)) {
-        const detail::CGHostTask &HT =
-            static_cast<detail::CGHostTask &>(NewCmd->getCG());
-
-        if (HT.MQueue->getContextImplPtr() != Record->MCurContext) {
-          NeedMemMoveToHost = true;
-          MemMoveTargetQueue = HT.MQueue;
-        }
-      } else if (!false && !Record->MCurContext->is_host())
-        NeedMemMoveToHost = true;
-
-      if (NeedMemMoveToHost)
-        insertMemoryMove(Record, Req,
-                         Scheduler::getInstance().getDefaultHostQueue(),
-                         ToEnqueue);
-      insertMemoryMove(Record, Req, MemMoveTargetQueue, ToEnqueue);
-    }
-    std::set<Command *> Deps =
-        findDepsForReq(Record, Req, AllocaQueue->getContextImplPtr());
-
-    for (Command *Dep : Deps) {
-      Command *ConnCmd =
-          NewCmd->addDep(DepDesc{Dep, Req, AllocaCmd}, ToCleanUp);
-      if (ConnCmd)
-        ToEnqueue.push_back(ConnCmd);
-    }
-  }
-
-  // Set new command as user for dependencies and update leaves.
-  // Node dependencies can be modified further when adding the node to leaves,
-  // iterate over their copy.
-  // FIXME employ a reference here to eliminate copying of a vector
-  std::vector<DepDesc> Deps = NewCmd->MDeps;
-  for (DepDesc &Dep : Deps) {
-    const Requirement *Req = Dep.MDepRequirement;
-    MemObjRecord *Record = getMemObjRecord(Req->MSYCLMemObj);
-    updateLeaves({Dep.MDepCommand}, Record, Req->MAccessMode, ToCleanUp);
-    addNodeToLeaves(Record, NewCmd.get(), Req->MAccessMode, ToEnqueue);
-  }
-
-  // Register all the events as dependencies
-  for (detail::EventImplPtr e : Events) {
-    if (Command *ConnCmd = NewCmd->addDep(e, ToCleanUp))
-      ToEnqueue.push_back(ConnCmd);
-  }
-
-  if (CGType == CG::CGTYPE::CodeplayHostTask)
-    NewCmd->MEmptyCmd =
-        addEmptyCmd(NewCmd.get(), NewCmd->getCG().MRequirements, AllocaQueue,
-                    Command::BlockReason::HostTask, ToEnqueue);
-
-  if (MPrintOptionsArray[AfterAddCG])
-    printGraphAsDot("after_addCG");
-
-  for (Command *Cmd : ToCleanUp)
-    cleanupCommand(Cmd);
-  return NewCmd.release();
 }
 
 void Scheduler::GraphBuilder::decrementLeafCountersForRecord(
