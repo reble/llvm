@@ -371,6 +371,13 @@ public:
   EventImplPtr addCG(std::unique_ptr<detail::CG> CommandGroup,
                      const QueueImplPtr &Queue);
 
+  /// Registers a command group, and adds it to the dependency graph
+  /// for enqueue to a command buffer.
+  ///
+  /// \sa ext::oneapi::experimental::command_graph::finalize,
+  /// Scheduler::addCGToCommandBuffer
+  ///
+  /// \return an event object representing the command group enqueue.
   EventImplPtr
   addCGToCommandBuffer(std::unique_ptr<detail::CG> CommandGroup,
                        RT::PiExtCommandBuffer CommandBuffer,
@@ -540,6 +547,13 @@ protected:
                            const QueueImplPtr &Queue,
                            std::vector<Command *> &ToEnqueue);
 
+    /// Registers \ref CG "command group" and adds it to the dependency graph
+    /// for enqueue to a command buffer.
+    ///
+    /// \sa ext::oneapi::experimental::command_graph::finalize,
+    /// Scheduler::addCGToCommandBuffer
+    ///
+    /// \return a command that represents command group enqueue.
     Command *
     addCGToCommandBuffer(std::unique_ptr<detail::CG> CommandGroup,
                          RT::PiExtCommandBuffer CommandBuffer,
