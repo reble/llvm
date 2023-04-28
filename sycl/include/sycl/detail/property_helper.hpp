@@ -35,7 +35,7 @@ enum DataLessPropKind {
   UseDefaultStream = 8,
   DiscardEvents = 9,
   DeviceReadOnly = 10,
-  LazyExecution = 11,
+  GraphNoCycleCheck = 11,
   // Indicates the last known dataless property.
   LastKnownDataLessPropKind = 11,
   // Exceeding 32 may cause ABI breaking change on some of OSes.
@@ -50,7 +50,8 @@ enum PropWithDataKind {
   ImageContextBound = 3,
   BufferMemChannel = 4,
   AccPropBufferLocation = 5,
-  PropWithDataKindSize = 6,
+  GraphNodeDependencies = 6,
+  PropWithDataKindSize = 7
 };
 
 // Base class for dataless properties, needed to check that the type of an
