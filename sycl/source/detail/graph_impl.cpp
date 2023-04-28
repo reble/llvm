@@ -222,7 +222,7 @@ bool graph_impl::clear_queues() {
 
 // Check if nodes are empty and if so loop back through predecessors until we
 // find the real dependency.
-void exec_graph_impl::find_real_deps(std::vector<pi_ext_sync_point> &Deps,
+void exec_graph_impl::find_real_deps(std::vector<RT::PiExtSyncPoint> &Deps,
                                      std::shared_ptr<node_impl> CurrentNode) {
   if (CurrentNode->is_empty()) {
     for (auto &N : CurrentNode->MPredecessors) {
@@ -246,14 +246,14 @@ void exec_graph_impl::find_real_deps(std::vector<pi_ext_sync_point> &Deps,
 
 // Enqueue a node directly to the command buffer without going through the
 // scheduler.
-pi_ext_sync_point exec_graph_impl::enqueue_node_direct(
+RT::PiExtSyncPoint exec_graph_impl::enqueue_node_direct(
     sycl::context Ctx, sycl::detail::DeviceImplPtr DeviceImpl,
-    pi_ext_command_buffer CommandBuffer, std::shared_ptr<node_impl> Node) {
-  std::vector<pi_ext_sync_point> Deps;
+    RT::PiExtCommandBuffer CommandBuffer, std::shared_ptr<node_impl> Node) {
+  std::vector<RT::PiExtSyncPoint> Deps;
   for (auto &N : Node->MPredecessors) {
     find_real_deps(Deps, N.lock());
   }
-  pi_ext_sync_point NewSyncPoint;
+  RT::PiExtSyncPoint NewSyncPoint;
   pi_int32 Res = sycl::detail::enqueueImpCommandBufferKernel(
       Ctx, DeviceImpl, CommandBuffer, Node->MNDRDesc, Node->MArgs,
       nullptr /* Kernel bundle ptr */, Node->MKernel, Node->MKernelName,
@@ -267,9 +267,9 @@ pi_ext_sync_point exec_graph_impl::enqueue_node_direct(
   return NewSyncPoint;
 }
 
-pi_ext_sync_point exec_graph_impl::enqueue_node(
+RT::PiExtSyncPoint exec_graph_impl::enqueue_node(
     sycl::context Ctx, std::shared_ptr<sycl::detail::device_impl> DeviceImpl,
-    pi_ext_command_buffer CommandBuffer, std::shared_ptr<node_impl> Node) {
+    RT::PiExtCommandBuffer CommandBuffer, std::shared_ptr<node_impl> Node) {
   std::unique_ptr<sycl::detail::CG> CommandGroup;
   switch (Node->MCGType) {
   case sycl::detail::CG::Kernel:
@@ -297,7 +297,7 @@ pi_ext_sync_point exec_graph_impl::enqueue_node(
       DeviceImpl, sycl::detail::getSyclObjImpl(Ctx), sycl::async_handler{},
       sycl::property_list{});
 
-  std::vector<pi_ext_sync_point> Deps;
+  std::vector<RT::PiExtSyncPoint> Deps;
   for (auto &N : Node->MPredecessors) {
     find_real_deps(Deps, N.lock());
   }
@@ -311,8 +311,8 @@ pi_ext_sync_point exec_graph_impl::enqueue_node(
 void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
   // TODO we only have a single command-buffer per graph here, but
   // this will need to be multiple command-buffers for non-trivial graphs
-  pi_ext_command_buffer OutCommandBuffer;
-  pi_ext_command_buffer_desc Desc{};
+  RT::PiExtCommandBuffer OutCommandBuffer;
+  RT::PiExtCommandBufferDesc Desc{};
   auto ContextImpl = sycl::detail::getSyclObjImpl(MContext);
   const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
   auto DeviceImpl = sycl::detail::getSyclObjImpl(D);
@@ -370,7 +370,7 @@ exec_graph_impl::~exec_graph_impl() {
 
 sycl::event exec_graph_impl::enqueue(
     const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
-  std::vector<pi_event> RawEvents;
+  std::vector<RT::PiEvent> RawEvents;
   auto CreateNewEvent([&]() {
     auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
     NewEvent->setContextImpl(Queue->getContextImplPtr());
@@ -379,7 +379,7 @@ sycl::event exec_graph_impl::enqueue(
   });
 #if SYCL_EXT_ONEAPI_GRAPH
   auto NewEvent = CreateNewEvent();
-  pi_event *OutEvent = &NewEvent->getHandleRef();
+  RT::PiEvent *OutEvent = &NewEvent->getHandleRef();
   auto CommandBuffer = MPiCommandBuffers[Queue->get_device()];
 
   // If we have no requirements for accessors for the command buffer, enqueue it
@@ -408,7 +408,7 @@ sycl::event exec_graph_impl::enqueue(
   for (auto &NodeImpl : MSchedule) {
     std::vector<RT::PiEvent> RawEvents;
     auto NewEvent = CreateNewEvent();
-    pi_event *OutEvent = &NewEvent->getHandleRef();
+    RT::PiEvent *OutEvent = &NewEvent->getHandleRef();
     pi_int32 Res = sycl::detail::enqueueImpKernel(
         Queue, NodeImpl->MNDRDesc, NodeImpl->MArgs,
         nullptr /* TODO: Handle KernelBundles */, NodeImpl->MKernel,

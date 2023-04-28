@@ -373,8 +373,8 @@ public:
 
   EventImplPtr
   addCGToCommandBuffer(std::unique_ptr<detail::CG> CommandGroup,
-                       pi_ext_command_buffer CommandBuffer,
-                       const std::vector<pi_ext_sync_point> &Dependencies,
+                       RT::PiExtCommandBuffer CommandBuffer,
+                       const std::vector<RT::PiExtSyncPoint> &Dependencies,
                        QueueImplPtr Queue);
 
   /// Registers a command group, that copies most recent memory to the memory
@@ -542,8 +542,8 @@ protected:
 
     Command *
     addCGToCommandBuffer(std::unique_ptr<detail::CG> CommandGroup,
-                         pi_ext_command_buffer CommandBuffer,
-                         const std::vector<pi_ext_sync_point> &Dependencies,
+                         RT::PiExtCommandBuffer CommandBuffer,
+                         const std::vector<RT::PiExtSyncPoint> &Dependencies,
                          QueueImplPtr AllocaQueue,
                          std::vector<Command *> &ToEnqueue);
 

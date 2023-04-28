@@ -2230,12 +2230,13 @@ void DispatchNativeKernel(void *Blob) {
 }
 
 pi_int32 enqueueImpCommandBufferKernel(
-    context Ctx, DeviceImplPtr DeviceImpl, pi_ext_command_buffer CommandBuffer,
+    context Ctx, DeviceImplPtr DeviceImpl, RT::PiExtCommandBuffer CommandBuffer,
     NDRDescT NDRDesc, std::vector<ArgDesc> Args,
     const std::shared_ptr<detail::kernel_bundle_impl> &KernelBundleImplPtr,
     const std::shared_ptr<detail::kernel_impl> &SyclKernel,
     const std::string &KernelName, const detail::OSModuleHandle &OSModuleHandle,
-    std::vector<pi_ext_sync_point> &SyncPoints, pi_ext_sync_point *OutSyncPoint,
+    std::vector<RT::PiExtSyncPoint> &SyncPoints,
+    RT::PiExtSyncPoint *OutSyncPoint,
     const std::function<void *(Requirement *Req)> &getMemAllocationFunc) {
   auto ContextImpl = sycl::detail::getSyclObjImpl(Ctx);
   const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
@@ -3051,8 +3052,8 @@ void KernelFusionCommand::printDot(std::ostream &Stream) const {
 
 CommandBufferEnqueueCGCommand::CommandBufferEnqueueCGCommand(
     std::unique_ptr<detail::CG> CommandGroup,
-    pi_ext_command_buffer CommandBuffer,
-    const std::vector<pi_ext_sync_point> &Dependencies, QueueImplPtr Queue)
+    RT::PiExtCommandBuffer CommandBuffer,
+    const std::vector<RT::PiExtSyncPoint> &Dependencies, QueueImplPtr Queue)
     : Command(CommandType::ENQUEUE_TO_CMD_BUFFER, Queue),
       MCommandGroup(std::move(CommandGroup)), MCommandBuffer(CommandBuffer),
       MSyncPoint(), MDependencies(Dependencies) {}
@@ -3108,7 +3109,7 @@ pi_int32 CommandBufferEnqueueCGCommand::enqueueImp() {
         Event = &MEvent->getHandleRef();
       }
     }
-    pi_ext_sync_point OutSyncPoint;
+    RT::PiExtSyncPoint OutSyncPoint;
     auto result = enqueueImpCommandBufferKernel(
         MQueue->get_context(), MQueue->getDeviceImplPtr(), MCommandBuffer,
         NDRDesc, Args, ExecKernel->getKernelBundle(), SyclKernel, KernelName,

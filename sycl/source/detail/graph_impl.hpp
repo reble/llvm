@@ -254,25 +254,25 @@ public:
   }
 
 private:
-  pi_ext_sync_point enqueue_node(sycl::context Ctx,
-                                 sycl::detail::DeviceImplPtr DeviceImpl,
-                                 pi_ext_command_buffer CommandBuffer,
-                                 std::shared_ptr<node_impl> Node);
-  pi_ext_sync_point enqueue_node_direct(sycl::context Ctx,
-                                        sycl::detail::DeviceImplPtr DeviceImpl,
-                                        pi_ext_command_buffer CommandBuffer,
-                                        std::shared_ptr<node_impl> Node);
+  RT::PiExtSyncPoint enqueue_node(sycl::context Ctx,
+                                  sycl::detail::DeviceImplPtr DeviceImpl,
+                                  RT::PiExtCommandBuffer CommandBuffer,
+                                  std::shared_ptr<node_impl> Node);
+  RT::PiExtSyncPoint enqueue_node_direct(sycl::context Ctx,
+                                         sycl::detail::DeviceImplPtr DeviceImpl,
+                                         RT::PiExtCommandBuffer CommandBuffer,
+                                         std::shared_ptr<node_impl> Node);
 
-  void find_real_deps(std::vector<pi_ext_sync_point> &Deps,
+  void find_real_deps(std::vector<RT::PiExtSyncPoint> &Deps,
                       std::shared_ptr<node_impl> CurrentNode);
   std::list<std::shared_ptr<node_impl>> MSchedule;
   // Pointer to the modifiable graph impl associated with this executable graph
   std::shared_ptr<graph_impl> MGraphImpl;
   // Map of devices to command buffers
-  std::unordered_map<sycl::device, pi_ext_command_buffer> MPiCommandBuffers;
+  std::unordered_map<sycl::device, RT::PiExtCommandBuffer> MPiCommandBuffers;
   /// Map of nodes in the exec graph to the sync point representing their
   /// execution in the command graph.
-  std::unordered_map<std::shared_ptr<node_impl>, pi_ext_sync_point>
+  std::unordered_map<std::shared_ptr<node_impl>, RT::PiExtSyncPoint>
       MPiSyncPoints;
   // Context associated with this executable graph
   sycl::context MContext;

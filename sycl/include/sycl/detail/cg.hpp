@@ -596,9 +596,9 @@ public:
 };
 class CGExecCommandBuffer : public CG {
 public:
-  pi_ext_command_buffer MCommandBuffer;
+  RT::PiExtCommandBuffer MCommandBuffer;
 
-  CGExecCommandBuffer(pi_ext_command_buffer CommandBuffer,
+  CGExecCommandBuffer(RT::PiExtCommandBuffer CommandBuffer,
                       std::vector<AccessorImplHost *> Requirements)
       : CG(CGTYPE::ExecCommandBuffer, {}, {}, {}, Requirements, {}),
         MCommandBuffer(CommandBuffer) {}

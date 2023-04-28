@@ -1116,8 +1116,8 @@ void Scheduler::GraphBuilder::createGraphForCommand(
 
 Command *Scheduler::GraphBuilder::addCGToCommandBuffer(
     std::unique_ptr<detail::CG> CommandGroup,
-    pi_ext_command_buffer CommandBuffer,
-    const std::vector<pi_ext_sync_point> &Dependencies,
+    RT::PiExtCommandBuffer CommandBuffer,
+    const std::vector<RT::PiExtSyncPoint> &Dependencies,
     QueueImplPtr AllocaQueue, std::vector<Command *> &ToEnqueue) {
   std::vector<Requirement *> &Reqs = CommandGroup->MRequirements;
   const std::vector<detail::EventImplPtr> &Events = CommandGroup->MEvents;

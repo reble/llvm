@@ -704,8 +704,8 @@ class CommandBufferEnqueueCGCommand : public Command {
 public:
   CommandBufferEnqueueCGCommand(
       std::unique_ptr<detail::CG> CommandGroup,
-      pi_ext_command_buffer CommandBuffer,
-      const std::vector<pi_ext_sync_point> &Dependencies, QueueImplPtr Queue);
+      RT::PiExtCommandBuffer CommandBuffer,
+      const std::vector<RT::PiExtSyncPoint> &Dependencies, QueueImplPtr Queue);
 
   detail::CG &getCG() const { return *MCommandGroup; }
 
@@ -726,20 +726,21 @@ private:
   pi_int32 enqueueImp() final;
   AllocaCommandBase *getAllocaForReq(Requirement *Req);
   std::unique_ptr<detail::CG> MCommandGroup;
-  pi_ext_command_buffer MCommandBuffer;
-  pi_ext_sync_point MSyncPoint;
-  std::vector<pi_ext_sync_point> MDependencies;
+  RT::PiExtCommandBuffer MCommandBuffer;
+  RT::PiExtSyncPoint MSyncPoint;
+  std::vector<RT::PiExtSyncPoint> MDependencies;
   friend class Command;
 };
 
-// Enqueues a given kernel to a pi_ext_command_buffer
+// Enqueues a given kernel to a RT::PiExtCommandBuffer
 pi_int32 enqueueImpCommandBufferKernel(
-    context Ctx, DeviceImplPtr DeviceImpl, pi_ext_command_buffer CommandBuffer,
+    context Ctx, DeviceImplPtr DeviceImpl, RT::PiExtCommandBuffer CommandBuffer,
     NDRDescT NDRDesc, std::vector<ArgDesc> Args,
     const std::shared_ptr<detail::kernel_bundle_impl> &KernelBundleImplPtr,
     const std::shared_ptr<detail::kernel_impl> &SyclKernel,
     const std::string &KernelName, const detail::OSModuleHandle &OSModuleHandle,
-    std::vector<pi_ext_sync_point> &SyncPoints, pi_ext_sync_point *OutSyncPoint,
+    std::vector<RT::PiExtSyncPoint> &SyncPoints,
+    RT::PiExtSyncPoint *OutSyncPoint,
     const std::function<void *(Requirement *Req)> &getMemAllocationFunc);
 
 // Sets arguments for a given kernel and device based on the argument type.
