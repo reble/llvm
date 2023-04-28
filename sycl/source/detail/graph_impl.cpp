@@ -407,20 +407,40 @@ sycl::event exec_graph_impl::enqueue(
   std::vector<std::shared_ptr<sycl::detail::event_impl>> ScheduledEvents;
   for (auto &NodeImpl : MSchedule) {
     std::vector<RT::PiEvent> RawEvents;
-    auto NewEvent = CreateNewEvent();
-    RT::PiEvent *OutEvent = &NewEvent->getHandleRef();
-    pi_int32 Res = sycl::detail::enqueueImpKernel(
-        Queue, NodeImpl->MNDRDesc, NodeImpl->MArgs,
-        nullptr /* TODO: Handle KernelBundles */, NodeImpl->MKernel,
-        NodeImpl->MKernelName, NodeImpl->MOSModuleHandle, RawEvents, OutEvent,
-        nullptr /* TODO: Pass mem allocation func for accessors */,
-        PI_EXT_KERNEL_EXEC_INFO_CACHE_DEFAULT /* TODO: Extract from handler*/);
-    if (Res != pi_result::PI_SUCCESS) {
-      throw sycl::exception(
-          sycl::errc::kernel,
-          "Error during emulated graph command group submission.");
+
+    // If the node has no requirements for accessors etc. then we skip the
+    // scheduler and enqueue directly.
+    if (NodeImpl->MCGType == sycl::detail::CG::Kernel &&
+        NodeImpl->MRequirements.size() + NodeImpl->MStreamStorage.size() == 0) {
+      auto NewEvent = CreateNewEvent();
+      RT::PiEvent *OutEvent = &NewEvent->getHandleRef();
+      pi_int32 Res = sycl::detail::enqueueImpKernel(
+          Queue, NodeImpl->MNDRDesc, NodeImpl->MArgs,
+          nullptr /* TODO: Handle KernelBundles */, NodeImpl->MKernel,
+          NodeImpl->MKernelName, NodeImpl->MOSModuleHandle, RawEvents, OutEvent,
+          nullptr /* TODO: Pass mem allocation func for accessors */,PI_EXT_KERNEL_EXEC_INFO_CACHE_DEFAULT /* TODO: Extract from handler*/);
+      if (Res != pi_result::PI_SUCCESS) {
+        throw sycl::exception(
+            sycl::errc::kernel,
+            "Error during emulated graph command group submission.");
+      }
+      ScheduledEvents.push_back(NewEvent);
+    } else {
+      auto EventImpl = sycl::detail::createCommandAndEnqueue(
+          NodeImpl->MCGType, Queue, NodeImpl->MNDRDesc,
+          nullptr /* HostKernel */, nullptr /* HostTaskPtr */,
+          nullptr /* InteropTask */, NodeImpl->MKernel, NodeImpl->MKernelName,
+          nullptr /* KernelBundle */, NodeImpl->MArgStorage,
+          NodeImpl->MAccStorage, NodeImpl->MLocalAccStorage,
+          NodeImpl->MStreamStorage, {} /* shared_ptr storage */,
+          NodeImpl->MAuxiliaryResources, NodeImpl->MArgs, nullptr /* SrcPtr */,
+          nullptr /* DstPtr */, 0 /* Length */, {} /* Pattern */,
+          {} /* Advice */, NodeImpl->MRequirements, {} /* Events */,
+          {} /* Events w/ Barrier */, NodeImpl->MOSModuleHandle,
+          {} /* CodeLoc */);
+
+      ScheduledEvents.push_back(EventImpl);
     }
-    ScheduledEvents.push_back(NewEvent);
   }
   // Create an event which has all kernel events as dependencies
   auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
