@@ -373,7 +373,7 @@ public:
   /// sync points when enqueuing to a command buffer.
   /// \return an event object to wait on for command group completion.
   EventImplPtr addCG(std::unique_ptr<detail::CG> CommandGroup,
-                     QueueImplPtr Queue,
+                     const QueueImplPtr &Queue,
                      RT::PiExtCommandBuffer CommandBuffer = nullptr,
                      const std::vector<RT::PiExtSyncPoint> &Dependencies = {});
 
@@ -532,8 +532,6 @@ protected:
     /// Registers \ref CG "command group" and adds it to the dependency graph.
     ///
     /// \sa queue::submit, Scheduler::addCG
-    /// \tparam CommandType Type of command to use, since command buffers
-    /// require a different command to be used.
     /// \param CommandBuffer Optional command buffer to enqueue to instead of
     /// directly to the queue.
     /// \param Dependencies Optional list of dependency
@@ -542,7 +540,6 @@ protected:
     /// \return a command that represents command group execution and a bool
     /// indicating whether this command should be enqueued to the graph
     /// processor right away or not.
-    template <typename CommandType>
     GraphBuildResult addCG(std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Queue,
                    std::vector<Command *> &ToEnqueue,
                    RT::PiExtCommandBuffer CommandBuffer = nullptr,

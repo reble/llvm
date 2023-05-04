@@ -114,7 +114,9 @@ public:
     EXEC_CMD_BUFFER,
   };
 
-  Command(CommandType Type, QueueImplPtr Queue);
+  Command(CommandType Type, QueueImplPtr Queue,
+          RT::PiExtCommandBuffer CommandBuffer = nullptr,
+          const std::vector<RT::PiExtSyncPoint> &SyncPoints = {});
 
   /// \param NewDep dependency to be added
   /// \param ToCleanUp container for commands that can be cleaned up.
@@ -373,6 +375,16 @@ public:
   /// intersect with command enqueue.
   std::vector<EventImplPtr> MBlockedUsers;
   std::mutex MBlockedUsersMutex;
+
+protected:
+  /// Gets the command buffer (if any) associated with this command.
+  RT::PiExtCommandBuffer getCommandBuffer() const { return MCommandBuffer; }
+
+  /// CommandBuffer which will be used to submit to instead of the queue, if
+  /// set.
+  RT::PiExtCommandBuffer MCommandBuffer;
+  /// List of sync points for submissions to a command buffer.
+  std::vector<RT::PiExtSyncPoint> MSyncPointDeps;
 };
 
 /// The empty command does nothing during enqueue. The task can be used to
@@ -608,7 +620,9 @@ class KernelFusionCommand;
 /// operation.
 class ExecCGCommand : public Command {
 public:
-  ExecCGCommand(std::unique_ptr<detail::CG> CommandGroup, QueueImplPtr Queue);
+  ExecCGCommand(std::unique_ptr<detail::CG> CommandGroup, QueueImplPtr Queue,
+                RT::PiExtCommandBuffer CommandBuffer = nullptr,
+                const std::vector<RT::PiExtSyncPoint> &Dependencies = {});
 
   std::vector<std::shared_ptr<const void>> getAuxiliaryResources() const;
 
@@ -638,6 +652,8 @@ public:
 
 private:
   pi_int32 enqueueImp() final;
+  pi_int32 enqueueImpCommandBuffer();
+  pi_int32 enqueueImpQueue();
 
   AllocaCommandBase *getAllocaForReq(Requirement *Req);
 
@@ -698,38 +714,6 @@ private:
   std::vector<Command *> MAuxiliaryCommands;
 
   FusionStatus MStatus;
-};
-
-class CommandBufferEnqueueCGCommand : public Command {
-public:
-  CommandBufferEnqueueCGCommand(
-      std::unique_ptr<detail::CG> CommandGroup,
-      RT::PiExtCommandBuffer CommandBuffer,
-      const std::vector<RT::PiExtSyncPoint> &Dependencies, QueueImplPtr Queue);
-
-  detail::CG &getCG() const { return *MCommandGroup; }
-
-  std::vector<StreamImplPtr> getStreams() const;
-  std::vector<std::shared_ptr<const void>> getAuxiliaryResources() const;
-  void printDot(std::ostream &Stream) const final;
-  void emitInstrumentationData() final;
-
-  bool producesPiEvent() const final;
-
-  // MEmptyCmd is only employed if this command refers to host-task.
-  // The mechanism of lookup for single EmptyCommand amongst users of
-  // host-task-representing command is unreliable. This unreliability roots in
-  // the cleanup process.
-  EmptyCommand *MEmptyCmd = nullptr;
-
-private:
-  pi_int32 enqueueImp() final;
-  AllocaCommandBase *getAllocaForReq(Requirement *Req);
-  std::unique_ptr<detail::CG> MCommandGroup;
-  RT::PiExtCommandBuffer MCommandBuffer;
-  RT::PiExtSyncPoint MSyncPoint;
-  std::vector<RT::PiExtSyncPoint> MDependencies;
-  friend class Command;
 };
 
 // Enqueues a given kernel to a RT::PiExtCommandBuffer

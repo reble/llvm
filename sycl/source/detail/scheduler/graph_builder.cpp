@@ -929,33 +929,16 @@ static void combineAccessModesOfReqs(std::vector<Requirement *> &Reqs) {
   }
 }
 
-// Explicit instantiations for Scheduler::GraphBuilder::addCG
-template Scheduler::GraphBuildResult Scheduler::GraphBuilder::addCG<ExecCGCommand>(
-    std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Queue,
-    std::vector<Command *> &ToEnqueue, RT::PiExtCommandBuffer CommandBuffer,
-    const std::vector<RT::PiExtSyncPoint> &Dependencies);
-template Scheduler::GraphBuildResult Scheduler::GraphBuilder::addCG<CommandBufferEnqueueCGCommand>(
-    std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Queue,
-    std::vector<Command *> &ToEnqueue, RT::PiExtCommandBuffer CommandBuffer,
-    const std::vector<RT::PiExtSyncPoint> &Dependencies);
-
-template <typename CommandType>
 Scheduler::GraphBuildResult Scheduler::GraphBuilder::addCG(
     std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Queue,
     std::vector<Command *> &ToEnqueue, RT::PiExtCommandBuffer CommandBuffer,
     const std::vector<RT::PiExtSyncPoint> &Dependencies) {
   std::vector<Requirement *> &Reqs = CommandGroup->MRequirements;
-  const std::vector<detail::EventImplPtr> &Events = CommandGroup->MEvents;
-  const CG::CGTYPE CGType = CommandGroup->getType();
-  std::unique_ptr<CommandType> NewCmd;
+  std::vector<detail::EventImplPtr> &Events = CommandGroup->MEvents;
 
-  if constexpr (std::is_same_v<CommandType, ExecCGCommand>) {
-    NewCmd = std::make_unique<CommandType>(std::move(CommandGroup), Queue);
-  } else if constexpr (std::is_same_v<CommandType,
-                                      CommandBufferEnqueueCGCommand>) {
-    NewCmd = std::make_unique<CommandType>(
-        std::move(CommandGroup), CommandBuffer, std::move(Dependencies), Queue);
-  }
+  auto NewCmd = std::make_unique<ExecCGCommand>(
+      std::move(CommandGroup), Queue, CommandBuffer, std::move(Dependencies));
+
   if (!NewCmd)
     throw runtime_error("Out of host memory", PI_ERROR_OUT_OF_HOST_MEMORY);
 

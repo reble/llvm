@@ -313,7 +313,8 @@ std::shared_ptr<event_impl> createCommandAndEnqueue(
     std::vector<detail::AccessorImplHost *> Requirements,
     std::vector<detail::EventImplPtr> Events,
     std::vector<detail::EventImplPtr> EventsWaitWithBarrier,
-    detail::OSModuleHandle OSModHandle, detail::code_location CodeLoc);
+    detail::OSModuleHandle OSModHandle,
+    RT::PiKernelCacheConfig KernelCacheConfig, detail::code_location CodeLoc);
 
 } // namespace detail
 

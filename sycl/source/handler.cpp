@@ -41,7 +41,7 @@ bool isDeviceGlobalUsedInKernel(const void *DeviceGlobalPtr) {
 }
 
 std::shared_ptr<event_impl> createCommandAndEnqueue(
-    CG::CGTYPE Type, std::shared_ptr<detail::queue_impl> Queue, 
+    CG::CGTYPE Type, std::shared_ptr<detail::queue_impl> Queue,
     NDRDescT NDRDesc, std::unique_ptr<detail::HostKernelBase> HostKernel,
     std::unique_ptr<detail::HostTask> HostTaskPtr,
     std::unique_ptr<detail::InteropTask> InteropTask,
@@ -54,14 +54,16 @@ std::shared_ptr<event_impl> createCommandAndEnqueue(
     std::vector<std::shared_ptr<const void>> SharedPtrStorage,
     std::vector<std::shared_ptr<const void>> AuxiliaryResources,
     std::vector<detail::ArgDesc> Args, void *SrcPtr, void *DstPtr,
-    size_t Length, std::vector<char> Pattern,size_t SrcPitch, size_t DstPitch,
+    size_t Length, std::vector<char> Pattern, size_t SrcPitch, size_t DstPitch,
     size_t Width, size_t Height, size_t Offset, bool IsDeviceImageScoped,
     const std::string &HostPipeName, void *HostPipePtr, bool HostPipeBlocking,
     size_t HostPipeTypeSize, bool HostPipeRead, pi_mem_advice Advice,
     std::vector<detail::AccessorImplHost *> Requirements,
     std::vector<detail::EventImplPtr> Events,
     std::vector<detail::EventImplPtr> EventsWaitWithBarrier,
-    detail::OSModuleHandle OSModHandle, detail::code_location CodeLoc) {
+    detail::OSModuleHandle OSModHandle,
+    detail::RT::PiKernelCacheConfig KernelCacheConfig,
+    detail::code_location CodeLoc) {
   std::unique_ptr<detail::CG> CommandGroup;
   switch (Type) {
   case detail::CG::Kernel:
@@ -74,7 +76,7 @@ std::shared_ptr<event_impl> createCommandAndEnqueue(
         std::move(KernelBundle), std::move(ArgsStorage), std::move(AccStorage),
         std::move(SharedPtrStorage), std::move(Requirements), std::move(Events),
         std::move(Args), KernelName, OSModHandle, std::move(StreamStorage),
-        std::move(AuxiliaryResources), Type, CodeLoc));
+        std::move(AuxiliaryResources), Type, KernelCacheConfig, CodeLoc));
     break;
   }
   case detail::CG::CodeplayInteropTask:
@@ -453,9 +455,13 @@ event handler::finalize() {
       std::move(MAccStorage), std::move(MLocalAccStorage),
       std::move(MStreamStorage), std::move(MSharedPtrStorage),
       std::move(MImpl->MAuxiliaryResources), std::move(MArgs), MSrcPtr, MDstPtr,
-      MLength, std::move(MPattern), MImpl->MAdvice, std::move(MRequirements),
-      std::move(MEvents), std::move(MEventsWaitWithBarrier), MOSModuleHandle,
-      MCodeLoc);
+      MLength, std::move(MPattern), MImpl->MSrcPitch, MImpl->MDstPitch,
+      MImpl->MWidth, MImpl->MHeight, MImpl->MOffset,
+      MImpl->MIsDeviceImageScoped, MImpl->HostPipeName, MImpl->HostPipePtr,
+      MImpl->HostPipeBlocking, MImpl->HostPipeTypeSize, MImpl->HostPipeRead,
+      MImpl->MAdvice, std::move(MRequirements), std::move(MEvents),
+      std::move(MEventsWaitWithBarrier), MOSModuleHandle,
+      MImpl->MKernelCacheConfig, MCodeLoc);
 
   MLastEvent = detail::createSyclObjFromImpl<event>(EventImpl);
   return MLastEvent;

@@ -480,12 +480,14 @@ void Command::waitForEvents(QueueImplPtr Queue,
 /// It is safe to bind MPreparedDepsEvents and MPreparedHostDepsEvents
 /// references to event_impl class members because Command
 /// should not outlive the event connected to it.
-Command::Command(CommandType Type, QueueImplPtr Queue)
+Command::Command(CommandType Type, QueueImplPtr Queue,
+                 RT::PiExtCommandBuffer CommandBuffer,
+                 const std::vector<RT::PiExtSyncPoint> &SyncPoints)
     : MQueue(std::move(Queue)),
       MEvent(std::make_shared<detail::event_impl>(MQueue)),
       MPreparedDepsEvents(MEvent->getPreparedDepsEvents()),
-      MPreparedHostDepsEvents(MEvent->getPreparedHostDepsEvents()),
-      MType(Type) {
+      MPreparedHostDepsEvents(MEvent->getPreparedHostDepsEvents()), MType(Type),
+      MCommandBuffer(CommandBuffer), MSyncPointDeps(SyncPoints) {
   MWorkerQueue = MQueue;
   MEvent->setWorkerQueue(MWorkerQueue);
   MEvent->setSubmittedQueue(MWorkerQueue);
@@ -1839,9 +1841,12 @@ static std::string cgTypeToString(detail::CG::CGTYPE Type) {
   }
 }
 
-ExecCGCommand::ExecCGCommand(std::unique_ptr<detail::CG> CommandGroup,
-                             QueueImplPtr Queue)
-    : Command(CommandType::RUN_CG, std::move(Queue)),
+ExecCGCommand::ExecCGCommand(
+    std::unique_ptr<detail::CG> CommandGroup, QueueImplPtr Queue,
+    RT::PiExtCommandBuffer CommandBuffer,
+    const std::vector<RT::PiExtSyncPoint> &Dependencies)
+    : Command(CommandType::RUN_CG, std::move(Queue), CommandBuffer,
+              Dependencies),
       MCommandGroup(std::move(CommandGroup)) {
   if (MCommandGroup->getType() == detail::CG::CodeplayHostTask) {
     MEvent->setSubmittedQueue(
@@ -2245,19 +2250,13 @@ pi_int32 enqueueImpCommandBufferKernel(
   pi_program PiProgram = nullptr;
 
   auto Kernel = SyclKernel;
+  const KernelArgMask *EliminatedArgMask;
   if (Kernel != nullptr) {
     PiKernel = Kernel->getHandleRef();
   } else {
-    std::tie(PiKernel, KernelMutex, PiProgram) =
+    std::tie(PiKernel, KernelMutex, EliminatedArgMask, PiProgram) =
         sycl::detail::ProgramManager::getInstance().getOrCreateKernel(
             OSModuleHandle, ContextImpl, DeviceImpl, KernelName, nullptr);
-  }
-
-  sycl::detail::ProgramManager::KernelArgMask EliminatedArgMask;
-  if (nullptr == Kernel || !Kernel->isCreatedFromSource()) {
-    EliminatedArgMask =
-        sycl::detail::ProgramManager::getInstance().getEliminatedKernelArgMask(
-            OSModuleHandle, PiProgram, KernelName);
   }
 
   auto SetFunc = [&Plugin, &PiKernel, &Ctx, &getMemAllocationFunc](
@@ -2477,7 +2476,64 @@ pi_int32 enqueueReadWriteHostPipe(const QueueImplPtr &Queue,
   return Error;
 }
 
+pi_int32 ExecCGCommand::enqueueImpCommandBuffer() {
+  std::vector<EventImplPtr> EventImpls = MPreparedDepsEvents;
+  auto RawEvents = getPiEvents(EventImpls);
+  flushCrossQueueDeps(EventImpls, getWorkerQueue());
+
+  RT::PiEvent *Event = (MQueue->has_discard_events_support() &&
+                        MCommandGroup->MRequirements.size() == 0)
+                           ? nullptr
+                           : &MEvent->getHandleRef();
+  switch (MCommandGroup->getType()) {
+  case CG::CGTYPE::Kernel: {
+    CGExecKernel *ExecKernel = (CGExecKernel *)MCommandGroup.get();
+
+    NDRDescT &NDRDesc = ExecKernel->MNDRDesc;
+    std::vector<ArgDesc> &Args = ExecKernel->MArgs;
+
+    auto getMemAllocationFunc = [this](Requirement *Req) {
+      AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
+      return AllocaCmd->getMemAllocation();
+    };
+
+    const std::shared_ptr<detail::kernel_impl> &SyclKernel =
+        ExecKernel->MSyclKernel;
+    const std::string &KernelName = ExecKernel->MKernelName;
+    const detail::OSModuleHandle &OSModuleHandle = ExecKernel->MOSModuleHandle;
+
+    if (!Event) {
+      // Kernel only uses assert if it's non interop one
+      bool KernelUsesAssert = !(SyclKernel && SyclKernel->isInterop()) &&
+                              ProgramManager::getInstance().kernelUsesAssert(
+                                  OSModuleHandle, KernelName);
+      if (KernelUsesAssert) {
+        Event = &MEvent->getHandleRef();
+      }
+    }
+    RT::PiExtSyncPoint OutSyncPoint;
+    auto result = enqueueImpCommandBufferKernel(
+        MQueue->get_context(), MQueue->getDeviceImplPtr(), MCommandBuffer,
+        NDRDesc, Args, ExecKernel->getKernelBundle(), SyclKernel, KernelName,
+        OSModuleHandle, MSyncPointDeps, &OutSyncPoint, getMemAllocationFunc);
+    MEvent->setSyncPoint(OutSyncPoint);
+    return result;
+  }
+  default:
+    throw runtime_error("CG type not implemented for command buffers.",
+                        PI_ERROR_INVALID_OPERATION);
+  }
+}
+
 pi_int32 ExecCGCommand::enqueueImp() {
+  if (MCommandBuffer) {
+    return enqueueImpCommandBuffer();
+  } else {
+    return enqueueImpQueue();
+  }
+}
+
+pi_int32 ExecCGCommand::enqueueImpQueue() {
   if (getCG().getType() != CG::CGTYPE::CodeplayHostTask)
     waitForPreparedHostEvents();
   std::vector<EventImplPtr> EventImpls = MPreparedDepsEvents;
@@ -2917,7 +2973,8 @@ pi_int32 ExecCGCommand::enqueueImp() {
 }
 
 bool ExecCGCommand::producesPiEvent() const {
-  return MCommandGroup->getType() != CG::CGTYPE::CodeplayHostTask;
+  return !MCommandBuffer &&
+         MCommandGroup->getType() != CG::CGTYPE::CodeplayHostTask;
 }
 
 bool ExecCGCommand::supportsPostEnqueueCleanup() const {
@@ -3049,91 +3106,6 @@ void KernelFusionCommand::printDot(std::ostream &Stream) const {
            << std::endl;
   }
 }
-
-CommandBufferEnqueueCGCommand::CommandBufferEnqueueCGCommand(
-    std::unique_ptr<detail::CG> CommandGroup,
-    RT::PiExtCommandBuffer CommandBuffer,
-    const std::vector<RT::PiExtSyncPoint> &Dependencies, QueueImplPtr Queue)
-    : Command(CommandType::ENQUEUE_TO_CMD_BUFFER, Queue),
-      MCommandGroup(std::move(CommandGroup)), MCommandBuffer(CommandBuffer),
-      MSyncPoint(), MDependencies(Dependencies) {}
-
-std::vector<StreamImplPtr> CommandBufferEnqueueCGCommand::getStreams() const {
-  // Not implemented
-  return {};
-}
-std::vector<std::shared_ptr<const void>>
-CommandBufferEnqueueCGCommand::getAuxiliaryResources() const {
-  // Not implemented
-  return {};
-}
-void CommandBufferEnqueueCGCommand::printDot(std::ostream &Stream) const {
-  // Not implemented
-  (void)Stream;
-}
-void CommandBufferEnqueueCGCommand::emitInstrumentationData() {
-  // Not implemented
-}
-pi_int32 CommandBufferEnqueueCGCommand::enqueueImp() {
-  std::vector<EventImplPtr> EventImpls = MPreparedDepsEvents;
-  auto RawEvents = getPiEvents(EventImpls);
-  flushCrossQueueDeps(EventImpls, getWorkerQueue());
-
-  RT::PiEvent *Event = (MQueue->has_discard_events_support() &&
-                        MCommandGroup->MRequirements.size() == 0)
-                           ? nullptr
-                           : &MEvent->getHandleRef();
-  switch (MCommandGroup->getType()) {
-  case CG::CGTYPE::Kernel: {
-    CGExecKernel *ExecKernel = (CGExecKernel *)MCommandGroup.get();
-
-    NDRDescT &NDRDesc = ExecKernel->MNDRDesc;
-    std::vector<ArgDesc> &Args = ExecKernel->MArgs;
-
-    auto getMemAllocationFunc = [this](Requirement *Req) {
-      AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
-      return AllocaCmd->getMemAllocation();
-    };
-
-    const std::shared_ptr<detail::kernel_impl> &SyclKernel =
-        ExecKernel->MSyclKernel;
-    const std::string &KernelName = ExecKernel->MKernelName;
-    const detail::OSModuleHandle &OSModuleHandle = ExecKernel->MOSModuleHandle;
-
-    if (!Event) {
-      // Kernel only uses assert if it's non interop one
-      bool KernelUsesAssert = !(SyclKernel && SyclKernel->isInterop()) &&
-                              ProgramManager::getInstance().kernelUsesAssert(
-                                  OSModuleHandle, KernelName);
-      if (KernelUsesAssert) {
-        Event = &MEvent->getHandleRef();
-      }
-    }
-    RT::PiExtSyncPoint OutSyncPoint;
-    auto result = enqueueImpCommandBufferKernel(
-        MQueue->get_context(), MQueue->getDeviceImplPtr(), MCommandBuffer,
-        NDRDesc, Args, ExecKernel->getKernelBundle(), SyclKernel, KernelName,
-        OSModuleHandle, MDependencies, &OutSyncPoint, getMemAllocationFunc);
-    MEvent->setSyncPoint(OutSyncPoint);
-    return result;
-  }
-  default:
-    throw runtime_error("CG type not implemented for command buffers.",
-                        PI_ERROR_INVALID_OPERATION);
-  }
-}
-
-AllocaCommandBase *
-CommandBufferEnqueueCGCommand::getAllocaForReq(Requirement *Req) {
-  for (const DepDesc &Dep : MDeps) {
-    if (Dep.MDepRequirement == Req)
-      return Dep.MAllocaCmd;
-  }
-  throw runtime_error("Alloca for command not found",
-                      PI_ERROR_INVALID_OPERATION);
-}
-
-bool CommandBufferEnqueueCGCommand::producesPiEvent() const { return false; }
 
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)

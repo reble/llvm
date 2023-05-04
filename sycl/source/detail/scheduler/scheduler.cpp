@@ -124,10 +124,9 @@ Scheduler::addCG(std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Q
                                              DefaultHostQueue, AuxiliaryCmds);
       NewEvent = NewCmd->getEvent();
       break;
-    case CG::CodeplayHostTask:
-      auto Result = MGraphBuilder.addCG<ExecCGCommand>(
-          std::move(CommandGroup), DefaultHostQueue, AuxiliaryCmds);
-          
+    case CG::CodeplayHostTask: {
+      auto Result = MGraphBuilder.addCG(std::move(CommandGroup),
+                                        DefaultHostQueue, AuxiliaryCmds);
       NewCmd = Result.NewCmd;
       NewEvent = Result.NewEvent;
       ShouldEnqueue = Result.ShouldEnqueue;
@@ -135,16 +134,9 @@ Scheduler::addCG(std::unique_ptr<detail::CG> CommandGroup, const QueueImplPtr &Q
     }
     default:
       auto Result = MGraphBuilder.addCG(std::move(CommandGroup),
-                                        std::move(Queue), AuxiliaryCmds);
-      GraphBuilderResult Result;
-      if (CommandBuffer) {
-        Result = MGraphBuilder.addCG<CommandBufferEnqueueCGCommand>(
-            std::move(CommandGroup), std::move(Queue), AuxiliaryCmds,
-            CommandBuffer, std::move(Dependencies));
-      } else {
-        Result = MGraphBuilder.addCG<ExecCGCommand>(
-            std::move(CommandGroup), std::move(Queue), AuxiliaryCmds);
-      }
+                                        std::move(Queue), AuxiliaryCmds,
+                                        CommandBuffer, std::move(Dependencies));
+
       NewCmd = Result.NewCmd;
       NewEvent = Result.NewEvent;
       ShouldEnqueue = Result.ShouldEnqueue;

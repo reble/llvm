@@ -435,8 +435,15 @@ sycl::event exec_graph_impl::enqueue(
           NodeImpl->MStreamStorage, {} /* shared_ptr storage */,
           NodeImpl->MAuxiliaryResources, NodeImpl->MArgs, nullptr /* SrcPtr */,
           nullptr /* DstPtr */, 0 /* Length */, {} /* Pattern */,
-          {} /* Advice */, NodeImpl->MRequirements, {} /* Events */,
-          {} /* Events w/ Barrier */, NodeImpl->MOSModuleHandle,
+          0 /* SrcPitch */, 0 /* DstPitch */, 0 /* Width */, 0 /* Height */,
+          0 /* Offset */, false /* IsDeviceImageScoped */,
+          {} /* HostPipeName */, nullptr /* HostPipePtr */,
+          false /* HostPipeBlocking */, 0 /* HostPipeTypeSize */,
+          false /* HostPipeRead */, {} /* Advice */, NodeImpl->MRequirements,
+          {} /* Events */, {} /* Events w/ Barrier */,
+          NodeImpl->MOSModuleHandle,
+          PI_EXT_KERNEL_EXEC_INFO_CACHE_DEFAULT
+          /* KernelCacheConfig */,
           {} /* CodeLoc */);
 
       ScheduledEvents.push_back(EventImpl);
