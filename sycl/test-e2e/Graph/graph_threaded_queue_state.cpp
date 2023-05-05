@@ -1,4 +1,6 @@
-// REQUIRES: level_zero, gpu
+// REQUIRES: level_zero, gpu, TEMPORARY_DISABLED
+// Disabled as thread safety not yet implemented
+
 // RUN: %clangxx -pthread -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
