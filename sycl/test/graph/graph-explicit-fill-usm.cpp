@@ -13,7 +13,7 @@ int main() {
   const size_t n = 10;
   float *arr = sycl::malloc_shared<float>(n, q);
 
-  float pattern = 3.14;
+  float pattern = 3.14f;
   auto nodeA = g.add([&](sycl::handler &h) { h.fill(arr, pattern, n); });
 
   auto executable_graph = g.finalize();
