@@ -10,9 +10,6 @@
 
 #include "graph_common.hpp"
 
-class kernel_mod_a;
-class kernel_mod_b;
-
 int main() {
   queue testQueue;
 
@@ -55,7 +52,7 @@ int main() {
   // Read & write A
   auto nodeB = graph.add(
       [&](handler &cgh) {
-        cgh.parallel_for<kernel_mod_a>(range<1>(size), [=](item<1> id) {
+        cgh.parallel_for(range<1>(size), [=](item<1> id) {
           auto linID = id.get_linear_id();
           ptrA[linID] += modValue;
         });
@@ -69,7 +66,7 @@ int main() {
   // Read and write B
   auto nodeD = graph.add(
       [&](handler &cgh) {
-        cgh.parallel_for<kernel_mod_b>(range<1>(size), [=](item<1> id) {
+        cgh.parallel_for(range<1>(size), [=](item<1> id) {
           auto linID = id.get_linear_id();
           ptrB[linID] += modValue;
         });

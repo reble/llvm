@@ -9,9 +9,6 @@
 
 #include "graph_common.hpp"
 
-class host_task_add;
-class host_task_inc;
-
 int main() {
   queue testQueue;
 
@@ -53,8 +50,8 @@ int main() {
 
   // Vector add to output
   event node1 = testQueue.submit([&](handler &cgh) {
-    cgh.parallel_for<host_task_add>(
-        range<1>(size), [=](item<1> id) { ptrC[id] += ptrA[id] + ptrB[id]; });
+    cgh.parallel_for(range<1>(size),
+                     [=](item<1> id) { ptrC[id] += ptrA[id] + ptrB[id]; });
   });
 
   // Modify the output values in a host_task
@@ -70,8 +67,7 @@ int main() {
   // Modify temp buffer and write to output buffer
   testQueue.submit([&](handler &cgh) {
     cgh.depends_on(node2);
-    cgh.parallel_for<host_task_inc>(range<1>(size),
-                                    [=](item<1> id) { ptrC[id] += 1; });
+    cgh.parallel_for(range<1>(size), [=](item<1> id) { ptrC[id] += 1; });
   });
   graph.end_recording();
 

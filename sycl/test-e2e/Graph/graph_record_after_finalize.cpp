@@ -7,9 +7,6 @@
 
 #include "graph_common.hpp"
 
-class vector_plus_equals;
-class write_to_output;
-
 int main() {
   queue testQueue;
 
@@ -51,8 +48,8 @@ int main() {
 
   // Vector add to some buffer
   auto e = testQueue.submit([&](handler &cgh) {
-    cgh.parallel_for<vector_plus_equals>(
-        range<1>(size), [=](item<1> id) { ptrC[id] += ptrA[id] + ptrB[id]; });
+    cgh.parallel_for(range<1>(size),
+                     [=](item<1> id) { ptrC[id] += ptrA[id] + ptrB[id]; });
   });
 
   auto graphExec = graph.finalize();
@@ -60,8 +57,8 @@ int main() {
   // Read and modify previous output and write to output buffer
   e = testQueue.submit([&](handler &cgh) {
     cgh.depends_on(e);
-    cgh.parallel_for<write_to_output>(
-        range<1>(size), [=](item<1> id) { ptrOut[id] += ptrC[id] + 1; });
+    cgh.parallel_for(range<1>(size),
+                     [=](item<1> id) { ptrOut[id] += ptrC[id] + 1; });
   });
   graph.end_recording();
 

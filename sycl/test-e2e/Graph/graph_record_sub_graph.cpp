@@ -7,11 +7,6 @@
 
 #include "graph_common.hpp"
 
-class sub_vec_add_kernel;
-class sub_subtract_kernel;
-class mod_input_kernel;
-class copy_out_kernel;
-
 int main() {
   queue testQueue;
 
@@ -62,15 +57,15 @@ int main() {
 
   // Vector add two values
   auto nodeSubA = testQueue.submit([&](handler &cgh) {
-    cgh.parallel_for<sub_vec_add_kernel>(
-        range<1>(size), [=](item<1> id) { ptrC[id] = ptrA[id] + ptrB[id]; });
+    cgh.parallel_for(range<1>(size),
+                     [=](item<1> id) { ptrC[id] = ptrA[id] + ptrB[id]; });
   });
 
   // Modify the output value with some other value
   testQueue.submit([&](handler &cgh) {
     cgh.depends_on(nodeSubA);
-    cgh.parallel_for<sub_subtract_kernel>(
-        range<1>(size), [=](item<1> id) { ptrC[id] -= mod_value; });
+    cgh.parallel_for(range<1>(size),
+                     [=](item<1> id) { ptrC[id] -= mod_value; });
   });
 
   subGraph.end_recording();
@@ -84,7 +79,7 @@ int main() {
 
   // Modify the input values.
   auto nodeMainA = testQueue.submit([&](handler &cgh) {
-    cgh.parallel_for<mod_input_kernel>(range<1>(size), [=](item<1> id) {
+    cgh.parallel_for(range<1>(size), [=](item<1> id) {
       ptrA[id] += mod_value;
       ptrB[id] += mod_value;
     });
@@ -98,8 +93,8 @@ int main() {
   // Copy to another output buffer.
   testQueue.submit([&](handler &cgh) {
     cgh.depends_on(nodeMainB);
-    cgh.parallel_for<copy_out_kernel>(
-        range<1>(size), [=](item<1> id) { ptrOut[id] = ptrC[id] + mod_value; });
+    cgh.parallel_for(range<1>(size),
+                     [=](item<1> id) { ptrOut[id] = ptrC[id] + mod_value; });
   });
 
   mainGraph.end_recording();

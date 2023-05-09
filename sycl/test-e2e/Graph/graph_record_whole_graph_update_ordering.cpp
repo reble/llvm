@@ -11,8 +11,6 @@
 #include "graph_common.hpp"
 #include <thread>
 
-class host_task_test;
-
 int main() {
   queue testQueue;
 

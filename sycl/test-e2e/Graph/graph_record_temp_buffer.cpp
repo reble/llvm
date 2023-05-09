@@ -10,9 +10,6 @@
 
 #include "graph_common.hpp"
 
-class vector_add_temp;
-class temp_write;
-
 int main() {
   queue testQueue;
 
@@ -55,17 +52,16 @@ int main() {
         auto ptrA = bufferA.get_access<access::mode::read>(cgh);
         auto ptrB = bufferB.get_access<access::mode::read>(cgh);
         auto ptrOut = bufferTemp.get_access<access::mode::write>(cgh);
-        cgh.parallel_for<vector_add_temp>(range<1>(size), [=](item<1> id) {
-          ptrOut[id] = ptrA[id] + ptrB[id];
-        });
+        cgh.parallel_for(range<1>(size),
+                         [=](item<1> id) { ptrOut[id] = ptrA[id] + ptrB[id]; });
       });
 
       // Modify temp buffer and write to output buffer
       testQueue.submit([&](handler &cgh) {
         auto ptrTemp = bufferTemp.get_access<access::mode::read>(cgh);
         auto ptrOut = bufferC.get_access<access::mode::write>(cgh);
-        cgh.parallel_for<temp_write>(
-            range<1>(size), [=](item<1> id) { ptrOut[id] += ptrTemp[id] + 1; });
+        cgh.parallel_for(range<1>(size),
+                         [=](item<1> id) { ptrOut[id] += ptrTemp[id] + 1; });
       });
       graph.end_recording();
     }

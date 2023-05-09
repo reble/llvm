@@ -13,12 +13,6 @@ namespace exp_ext = sycl::ext::oneapi::experimental;
 // Make tests less verbose by using sycl namespace.
 using namespace sycl;
 
-// Kernel declarations for use in run_kernels().
-class increment_kernel;
-class add_kernel;
-class subtract_kernel;
-class decrement_kernel;
-
 // We have 4 versions of the same kernel sequence for testing a combination
 // of graph construction API against memory model. Each submits the same pattern
 /// of 4 kernels with a diamond dependency.
@@ -66,8 +60,7 @@ event run_kernels(queue Q, const size_t Size, buffer<T> BufferA,
   // Read & write Buffer A.
   Q.submit([&](handler &CGH) {
     auto DataA = BufferA.get_access<access::mode::read_write>(CGH);
-    CGH.parallel_for<increment_kernel>(range<1>(Size),
-                                       [=](item<1> Id) { DataA[Id]++; });
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) { DataA[Id]++; });
   });
 
   // Reads Buffer A.
@@ -75,8 +68,8 @@ event run_kernels(queue Q, const size_t Size, buffer<T> BufferA,
   Q.submit([&](handler &CGH) {
     auto DataA = BufferA.get_access<access::mode::read>(CGH);
     auto DataB = BufferB.get_access<access::mode::read_write>(CGH);
-    CGH.parallel_for<add_kernel>(range<1>(Size),
-                                 [=](item<1> Id) { DataB[Id] += DataA[Id]; });
+    CGH.parallel_for(range<1>(Size),
+                     [=](item<1> Id) { DataB[Id] += DataA[Id]; });
   });
 
   // Reads Buffer A.
@@ -84,15 +77,15 @@ event run_kernels(queue Q, const size_t Size, buffer<T> BufferA,
   Q.submit([&](handler &CGH) {
     auto DataA = BufferA.get_access<access::mode::read>(CGH);
     auto DataC = BufferC.get_access<access::mode::read_write>(CGH);
-    CGH.parallel_for<subtract_kernel>(
-        range<1>(Size), [=](item<1> Id) { DataC[Id] -= DataA[Id]; });
+    CGH.parallel_for(range<1>(Size),
+                     [=](item<1> Id) { DataC[Id] -= DataA[Id]; });
   });
 
   // Read & write Buffers B and C.
   auto ExitEvent = Q.submit([&](handler &CGH) {
     auto DataB = BufferB.get_access<access::mode::read_write>(CGH);
     auto DataC = BufferC.get_access<access::mode::read_write>(CGH);
-    CGH.parallel_for<decrement_kernel>(range<1>(Size), [=](item<1> Id) {
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
       DataB[Id]--;
       DataC[Id]--;
     });
@@ -118,8 +111,7 @@ add_kernels(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
   // Read & write Buffer A
   Graph.add([&](handler &CGH) {
     auto DataA = BufferA.get_access<access::mode::read_write>(CGH);
-    CGH.parallel_for<increment_kernel>(range<1>(Size),
-                                       [=](item<1> Id) { DataA[Id]++; });
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) { DataA[Id]++; });
   });
 
   // Reads Buffer A
@@ -127,8 +119,8 @@ add_kernels(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
   Graph.add([&](handler &CGH) {
     auto DataA = BufferA.get_access<access::mode::read>(CGH);
     auto DataB = BufferB.get_access<access::mode::read_write>(CGH);
-    CGH.parallel_for<add_kernel>(range<1>(Size),
-                                 [=](item<1> Id) { DataB[Id] += DataA[Id]; });
+    CGH.parallel_for(range<1>(Size),
+                     [=](item<1> Id) { DataB[Id] += DataA[Id]; });
   });
 
   // Reads Buffer A
@@ -136,27 +128,21 @@ add_kernels(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
   Graph.add([&](handler &CGH) {
     auto DataA = BufferA.get_access<access::mode::read>(CGH);
     auto DataC = BufferC.get_access<access::mode::read_write>(CGH);
-    CGH.parallel_for<subtract_kernel>(
-        range<1>(Size), [=](item<1> Id) { DataC[Id] -= DataA[Id]; });
+    CGH.parallel_for(range<1>(Size),
+                     [=](item<1> Id) { DataC[Id] -= DataA[Id]; });
   });
 
   // Read & write Buffers B and C
   auto ExitNode = Graph.add([&](handler &CGH) {
     auto DataB = BufferB.get_access<access::mode::read_write>(CGH);
     auto DataC = BufferC.get_access<access::mode::read_write>(CGH);
-    CGH.parallel_for<decrement_kernel>(range<1>(Size), [=](item<1> Id) {
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
       DataB[Id]--;
       DataC[Id]--;
     });
   });
   return ExitNode;
 }
-
-// Kernel declarations for use in run_kernels_usm().
-class increment_kernel_usm;
-class add_kernel_usm;
-class subtract_kernel_usm;
-class decrement_kernel_usm;
 
 //// Test Explicit API graph construction with USM.
 ///
@@ -172,7 +158,7 @@ event run_kernels_usm(queue Q, const size_t Size, T *DataA, T *DataB,
                       T *DataC) {
   // Read & write Buffer A
   auto EventA = Q.submit([&](handler &CGH) {
-    CGH.parallel_for<increment_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
       auto LinID = Id.get_linear_id();
       DataA[LinID]++;
     });
@@ -182,7 +168,7 @@ event run_kernels_usm(queue Q, const size_t Size, T *DataA, T *DataB,
   // Read & Write Buffer B
   auto EventB = Q.submit([&](handler &CGH) {
     CGH.depends_on(EventA);
-    CGH.parallel_for<add_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
       auto LinID = Id.get_linear_id();
       DataB[LinID] += DataA[LinID];
     });
@@ -192,7 +178,7 @@ event run_kernels_usm(queue Q, const size_t Size, T *DataA, T *DataB,
   // Read & writes Buffer C
   auto EventC = Q.submit([&](handler &CGH) {
     CGH.depends_on(EventA);
-    CGH.parallel_for<subtract_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
       auto LinID = Id.get_linear_id();
       DataC[LinID] -= DataA[LinID];
     });
@@ -201,7 +187,7 @@ event run_kernels_usm(queue Q, const size_t Size, T *DataA, T *DataB,
   // Read & write Buffers B and C
   auto ExitEvent = Q.submit([&](handler &CGH) {
     CGH.depends_on({EventB, EventC});
-    CGH.parallel_for<decrement_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
       auto LinID = Id.get_linear_id();
       DataB[LinID]--;
       DataC[LinID]--;
@@ -225,7 +211,7 @@ add_kernels_usm(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
                 const size_t Size, T *DataA, T *DataB, T *DataC) {
   // Read & write Buffer A
   auto NodeA = Graph.add([&](handler &CGH) {
-    CGH.parallel_for<increment_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+    CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
       auto LinID = Id.get_linear_id();
       DataA[LinID]++;
     });
@@ -235,7 +221,7 @@ add_kernels_usm(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
   // Read & Write Buffer B
   auto NodeB = Graph.add(
       [&](handler &CGH) {
-        CGH.parallel_for<add_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+        CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
           auto LinID = Id.get_linear_id();
           DataB[LinID] += DataA[LinID];
         });
@@ -246,7 +232,7 @@ add_kernels_usm(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
   // Read & writes Buffer C
   auto NodeC = Graph.add(
       [&](handler &CGH) {
-        CGH.parallel_for<subtract_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+        CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
           auto LinID = Id.get_linear_id();
           DataC[LinID] -= DataA[LinID];
         });
@@ -256,7 +242,7 @@ add_kernels_usm(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
   // Read & write data B and C
   auto ExitNode = Graph.add(
       [&](handler &CGH) {
-        CGH.parallel_for<decrement_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+        CGH.parallel_for(range<1>(Size), [=](item<1> Id) {
           auto LinID = Id.get_linear_id();
           DataB[LinID]--;
           DataC[LinID]--;

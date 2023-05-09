@@ -10,8 +10,6 @@
 
 #include "graph_common.hpp"
 
-class stream_kernel;
-
 int main() {
   queue testQueue;
 
@@ -31,7 +29,7 @@ int main() {
   // Vector add to temporary output buffer
   graph.add([&](handler &cgh) {
     sycl::stream out(work_items * 16, 16, cgh);
-    cgh.parallel_for<stream_kernel>(range<1>(work_items), [=](item<1> id) {
+    cgh.parallel_for(range<1>(work_items), [=](item<1> id) {
       out << "Val: " << ptrIn[id.get_linear_id()] << sycl::endl;
     });
   });
