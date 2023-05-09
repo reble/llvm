@@ -50,10 +50,11 @@ struct node_impl {
   std::vector<sycl::detail::AccessorImplPtr> MAccStorage;
   /// Local accessor storage for node arguments.
   std::vector<sycl::detail::LocalAccessorImplPtr> MLocalAccStorage;
+  // Streams associated with the node.
   std::vector<std::shared_ptr<sycl::detail::stream_impl>> MStreamStorage;
-
   /// The list of requirements to the node for the scheduling.
   std::vector<sycl::detail::AccessorImplHost *> MRequirements;
+  /// Type of the command-group for the node.
   sycl::detail::CG::CGTYPE MCGType = sycl::detail::CG::None;
 
   /// Store arg descriptors for the kernel arguments.
@@ -96,8 +97,9 @@ struct node_impl {
   /// @param KernelName Name of kernel.
   /// @param AccStorage Accessor storage for node arguments.
   /// @param LocalAccStorage Local accessor storage for node arguments.
-  /// @param Requirements Scheduling requirements.
+  /// @param CGType Type of the command-group.
   /// @param Args Kernel arguments.
+  /// @param AuxiliaryResources Auxiliary resources used by internal operations.
   node_impl(
       std::shared_ptr<sycl::detail::kernel_impl> Kernel,
       sycl::detail::NDRDescT NDRDesc,
@@ -105,12 +107,12 @@ struct node_impl {
       const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
       const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
       sycl::detail::CG::CGTYPE CGType,
-      const std::vector<sycl::detail::ArgDesc> &args,
+      const std::vector<sycl::detail::ArgDesc> &Args,
       const std::vector<std::shared_ptr<const void>> &AuxiliaryResources)
       : MKernel(Kernel), MNDRDesc(NDRDesc), MOSModuleHandle(OSModuleHandle),
         MKernelName(KernelName), MAccStorage(AccStorage),
         MLocalAccStorage(LocalAccStorage), MRequirements(), MCGType(CGType),
-        MArgs(args), MArgStorage(), MAuxiliaryResources(AuxiliaryResources) {
+        MArgs(Args), MArgStorage(), MAuxiliaryResources(AuxiliaryResources) {
 
     // Need to copy the arg values to node local storage so that they don't go
     // out of scope before execution
@@ -193,8 +195,9 @@ struct graph_impl {
   /// @param KernelName Name of kernel.
   /// @param AccStorage Accessor storage for node arguments.
   /// @param LocalAccStorage Local accessor storage for node arguments.
-  /// @param Requirements Scheduling requirements.
+  /// @param CGType Type of the command-group.
   /// @param Args Node arguments.
+  /// @param AuxiliaryResources Auxiliary resources used by internal operations.
   /// @param Dep Dependencies of the created node.
   /// @param DepEvents Dependent events of the created node.
   /// @return Created node in the graph.
@@ -348,10 +351,25 @@ public:
   }
 
 private:
+  /// Create a command-group for the node and add it to command-buffer by going
+  /// through the scheduler.
+  /// @param Ctx Context to use.
+  /// @param DeviceImpl Device associated with the enqueue.
+  /// @param CommandBuffer Command-buffer to add node to as a command.
+  /// @param Node The node being enqueued.
+  /// @return PI sync point created for this node in the command-buffer.
   RT::PiExtSyncPoint enqueue_node(sycl::context Ctx,
                                   sycl::detail::DeviceImplPtr DeviceImpl,
                                   RT::PiExtCommandBuffer CommandBuffer,
                                   std::shared_ptr<node_impl> Node);
+
+  /// Enqueue a node directly to the command-buffer without going through the
+  /// scheduler.
+  /// @param Ctx Context to use.
+  /// @param DeviceImpl Device associated with the enqueue.
+  /// @param CommandBuffer Command-buffer to add node to as a command.
+  /// @param Node The node being enqueued.
+  /// @return PI sync point created for this node in the command-buffer.
   RT::PiExtSyncPoint enqueue_node_direct(sycl::context Ctx,
                                          sycl::detail::DeviceImplPtr DeviceImpl,
                                          RT::PiExtCommandBuffer CommandBuffer,
@@ -370,16 +388,14 @@ private:
   std::shared_ptr<graph_impl> MGraphImpl;
   /// Map of devices to command buffers.
   std::unordered_map<sycl::device, RT::PiExtCommandBuffer> MPiCommandBuffers;
-  /// Map of devices to command buffers.
-  std::unordered_map<sycl::device, pi_ext_command_buffer> MPiCommandBuffers;
   /// Map of nodes in the exec graph to the sync point representing their
   /// execution in the command graph.
   std::unordered_map<std::shared_ptr<node_impl>, RT::PiExtSyncPoint>
       MPiSyncPoints;
   /// Context associated with this executable graph.
   sycl::context MContext;
-  // List of requirements for enqueueing this command graph, accumulated from
-  // all nodes enqueued to the graph.
+  /// List of requirements for enqueueing this command graph, accumulated from
+  /// all nodes enqueued to the graph.
   std::vector<sycl::detail::AccessorImplHost *> MRequirements;
 };
 

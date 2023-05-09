@@ -38,6 +38,7 @@ enum class graph_state {
   executable, ///< In executable state, the graph is ready to execute.
 };
 
+// Forward declaration
 class node;
 
 namespace property {
@@ -125,8 +126,8 @@ public:
   }
 
   /// Add a dependency between two nodes.
-  /// @param Src Node which will be a dependency of \p dest.
-  /// @param Dest Node which will be dependent on \p src.
+  /// @param Src Node which will be a dependency of \p Dest.
+  /// @param Dest Node which will be dependent on \p Src.
   void make_edge(node &Src, node &Dest);
 
   /// Finalize modifiable graph into an executable graph.

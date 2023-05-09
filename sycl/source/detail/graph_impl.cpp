@@ -46,13 +46,11 @@ void connect_to_exit_nodes(
 
 /// Recursive check if a graph node or its successors contains a given kernel
 /// argument.
-///
 /// @param[in] Arg The kernel argument to check for.
 /// @param[in] CurrentNode The current graph node being checked.
 /// @param[in,out] Deps The unique list of dependencies which have been
 /// identified for this arg.
-///
-/// @return True if a dependency was added in this node of any of its
+/// @return True if a dependency was added in this node or any of its
 /// successors.
 bool check_for_arg(const sycl::detail::ArgDesc &Arg,
                    const std::shared_ptr<node_impl> &CurrentNode,
@@ -249,8 +247,6 @@ void exec_graph_impl::find_real_deps(std::vector<RT::PiExtSyncPoint> &Deps,
   }
 }
 
-// Enqueue a node directly to the command buffer without going through the
-// scheduler.
 RT::PiExtSyncPoint exec_graph_impl::enqueue_node_direct(
     sycl::context Ctx, sycl::detail::DeviceImplPtr DeviceImpl,
     RT::PiExtCommandBuffer CommandBuffer, std::shared_ptr<node_impl> Node) {
