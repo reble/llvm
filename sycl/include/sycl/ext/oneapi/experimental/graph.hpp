@@ -223,6 +223,11 @@ private:
   std::shared_ptr<detail::exec_graph_impl> impl;
 };
 
+// additional deduction guide
+template <graph_state State = graph_state::modifiable>
+command_graph(const context &SyclContext, const device &SyclDevice,
+              const property_list &PropList) -> command_graph<State>;
+
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
