@@ -186,8 +186,8 @@ struct graph_impl {
   void remove_root(const std::shared_ptr<node_impl> &Root);
 
   /// Create a kernel node in the graph
-  /// @param Kernel kernel to run when node executes
-  /// @param NDRDesc NDRange Decription for kernel
+  /// @param Kernel Kernel to run when node executes
+  /// @param NDRDesc NDRange decription for kernel
   /// @param OSModuleHandle Module handle for the kernel to be executed.
   /// @param KernelName Name of kernel
   /// @param AccStorage Accessor storage for node arguments
@@ -251,8 +251,8 @@ struct graph_impl {
   bool clear_queues();
 
   /// Associate a sycl event with a node in the graph
-  /// @param EventImpl event to associate with a node in map
-  /// @param NodeImpl node to associate with event in map
+  /// @param EventImpl Event to associate with a node in map
+  /// @param NodeImpl Node to associate with event in map
   void add_event_for_node(std::shared_ptr<sycl::detail::event_impl> EventImpl,
                           std::shared_ptr<node_impl> NodeImpl) {
     MEventsMap[EventImpl] = NodeImpl;
@@ -260,7 +260,7 @@ struct graph_impl {
 
   /// Find the sycl event associated with a node
   /// @param NodeImpl Node to find event for
-  /// @return event associated with node
+  /// @return Event associated with node
   std::shared_ptr<sycl::detail::event_impl>
   get_event_for_node(std::shared_ptr<node_impl> NodeImpl) const {
     if (auto EventImpl = std::find_if(
@@ -281,7 +281,7 @@ struct graph_impl {
   add_subgraph_nodes(const std::list<std::shared_ptr<node_impl>> &NodeList);
 
   /// Query for the context tied to this graph
-  /// @return context associated with graph
+  /// @return Context associated with graph
   sycl::context get_context() const { return MContext; }
 
   /// List of root nodes
@@ -305,7 +305,7 @@ private:
 class exec_graph_impl {
 public:
   /// Constructor
-  /// @param Context context to create graph with
+  /// @param Context Context to create graph with
   /// @param GraphImp Modifiable graph implementation to create with
   exec_graph_impl(sycl::context Context,
                   const std::shared_ptr<graph_impl> &GraphImpl)
@@ -335,7 +335,7 @@ public:
   void create_pi_command_buffers(sycl::device D);
 
   /// Query for the context tied to this graph
-  /// @return context associated with graph
+  /// @return Context associated with graph
   sycl::context get_context() const { return MContext; }
 
   /// Query the scheduling of node execution

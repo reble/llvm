@@ -103,7 +103,7 @@ public:
 
   /// Add an empty node to the graph
   /// @param PropList property list used to pass [0..n] predecessor nodes
-  /// @return constructed empty node which has been added to the graph
+  /// @return Constructed empty node which has been added to the graph
   node add(const property_list &PropList = {}) {
     if (PropList.has_property<property::node::depends_on>()) {
       auto Deps = PropList.get_property<property::node::depends_on>();
@@ -115,7 +115,7 @@ public:
   /// Add a command-group node to the graph
   /// @param CGF command group function to create node with
   /// @param PropList property list used to pass [0..n] predecessor nodes
-  /// @return constructed node which has been added to the graph
+  /// @return Constructed node which has been added to the graph
   template <typename T> node add(T CGF, const property_list &PropList = {}) {
     if (PropList.has_property<property::node::depends_on>()) {
       auto Deps = PropList.get_property<property::node::depends_on>();
