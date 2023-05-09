@@ -1,222 +1,268 @@
-// Common header for SYCL command_graph tests
-
 #include <sycl/sycl.hpp>
 
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 
 #include <numeric>
 
-// Some test constants
-constexpr size_t size = 1024;
-constexpr unsigned iterations = 5;
+// Test constants.
+constexpr size_t size = 1024;      // Number of data elements in a buffer.
+constexpr unsigned iterations = 5; // Iterations of graph to execute.
 
-// Kernel declarations for use in run_kernels()
+// Namespace alias to use in test code.
+namespace exp_ext = sycl::ext::oneapi::experimental;
+// Make tests less verbose by using sycl namespace.
+using namespace sycl;
+
+// Kernel declarations for use in run_kernels().
 class increment_kernel;
 class add_kernel;
 class subtract_kernel;
 class decrement_kernel;
 
-// Kernel declarations for use in run_kernels_usm()
+// We have 4 versions of the same kernel sequence for testing a combination
+// of graph construction API against memory model. Each submits the same pattern
+/// of 4 kernels with a diamond dependency.
+//
+//                 |    Buffers    |      USM          |
+// ----------------|---------------|-------------------|
+// Record & Replay | run_kernels() | run_kernels_usm() |
+// ----------------|---------------|-------------------|
+// Explicit API    | add_kernels() | add_kernels_usm() |
+
+/// Calculates reference data on the host for a given number of executions
+/// @param[in] Iterations Number of iterations of kernel sequence to run.
+/// @param[in] Size Number of elements in vectors
+/// @param[in,out] ReferenceA First input/output.
+/// @param[in,out] ReferenceB Second input/output.
+/// @param[in,out] ReferenceC Third input/output.
+template <typename T>
+void calculate_reference_data(size_t Iterations, size_t Size,
+                              std::vector<T> &ReferenceA,
+                              std::vector<T> &ReferenceB,
+                              std::vector<T> &ReferenceC) {
+  for (size_t n = 0; n < Iterations; n++) {
+    for (size_t i = 0; i < Size; i++) {
+      ReferenceA[i]++;
+      ReferenceB[i] += ReferenceA[i];
+      ReferenceC[i] -= ReferenceA[i];
+      ReferenceB[i]--;
+      ReferenceC[i]--;
+    }
+  }
+}
+
+/// Test Record and Replay graph construction with buffers.
+///
+/// @param Q Queue to submit nodes to.
+/// @param Size Number of elements in the buffers.
+/// @param BufferA First input/output to use in kernels.
+/// @param BufferB Second input/output to use in kernels.
+/// @param BufferC Third input/output to use in kernels.
+///
+/// @return An event corresponding to the exit node of the submissions sequence.
+template <typename T>
+event run_kernels(queue Q, const size_t Size, buffer<T> BufferA,
+                  buffer<T> BufferB, buffer<T> BufferC) {
+  // Read & write Buffer A.
+  Q.submit([&](handler &CGH) {
+    auto DataA = BufferA.get_access<access::mode::read_write>(CGH);
+    CGH.parallel_for<increment_kernel>(range<1>(Size),
+                                       [=](item<1> Id) { DataA[Id]++; });
+  });
+
+  // Reads Buffer A.
+  // Read & Write Buffer B.
+  Q.submit([&](handler &CGH) {
+    auto DataA = BufferA.get_access<access::mode::read>(CGH);
+    auto DataB = BufferB.get_access<access::mode::read_write>(CGH);
+    CGH.parallel_for<add_kernel>(range<1>(Size),
+                                 [=](item<1> Id) { DataB[Id] += DataA[Id]; });
+  });
+
+  // Reads Buffer A.
+  // Read & writes Buffer C
+  Q.submit([&](handler &CGH) {
+    auto DataA = BufferA.get_access<access::mode::read>(CGH);
+    auto DataC = BufferC.get_access<access::mode::read_write>(CGH);
+    CGH.parallel_for<subtract_kernel>(
+        range<1>(Size), [=](item<1> Id) { DataC[Id] -= DataA[Id]; });
+  });
+
+  // Read & write Buffers B and C.
+  auto ExitEvent = Q.submit([&](handler &CGH) {
+    auto DataB = BufferB.get_access<access::mode::read_write>(CGH);
+    auto DataC = BufferC.get_access<access::mode::read_write>(CGH);
+    CGH.parallel_for<decrement_kernel>(range<1>(Size), [=](item<1> Id) {
+      DataB[Id]--;
+      DataC[Id]--;
+    });
+  });
+
+  return ExitEvent;
+}
+
+/// Test Explicit API graph construction with buffers.
+///
+/// @param Graph Modifiable graph to add commands to.
+/// @param Size Number of elements in the buffers.
+/// @param BufferA First input/output to use in kernels.
+/// @param BufferB Second input/output to use in kernels.
+/// @param BufferC Third input/output to use in kernels.
+///
+/// @return Exit node of the submission sequence.
+template <typename T>
+exp_ext::node
+add_kernels(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
+            const size_t Size, buffer<T> BufferA, buffer<T> BufferB,
+            buffer<T> BufferC) {
+  // Read & write Buffer A
+  Graph.add([&](handler &CGH) {
+    auto DataA = BufferA.get_access<access::mode::read_write>(CGH);
+    CGH.parallel_for<increment_kernel>(range<1>(Size),
+                                       [=](item<1> Id) { DataA[Id]++; });
+  });
+
+  // Reads Buffer A
+  // Read & Write Buffer B
+  Graph.add([&](handler &CGH) {
+    auto DataA = BufferA.get_access<access::mode::read>(CGH);
+    auto DataB = BufferB.get_access<access::mode::read_write>(CGH);
+    CGH.parallel_for<add_kernel>(range<1>(Size),
+                                 [=](item<1> Id) { DataB[Id] += DataA[Id]; });
+  });
+
+  // Reads Buffer A
+  // Read & writes Buffer C
+  Graph.add([&](handler &CGH) {
+    auto DataA = BufferA.get_access<access::mode::read>(CGH);
+    auto DataC = BufferC.get_access<access::mode::read_write>(CGH);
+    CGH.parallel_for<subtract_kernel>(
+        range<1>(Size), [=](item<1> Id) { DataC[Id] -= DataA[Id]; });
+  });
+
+  // Read & write Buffers B and C
+  auto ExitNode = Graph.add([&](handler &CGH) {
+    auto DataB = BufferB.get_access<access::mode::read_write>(CGH);
+    auto DataC = BufferC.get_access<access::mode::read_write>(CGH);
+    CGH.parallel_for<decrement_kernel>(range<1>(Size), [=](item<1> Id) {
+      DataB[Id]--;
+      DataC[Id]--;
+    });
+  });
+  return ExitNode;
+}
+
+// Kernel declarations for use in run_kernels_usm().
 class increment_kernel_usm;
 class add_kernel_usm;
 class subtract_kernel_usm;
 class decrement_kernel_usm;
 
-namespace exp_ext = sycl::ext::oneapi::experimental;
-using namespace sycl;
-
-// Runs a series of 4 kernels with a diamond dependency pattern
+//// Test Explicit API graph construction with USM.
+///
+/// @param Q Command-queue to make kernel submissions to.
+/// @param Size Number of elements in the buffers.
+/// @param DataA Pointer to first USM allocation to use in kernels.
+/// @param DataB Pointer to second USM allocation to use in kernels.
+/// @param DataC Pointer to third USM allocation to use in kernels.
+///
+/// @return Event corresponding to the exit node of the submission sequence.
 template <typename T>
-event run_kernels(queue q, const size_t size, buffer<T> dataA, buffer<T> dataB,
-                  buffer<T> dataC) {
+event run_kernels_usm(queue Q, const size_t Size, T *DataA, T *DataB,
+                      T *DataC) {
   // Read & write Buffer A
-  q.submit([&](handler &cgh) {
-    auto pData = dataA.template get_access<access::mode::read_write>(cgh);
-    cgh.parallel_for<increment_kernel>(range<1>(size),
-                                       [=](item<1> id) { pData[id]++; });
+  auto EventA = Q.submit([&](handler &CGH) {
+    CGH.parallel_for<increment_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+      auto LinID = Id.get_linear_id();
+      DataA[LinID]++;
+    });
   });
 
   // Reads Buffer A
   // Read & Write Buffer B
-  q.submit([&](handler &cgh) {
-    auto pData1 = dataA.template get_access<access::mode::read>(cgh);
-    auto pData2 = dataB.template get_access<access::mode::read_write>(cgh);
-    cgh.parallel_for<add_kernel>(range<1>(size),
-                                 [=](item<1> id) { pData2[id] += pData1[id]; });
+  auto EventB = Q.submit([&](handler &CGH) {
+    CGH.depends_on(EventA);
+    CGH.parallel_for<add_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+      auto LinID = Id.get_linear_id();
+      DataB[LinID] += DataA[LinID];
+    });
   });
 
   // Reads Buffer A
   // Read & writes Buffer C
-  q.submit([&](handler &cgh) {
-    auto pData1 = dataA.template get_access<access::mode::read>(cgh);
-    auto pData2 = dataC.template get_access<access::mode::read_write>(cgh);
-    cgh.parallel_for<subtract_kernel>(
-        range<1>(size), [=](item<1> id) { pData2[id] -= pData1[id]; });
-  });
-
-  // Read & write Buffers B and C
-  auto e = q.submit([&](handler &cgh) {
-    auto pData1 = dataB.template get_access<access::mode::read_write>(cgh);
-    auto pData2 = dataC.template get_access<access::mode::read_write>(cgh);
-    cgh.parallel_for<decrement_kernel>(range<1>(size), [=](item<1> id) {
-      pData1[id]--;
-      pData2[id]--;
+  auto EventC = Q.submit([&](handler &CGH) {
+    CGH.depends_on(EventA);
+    CGH.parallel_for<subtract_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+      auto LinID = Id.get_linear_id();
+      DataC[LinID] -= DataA[LinID];
     });
   });
 
-  return e;
+  // Read & write Buffers B and C
+  auto ExitEvent = Q.submit([&](handler &CGH) {
+    CGH.depends_on({EventB, EventC});
+    CGH.parallel_for<decrement_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+      auto LinID = Id.get_linear_id();
+      DataB[LinID]--;
+      DataC[LinID]--;
+    });
+  });
+  return ExitEvent;
 }
 
-// Adds a series of 4 kernels with a diamond dependency pattern
+/// Test Explicit API graph construction with USM.
+///
+/// @param Graph Modifiable graph to add commands to.
+/// @param Size Number of elements in the buffers.
+/// @param DataA Pointer to first USM allocation to use in kernels.
+/// @param DataB Pointer to second USM allocation to use in kernels.
+/// @param DataC Pointer to third USM allocation to use in kernels.
+///
+/// @return Exit node of the submission sequence.
 template <typename T>
 exp_ext::node
-add_kernels(exp_ext::command_graph<exp_ext::graph_state::modifiable> g,
-            const size_t size, buffer<T> dataA, buffer<T> dataB,
-            buffer<T> dataC) {
+add_kernels_usm(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
+                const size_t Size, T *DataA, T *DataB, T *DataC) {
   // Read & write Buffer A
-  g.add([&](handler &cgh) {
-    auto pData = dataA.template get_access<access::mode::read_write>(cgh);
-    cgh.parallel_for<increment_kernel>(range<1>(size),
-                                       [=](item<1> id) { pData[id]++; });
-  });
-
-  // Reads Buffer A
-  // Read & Write Buffer B
-  g.add([&](handler &cgh) {
-    auto pData1 = dataA.template get_access<access::mode::read>(cgh);
-    auto pData2 = dataB.template get_access<access::mode::read_write>(cgh);
-    cgh.parallel_for<add_kernel>(range<1>(size),
-                                 [=](item<1> id) { pData2[id] += pData1[id]; });
-  });
-
-  // Reads Buffer A
-  // Read & writes Buffer C
-  g.add([&](handler &cgh) {
-    auto pData1 = dataA.template get_access<access::mode::read>(cgh);
-    auto pData2 = dataC.template get_access<access::mode::read_write>(cgh);
-    cgh.parallel_for<subtract_kernel>(
-        range<1>(size), [=](item<1> id) { pData2[id] -= pData1[id]; });
-  });
-
-  // Read & write Buffers B and C
-  auto node = g.add([&](handler &cgh) {
-    auto pData1 = dataB.template get_access<access::mode::read_write>(cgh);
-    auto pData2 = dataC.template get_access<access::mode::read_write>(cgh);
-    cgh.parallel_for<decrement_kernel>(range<1>(size), [=](item<1> id) {
-      pData1[id]--;
-      pData2[id]--;
-    });
-  });
-  return node;
-}
-
-// Runs a series of 4 kernels with a diamond dependency pattern
-template <typename T>
-event run_kernels_usm(queue q, const size_t size, T *dataA, T *dataB,
-                      T *dataC) {
-  // Read & write Buffer A
-  auto eventA = q.submit([&](handler &cgh) {
-    cgh.parallel_for<increment_kernel_usm>(range<1>(size), [=](item<1> id) {
-      auto linID = id.get_linear_id();
-      dataA[linID]++;
+  auto NodeA = Graph.add([&](handler &CGH) {
+    CGH.parallel_for<increment_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+      auto LinID = Id.get_linear_id();
+      DataA[LinID]++;
     });
   });
 
   // Reads Buffer A
   // Read & Write Buffer B
-  auto eventB = q.submit([&](handler &cgh) {
-    cgh.depends_on(eventA);
-    cgh.parallel_for<add_kernel_usm>(range<1>(size), [=](item<1> id) {
-      auto linID = id.get_linear_id();
-      dataB[linID] += dataA[linID];
-    });
-  });
+  auto NodeB = Graph.add(
+      [&](handler &CGH) {
+        CGH.parallel_for<add_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+          auto LinID = Id.get_linear_id();
+          DataB[LinID] += DataA[LinID];
+        });
+      },
+      {exp_ext::property::node::depends_on(NodeA)});
 
   // Reads Buffer A
   // Read & writes Buffer C
-  auto eventC = q.submit([&](handler &cgh) {
-    cgh.depends_on(eventA);
-    cgh.parallel_for<subtract_kernel_usm>(range<1>(size), [=](item<1> id) {
-      auto linID = id.get_linear_id();
-      dataC[linID] -= dataA[linID];
-    });
-  });
-
-  // Read & write Buffers B and C
-  auto eventD = q.submit([&](handler &cgh) {
-    cgh.depends_on({eventB, eventC});
-    cgh.parallel_for<decrement_kernel_usm>(range<1>(size), [=](item<1> id) {
-      auto linID = id.get_linear_id();
-      dataB[linID]--;
-      dataC[linID]--;
-    });
-  });
-  return eventD;
-}
-
-// Adds a series of 4 kernels with a diamond dependency pattern
-template <typename T>
-exp_ext::node
-add_kernels_usm(exp_ext::command_graph<exp_ext::graph_state::modifiable> g,
-                const size_t size, T *dataA, T *dataB, T *dataC) {
-  // Read & write Buffer A
-  auto nodeA = g.add([&](handler &cgh) {
-    cgh.parallel_for<increment_kernel_usm>(range<1>(size), [=](item<1> id) {
-      auto linID = id.get_linear_id();
-      dataA[linID]++;
-    });
-  });
-
-  // Reads Buffer A
-  // Read & Write Buffer B
-  auto nodeB = g.add(
-      [&](handler &cgh) {
-        cgh.parallel_for<add_kernel_usm>(range<1>(size), [=](item<1> id) {
-          auto linID = id.get_linear_id();
-          dataB[linID] += dataA[linID];
+  auto NodeC = Graph.add(
+      [&](handler &CGH) {
+        CGH.parallel_for<subtract_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+          auto LinID = Id.get_linear_id();
+          DataC[LinID] -= DataA[LinID];
         });
       },
-      {exp_ext::property::node::depends_on(nodeA)});
+      {exp_ext::property::node::depends_on(NodeA)});
 
-  // Reads Buffer A
-  // Read & writes Buffer C
-  auto nodeC = g.add(
-      [&](handler &cgh) {
-        cgh.parallel_for<subtract_kernel_usm>(range<1>(size), [=](item<1> id) {
-          auto linID = id.get_linear_id();
-          dataC[linID] -= dataA[linID];
+  // Read & write data B and C
+  auto ExitNode = Graph.add(
+      [&](handler &CGH) {
+        CGH.parallel_for<decrement_kernel_usm>(range<1>(Size), [=](item<1> Id) {
+          auto LinID = Id.get_linear_id();
+          DataB[LinID]--;
+          DataC[LinID]--;
         });
       },
-      {exp_ext::property::node::depends_on(nodeA)});
+      {exp_ext::property::node::depends_on(NodeB, NodeC)});
 
-  // Read & write Buffers B and C
-  auto nodeD = g.add(
-      [&](handler &cgh) {
-        cgh.parallel_for<decrement_kernel_usm>(range<1>(size), [=](item<1> id) {
-          auto linID = id.get_linear_id();
-          dataB[linID]--;
-          dataC[linID]--;
-        });
-      },
-      {exp_ext::property::node::depends_on(nodeB, nodeC)});
-
-  return nodeD;
-}
-
-// Calculates reference data on the host for a given number of executions of
-// the kernels in run_kernels()
-template <typename T>
-void calculate_reference_data(size_t iterations, size_t size,
-                              std::vector<T> &referenceA,
-                              std::vector<T> &referenceB,
-                              std::vector<T> &referenceC) {
-  for (unsigned n = 0; n < iterations; n++) {
-    for (size_t i = 0; i < size; i++) {
-      referenceA[i]++;
-      referenceB[i] += referenceA[i];
-      referenceC[i] -= referenceA[i];
-      referenceB[i]--;
-      referenceC[i]--;
-    }
-  }
+  return ExitNode;
 }
