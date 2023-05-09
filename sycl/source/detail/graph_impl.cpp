@@ -25,10 +25,10 @@ namespace detail {
 
 namespace {
 
-/// Recursively check if a given node is an exit node and add the new nodes as
+/// Recursively check if a given node is an exit node, and add the new nodes as
 /// successors if so.
-/// @param[in] CurrentNode Node to check as exit node
-/// @param[in] NewInputs Noes to add as sucessors
+/// @param[in] CurrentNode Node to check as exit node.
+/// @param[in] NewInputs Noes to add as successors.
 void connect_to_exit_nodes(
     std::shared_ptr<node_impl> CurrentNode,
     const std::vector<std::shared_ptr<node_impl>> &NewInputs) {
@@ -52,7 +52,7 @@ void connect_to_exit_nodes(
 /// @param[in,out] Deps The unique list of dependencies which have been
 /// identified for this arg.
 ///
-/// @returns True if a dependency was added in this node of any of its
+/// @return True if a dependency was added in this node of any of its
 /// successors.
 bool check_for_arg(const sycl::detail::ArgDesc &Arg,
                    const std::shared_ptr<node_impl> &CurrentNode,

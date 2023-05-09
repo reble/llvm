@@ -28,27 +28,27 @@ namespace oneapi {
 namespace experimental {
 namespace detail {
 
-/// Implementation of node class from SYCL_EXT_ONEAPI_GRAPH
+/// Implementation of node class from SYCL_EXT_ONEAPI_GRAPH.
 struct node_impl {
   /// List of successors to this node.
   std::vector<std::shared_ptr<node_impl>> MSuccessors;
-  /// List of predecessors to this node
+  /// List of predecessors to this node.
   ///
   /// Using weak_ptr here to prevent circular references between nodes.
   std::vector<std::weak_ptr<node_impl>> MPredecessors;
-  /// Kernel to be executed by this node
+  /// Kernel to be executed by this node.
   std::shared_ptr<sycl::detail::kernel_impl> MKernel;
-  /// Description of the kernel global and local sizes as well as offset
+  /// Description of the kernel global and local sizes as well as offset.
   sycl::detail::NDRDescT MNDRDesc;
   /// Module handle for the kernel to be executed.
   sycl::detail::OSModuleHandle MOSModuleHandle =
       sycl::detail::OSUtil::ExeModuleHandle;
-  /// Kernel name inside the module
+  /// Kernel name inside the module.
   std::string MKernelName;
 
-  /// Accessor storage for node arguments
+  /// Accessor storage for node arguments.
   std::vector<sycl::detail::AccessorImplPtr> MAccStorage;
-  /// Local accessor storage for node arguments
+  /// Local accessor storage for node arguments.
   std::vector<sycl::detail::LocalAccessorImplPtr> MLocalAccStorage;
   std::vector<std::shared_ptr<sycl::detail::stream_impl>> MStreamStorage;
 
@@ -56,7 +56,7 @@ struct node_impl {
   std::vector<sycl::detail::AccessorImplHost *> MRequirements;
   sycl::detail::CG::CGTYPE MCGType = sycl::detail::CG::None;
 
-  /// Store arg descriptors for the kernel arguments
+  /// Store arg descriptors for the kernel arguments.
   std::vector<sycl::detail::ArgDesc> MArgs;
   /// We need to store local copies of the values pointed to by MArgs since they
   /// may go out of scope before execution.
@@ -65,37 +65,39 @@ struct node_impl {
   /// Stores auxiliary resources used by internal operations.
   std::vector<std::shared_ptr<const void>> MAuxiliaryResources;
 
-  /// True if an empty node, false otherwise
+  /// True if an empty node, false otherwise.
   bool MIsEmpty = false;
 
-  /// Add successor to the node
-  /// @param Node node to add as a sucessor
-  /// @param Prev Predecessor to node being added as successor.
-  /// Should be a shared_ptr to `this`.
+  /// Add successor to the node.
+  /// @param Node Node to add as a successor.
+  /// @param Prev Predecessor to \p node being added as successor.
+  ///
+  /// /p Prev should be a shared_ptr to an instance of this object, but can't
+  /// use a raw \p this pointer, so the extra \Prev parameter is passed.
   void register_successor(const std::shared_ptr<node_impl> &Node,
                           const std::shared_ptr<node_impl> &Prev) {
     MSuccessors.push_back(Node);
     Node->register_predecessor(Prev);
   }
 
-  /// Add predecessor to the node
-  /// @param Node node to add as a predecessor
+  /// Add predecessor to the node.
+  /// @param Node Node to add as a predecessor.
   void register_predecessor(const std::shared_ptr<node_impl> &Node) {
     MPredecessors.push_back(Node);
   }
 
-  /// Construct an empty node
+  /// Construct an empty node.
   node_impl() : MIsEmpty(true) {}
 
-  /// Construct a node representing a command-group
-  /// @param Kernel Kernel to run when node executes
-  /// @param NDRDesc NDRange Decription for kernel
+  /// Construct a node representing a command-group.
+  /// @param Kernel Kernel to run when node executes.
+  /// @param NDRDesc NDRange description for kernel.
   /// @param OSModuleHandle Module handle for the kernel to be executed.
-  /// @param KernelName Name of kernel
-  /// @param AccStorage Accessor storage for node arguments
-  /// @param LocalAccStorage Local accessor storage for node arguments
-  /// @param Requirements Scheduling requirements
-  /// @param Args Kernel arguments
+  /// @param KernelName Name of kernel.
+  /// @param AccStorage Accessor storage for node arguments.
+  /// @param LocalAccStorage Local accessor storage for node arguments.
+  /// @param Requirements Scheduling requirements.
+  /// @param Args Kernel arguments.
   node_impl(
       std::shared_ptr<sycl::detail::kernel_impl> Kernel,
       sycl::detail::NDRDescT NDRDesc,
@@ -128,9 +130,9 @@ struct node_impl {
     }
   }
 
-  /// Recursively add nodes to execution stack
-  /// @param NodeImpl Node to schedule
-  /// @param Schedule Execution ordering to add node to
+  /// Recursively add nodes to execution stack.
+  /// @param NodeImpl Node to schedule.
+  /// @param Schedule Execution ordering to add node to.
   void topology_sort(std::shared_ptr<node_impl> NodeImpl,
                      std::list<std::shared_ptr<node_impl>> &Schedule) {
     for (auto Next : MSuccessors) {
@@ -144,9 +146,9 @@ struct node_impl {
       Schedule.push_front(NodeImpl);
   }
 
-  /// Checks if this node has an argument
-  /// @param Arg Argument to lookup
-  /// @return True if argument is used in node, false otherwise
+  /// Checks if this node has an argument.
+  /// @param Arg Argument to lookup.
+  /// @return True if \p Arg is used in node, false otherwise.
   bool has_arg(const sycl::detail::ArgDesc &Arg) {
     for (auto &NodeArg : MArgs) {
       if (Arg.MType == NodeArg.MType && Arg.MSize == NodeArg.MSize) {
@@ -162,41 +164,40 @@ struct node_impl {
     return false;
   }
 
-  /// Query if this is an empty node
-  /// @return True if this is an empty node, false otherwise
+  /// Query if this is an empty node.
+  /// @return True if this is an empty node, false otherwise.
   bool is_empty() const { return MIsEmpty; }
 };
 
-/// Class resenting implementation details of command_graph<modifiable>
+/// Class resenting implementation details of command_graph<modifiable>.
 struct graph_impl {
-
-  /// Constructor
-  /// @param SyclContext context to use for graph
-  /// @param SyclDevice device to create nodes with
+  /// Constructor.
+  /// @param SyclContext Context to use for graph.
+  /// @param SyclDevice Device to create nodes with.
   graph_impl(const sycl::context &SyclContext, const sycl::device &SyclDevice)
       : MContext(SyclContext), MDevice(SyclDevice), MRecordingQueues(),
         MEventsMap() {}
 
-  /// Insert node into list of root nodes
-  /// @param Root Node to add to list of root nodes
+  /// Insert node into list of root nodes.
+  /// @param Root Node to add to list of root nodes.
   void add_root(const std::shared_ptr<node_impl> &Root);
 
-  /// Remove node from list of root nodes
-  /// @param Root Node to remove from list of root nodes
+  /// Remove node from list of root nodes.
+  /// @param Root Node to remove from list of root nodes.
   void remove_root(const std::shared_ptr<node_impl> &Root);
 
-  /// Create a kernel node in the graph
-  /// @param Kernel Kernel to run when node executes
-  /// @param NDRDesc NDRange decription for kernel
+  /// Create a kernel node in the graph.
+  /// @param Kernel Kernel to run when node executes.
+  /// @param NDRDesc NDRange description for kernel.
   /// @param OSModuleHandle Module handle for the kernel to be executed.
-  /// @param KernelName Name of kernel
-  /// @param AccStorage Accessor storage for node arguments
-  /// @param LocalAccStorage Local accessor storage for node arguments
-  /// @param Requirements Scheduling requirements
-  /// @param Args Node arguments
-  /// @param Dep Dependencies of the created node
-  /// @param DepEvents Dependent events of the created node
-  /// @return Created node in the graph
+  /// @param KernelName Name of kernel.
+  /// @param AccStorage Accessor storage for node arguments.
+  /// @param LocalAccStorage Local accessor storage for node arguments.
+  /// @param Requirements Scheduling requirements.
+  /// @param Args Node arguments.
+  /// @param Dep Dependencies of the created node.
+  /// @param DepEvents Dependent events of the created node.
+  /// @return Created node in the graph.
   std::shared_ptr<node_impl>
   add(std::shared_ptr<sycl::detail::kernel_impl> Kernel,
       sycl::detail::NDRDescT NDRDesc,
@@ -210,27 +211,27 @@ struct graph_impl {
       const std::vector<std::shared_ptr<sycl::detail::event_impl>> &DepEvents =
           {});
 
-  /// Create a CGF node in the graph
-  /// @param Impl Graph implementation pointer to create a handler with
-  /// @param CGF Command Group Function to create node with
-  /// @param Args Node arguments
-  /// @param Dep Dependencies of the created node
-  /// @return Created node in the graph
+  /// Create a CGF node in the graph.
+  /// @param Impl Graph implementation pointer to create a handler with.
+  /// @param CGF Command-group function to create node with.
+  /// @param Args Node arguments.
+  /// @param Dep Dependencies of the created node.
+  /// @return Created node in the graph.
   std::shared_ptr<node_impl>
   add(const std::shared_ptr<graph_impl> &Impl,
       std::function<void(handler &)> CGF,
       const std::vector<sycl::detail::ArgDesc> &Args,
       const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
-  /// Create an empty node in the graph
-  /// @param Dep List of predecessor node
-  /// @return Created node in the graph
+  /// Create an empty node in the graph.
+  /// @param Dep List of predecessor nodes.
+  /// @return Created node in the graph.
   std::shared_ptr<node_impl>
   add(const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
-  /// @param RecordingQueue Queue to add to set
+  /// @param RecordingQueue Queue to add to set.
   void
   add_queue(const std::shared_ptr<sycl::detail::queue_impl> &RecordingQueue) {
     MRecordingQueues.insert(RecordingQueue);
@@ -238,7 +239,7 @@ struct graph_impl {
 
   /// Remove a queue from the set of queues which are currently recording to
   /// this graph.
-  /// @param RecordingQueue Queue to remove from set
+  /// @param RecordingQueue Queue to remove from set.
   void remove_queue(
       const std::shared_ptr<sycl::detail::queue_impl> &RecordingQueue) {
     MRecordingQueues.erase(RecordingQueue);
@@ -250,17 +251,17 @@ struct graph_impl {
   /// @return True if any queues were removed.
   bool clear_queues();
 
-  /// Associate a sycl event with a node in the graph
-  /// @param EventImpl Event to associate with a node in map
-  /// @param NodeImpl Node to associate with event in map
+  /// Associate a sycl event with a node in the graph.
+  /// @param EventImpl Event to associate with a node in map.
+  /// @param NodeImpl Node to associate with event in map.
   void add_event_for_node(std::shared_ptr<sycl::detail::event_impl> EventImpl,
                           std::shared_ptr<node_impl> NodeImpl) {
     MEventsMap[EventImpl] = NodeImpl;
   }
 
-  /// Find the sycl event associated with a node
-  /// @param NodeImpl Node to find event for
-  /// @return Event associated with node
+  /// Find the sycl event associated with a node.
+  /// @param NodeImpl Node to find event for.
+  /// @return Event associated with node.
   std::shared_ptr<sycl::detail::event_impl>
   get_event_for_node(std::shared_ptr<node_impl> NodeImpl) const {
     if (auto EventImpl = std::find_if(
@@ -275,16 +276,16 @@ struct graph_impl {
         "No event has been recorded for the specified graph node");
   }
 
-  /// Adds subgraph nodes from an executable graph to this graph
-  /// @return An empty node is used to schedule dependencies on this sub graph.
+  /// Adds sub-graph nodes from an executable graph to this graph.
+  /// @return An empty node is used to schedule dependencies on this sub-graph.
   std::shared_ptr<node_impl>
   add_subgraph_nodes(const std::list<std::shared_ptr<node_impl>> &NodeList);
 
-  /// Query for the context tied to this graph
-  /// @return Context associated with graph
+  /// Query for the context tied to this graph.
+  /// @return Context associated with graph.
   sycl::context get_context() const { return MContext; }
 
-  /// List of root nodes
+  /// List of root nodes.
   std::set<std::shared_ptr<node_impl>> MRoots;
 
 private:
@@ -301,45 +302,47 @@ private:
       MEventsMap;
 };
 
-/// Class representing the implementation of command_graph<executable>
+/// Class representing the implementation of command_graph<executable>.
 class exec_graph_impl {
 public:
-  /// Constructor
-  /// @param Context Context to create graph with
-  /// @param GraphImp Modifiable graph implementation to create with
+  /// Constructor.
+  /// @param Context Context to create graph with.
+  /// @param GraphImpl Modifiable graph implementation to create with.
   exec_graph_impl(sycl::context Context,
                   const std::shared_ptr<graph_impl> &GraphImpl)
       : MSchedule(), MGraphImpl(GraphImpl), MPiCommandBuffers(),
         MPiSyncPoints(), MContext(Context) {}
 
-  /// Destructor
+  /// Destructor.
+  ///
+  /// Releases any PI command-buffers the object has created.
   ~exec_graph_impl();
 
-  /// Add nodes to MSchedule
+  /// Add nodes to MSchedule.
   void schedule();
 
-  /// Enqueues the backend objects for the graph to the parametrized queue
-  /// @param Queue Command-queue to submit backend objects to
-  /// @return Event associated with enqueued object
+  /// Enqueues the backend objects for the graph to the parametrized queue.
+  /// @param Queue Command-queue to submit backend objects to.
+  /// @return Event associated with enqueued object.
   sycl::event enqueue(const std::shared_ptr<sycl::detail::queue_impl> &Queue);
 
   /// Called by handler::ext_oneapi_command_graph() to schedule graph for
-  /// execution
-  /// @param Queue to schedule execution on.
+  /// execution.
+  /// @param Queue Command-queue to schedule execution on.
   /// @return Event associated with the execution of the graph
   sycl::event exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue);
 
   /// Turns our internal graph representation into PI command-buffers for a
-  /// device
-  /// @param D Device to create backend command-buffers for
+  /// device.
+  /// @param D Device to create backend command-buffers for.
   void create_pi_command_buffers(sycl::device D);
 
-  /// Query for the context tied to this graph
-  /// @return Context associated with graph
+  /// Query for the context tied to this graph.
+  /// @return Context associated with graph.
   sycl::context get_context() const { return MContext; }
 
-  /// Query the scheduling of node execution
-  /// @return List of nodes in execution order
+  /// Query the scheduling of node execution.
+  /// @return List of nodes in execution order.
   const std::list<std::shared_ptr<node_impl>> &get_schedule() const {
     return MSchedule;
   }
@@ -355,22 +358,25 @@ private:
                                          std::shared_ptr<node_impl> Node);
 
   /// Iterates back through predecessors to find the real dependency.
-  /// @param[out] Deps Found dependencies
-  /// @param[in] CurrentNode Node to find dependencies for
+  /// @param[out] Deps Found dependencies.
+  /// @param[in] CurrentNode Node to find dependencies for.
   void find_real_deps(std::vector<RT::PiExtSyncPoint> &Deps,
                       std::shared_ptr<node_impl> CurrentNode);
 
-  /// Execution schedule of nodes in the graph
+  /// Execution schedule of nodes in the graph.
   std::list<std::shared_ptr<node_impl>> MSchedule;
-  /// Pointer to the modifiable graph impl associated with this executable graph
+  /// Pointer to the modifiable graph impl associated with this executable
+  /// graph.
   std::shared_ptr<graph_impl> MGraphImpl;
-  /// Map of devices to command buffers
+  /// Map of devices to command buffers.
   std::unordered_map<sycl::device, RT::PiExtCommandBuffer> MPiCommandBuffers;
+  /// Map of devices to command buffers.
+  std::unordered_map<sycl::device, pi_ext_command_buffer> MPiCommandBuffers;
   /// Map of nodes in the exec graph to the sync point representing their
   /// execution in the command graph.
   std::unordered_map<std::shared_ptr<node_impl>, RT::PiExtSyncPoint>
       MPiSyncPoints;
-  /// Context associated with this executable graph
+  /// Context associated with this executable graph.
   sycl::context MContext;
   // List of requirements for enqueueing this command graph, accumulated from
   // all nodes enqueued to the graph.
