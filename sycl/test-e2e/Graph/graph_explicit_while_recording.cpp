@@ -11,23 +11,23 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
-  bool success = false;
+  bool Success = false;
 
-  exp_ext::command_graph graph{testQueue.get_context(), testQueue.get_device()};
-  graph.begin_recording(testQueue);
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
+  Graph.begin_recording(TestQueue);
 
   try {
-    graph.add([&](handler &h) {});
-  } catch (sycl::exception &e) {
-    auto stdErrc = e.code().value();
-    if (stdErrc == static_cast<int>(errc::invalid)) {
-      success = true;
+    Graph.add([&](handler &CGH) {});
+  } catch (sycl::exception &E) {
+    auto stdErrc = E.code().value();
+    if (StdErrc == static_cast<int>(errc::invalid)) {
+      Success = true;
     }
   }
 
-  graph.end_recording();
-  assert(success);
+  Graph.end_recording();
+  assert(Success);
   return 0;
 }

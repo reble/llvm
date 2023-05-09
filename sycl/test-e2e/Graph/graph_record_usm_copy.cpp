@@ -10,91 +10,91 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
   const T modValue = 7;
-  std::vector<T> dataA(size), dataB(size), dataC(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
   // Create reference data for output
-  std::vector<T> referenceA(dataA), referenceB(dataB), referenceC(dataC);
+  std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
   for (size_t i = 0; i < iterations; i++) {
     for (size_t j = 0; j < size; j++) {
-      referenceA[j] = referenceB[j];
-      referenceA[j] += modValue;
-      referenceB[j] = referenceA[j];
-      referenceB[j] += modValue;
-      referenceC[j] = referenceB[j];
+      ReferenceA[j] = ReferenceB[j];
+      ReferenceA[j] += modValue;
+      ReferenceB[j] = ReferenceA[j];
+      ReferenceB[j] += modValue;
+      ReferenceC[j] = ReferenceB[j];
     }
   }
 
-  exp_ext::command_graph graph{testQueue.get_context(), testQueue.get_device()};
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *ptrA = malloc_device<T>(size, testQueue);
-  T *ptrB = malloc_device<T>(size, testQueue);
-  T *ptrC = malloc_device<T>(size, testQueue);
+  T *PtrA = malloc_device<T>(size, TestQueue);
+  T *PtrB = malloc_device<T>(size, TestQueue);
+  T *PtrC = malloc_device<T>(size, TestQueue);
 
-  testQueue.copy(dataA.data(), ptrA, size);
-  testQueue.copy(dataB.data(), ptrB, size);
-  testQueue.copy(dataC.data(), ptrC, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA.data(), PtrA, size);
+  TestQueue.copy(DataB.data(), PtrB, size);
+  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.wait_and_throw();
 
-  graph.begin_recording(testQueue);
+  Graph.begin_recording(TestQueue);
 
   // Record commands to graph
   // memcpy from B to A
-  auto eventA = testQueue.copy(ptrB, ptrA, size);
+  auto EventA = TestQueue.copy(PtrB, PtrA, size);
   // Read & write A
-  auto eventB = testQueue.submit([&](handler &cgh) {
-    cgh.depends_on(eventA);
-    cgh.parallel_for(range<1>(size), [=](item<1> id) {
-      auto linID = id.get_linear_id();
-      ptrA[linID] += modValue;
+  auto EventB = TestQueue.submit([&](handler &CGH) {
+    CGH.depends_on(EventA);
+    CGH.parallel_for(range<1>(size), [=](item<1> id) {
+      auto LinID = id.get_linear_id();
+      PtrA[LinID] += modValue;
     });
   });
 
   // memcpy from A to B
-  auto eventC = testQueue.copy(ptrA, ptrB, size, eventB);
+  auto EventC = TestQueue.copy(PtrA, PtrB, size, EventB);
 
   // Read and write B
-  auto eventD = testQueue.submit([&](handler &cgh) {
-    cgh.depends_on(eventC);
-    cgh.parallel_for(range<1>(size), [=](item<1> id) {
-      auto linID = id.get_linear_id();
-      ptrB[linID] += modValue;
+  auto EventD = TestQueue.submit([&](handler &CGH) {
+    CGH.depends_on(EventC);
+    CGH.parallel_for(range<1>(size), [=](item<1> id) {
+      auto LinID = id.get_linear_id();
+      PtrB[LinID] += modValue;
     });
   });
 
   // memcpy from B to C
-  testQueue.copy(ptrB, ptrC, size, eventD);
+  TestQueue.copy(PtrB, PtrC, size, EventD);
 
-  graph.end_recording();
-  auto graphExec = graph.finalize();
+  Graph.end_recording();
+  auto GraphExec = graph.finalize();
 
   // Execute graph over n iterations
-  for (unsigned n = 0; n < iterations; n++) {
-    testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
+  for (size_t n = 0; n < iterations; n++) {
+    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
   }
   // Perform a wait on all graph submissions.
-  testQueue.wait_and_throw();
+  TestQueue.wait_and_throw();
 
-  testQueue.copy(ptrA, dataA.data(), size);
-  testQueue.copy(ptrB, dataB.data(), size);
-  testQueue.copy(ptrC, dataC.data(), size);
+  TestQueue.copy(PtrA, DataA.data(), size);
+  TestQueue.copy(PtrB, DataB.data(), size);
+  TestQueue.copy(PtrC, DataC.data(), size);
 
-  free(ptrA, testQueue);
-  free(ptrB, testQueue);
-  free(ptrC, testQueue);
+  free(PtrA, TestQueue);
+  free(PtrB, TestQueue);
+  free(PtrC, TestQueue);
 
-  assert(referenceA == dataA);
-  assert(referenceB == dataB);
-  assert(referenceC == dataC);
+  assert(ReferenceA == DataA);
+  assert(ReferenceB == DataB);
+  assert(ReferenceC == DataC);
 
   return 0;
 }

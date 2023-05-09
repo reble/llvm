@@ -12,132 +12,132 @@
 #include <thread>
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
-  if (!testQueue.get_device().has(sycl::aspect::usm_shared_allocations)) {
+  if (!TestQueue.get_device().has(sycl::aspect::usm_shared_allocations)) {
     return 0;
   }
 
-  std::vector<T> dataA(size), dataB(size), dataC(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
   std::vector<T> hostTaskOutput(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
-  auto dataA2 = dataA;
-  auto dataB2 = dataB;
-  auto dataC2 = dataC;
+  auto DataA2 = DataA;
+  auto DataB2 = DataB;
+  auto DataC2 = DataC;
 
   // Create reference data for output
-  std::vector<T> referenceA(dataA), referenceB(dataB), referenceC(dataC);
-  calculate_reference_data(iterations, size, referenceA, referenceB,
-                           referenceC);
+  std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
+  calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
+                           ReferenceC);
 
-  exp_ext::command_graph graphA{testQueue.get_context(),
-                                testQueue.get_device()};
+  exp_ext::command_graph GraphA{TestQueue.get_context(),
+                                TestQueue.get_device()};
 
-  T *ptrA = malloc_shared<T>(size, testQueue);
-  T *ptrB = malloc_shared<T>(size, testQueue);
-  T *ptrC = malloc_shared<T>(size, testQueue);
-  T *ptrOut = malloc_shared<T>(size, testQueue);
+  T *PtrA = malloc_shared<T>(size, TestQueue);
+  T *PtrB = malloc_shared<T>(size, TestQueue);
+  T *PtrC = malloc_shared<T>(size, TestQueue);
+  T *PtrOut = malloc_shared<T>(size, TestQueue);
 
-  testQueue.copy(dataA.data(), ptrA, size);
-  testQueue.copy(dataB.data(), ptrB, size);
-  testQueue.copy(dataC.data(), ptrC, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA.data(), PtrA, size);
+  TestQueue.copy(DataB.data(), PtrB, size);
+  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.wait_and_throw();
 
   // Add commands to graph
-  auto nodeA = add_kernels_usm(graphA, size, ptrA, ptrB, ptrC);
+  auto NodeA = add_kernels_usm(GraphA, size, PtrA, PtrB, PtrC);
 
   // host task to induce a wait for dependencies
-  graphA.add(
-      [&](handler &cgh) {
-        cgh.host_task([=]() {
+  GraphA.add(
+      [&](handler &CGH) {
+        CGH.host_task([=]() {
           for (size_t i = 0; i < size; i++) {
-            ptrOut[i] = ptrC[i];
+            PtrOut[i] = PtrC[i];
           }
           std::this_thread::sleep_for(std::chrono::milliseconds(500));
         });
       },
-      {exp_ext::property::node::depends_on(nodeA)});
+      {exp_ext::property::node::depends_on(NodeA)});
 
-  auto graphExec = graphA.finalize();
+  auto GraphExec = GraphA.finalize();
 
-  exp_ext::command_graph graphB{testQueue.get_context(),
-                                testQueue.get_device()};
+  exp_ext::command_graph GraphB{TestQueue.get_context(),
+                                TestQueue.get_device()};
 
-  T *ptrA2 = malloc_shared<T>(size, testQueue);
-  T *ptrB2 = malloc_shared<T>(size, testQueue);
-  T *ptrC2 = malloc_shared<T>(size, testQueue);
+  T *PtrA2 = malloc_shared<T>(size, TestQueue);
+  T *PtrB2 = malloc_shared<T>(size, TestQueue);
+  T *PtrC2 = malloc_shared<T>(size, TestQueue);
 
-  testQueue.copy(dataA2.data(), ptrA2, size);
-  testQueue.copy(dataB2.data(), ptrB2, size);
-  testQueue.copy(dataC2.data(), ptrC2, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA2.data(), PtrA2, size);
+  TestQueue.copy(DataB2.data(), PtrB2, size);
+  TestQueue.copy(DataC2.data(), PtrC2, size);
+  TestQueue.wait_and_throw();
 
   // Record commands to graph
-  auto nodeB = add_kernels_usm(graphB, size, ptrA2, ptrB2, ptrC2);
+  auto NodeB = add_kernels_usm(GraphB, size, PtrA2, PtrB2, PtrC2);
 
   // host task to match the graph topology, but we don't need to sleep this
   // time because there is no following update.
-  graphB.add(
-      [&](handler &cgh) {
+  GraphB.add(
+      [&](handler &CGH) {
         // This should be access::target::host_task but it has not been
         // implemented yet.
-        cgh.host_task([=]() {
+        CGH.host_task([=]() {
           for (size_t i = 0; i < size; i++) {
-            ptrOut[i] = ptrC2[i];
+            PtrOut[i] = PtrC2[i];
           }
         });
       },
-      {exp_ext::property::node::depends_on(nodeB)});
+      {exp_ext::property::node::depends_on(NodeB)});
 
   // Execute several iterations of the graph for 1st set of buffers
-  for (unsigned n = 0; n < iterations; n++) {
-    testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
+  for (size_t n = 0; n < iterations; n++) {
+    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
   }
 
-  graphExec.update(graphB);
+  GraphExec.update(GraphB);
 
   // Execute several iterations of the graph for 2nd set of buffers
-  for (unsigned n = 0; n < iterations; n++) {
-    testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
+  for (size_t n = 0; n < iterations; n++) {
+    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
   }
 
   // Perform a wait on all graph submissions.
-  testQueue.wait_and_throw();
+  TestQueue.wait_and_throw();
 
-  testQueue.copy(ptrA, dataA.data(), size);
-  testQueue.copy(ptrB, dataB.data(), size);
-  testQueue.copy(ptrC, dataC.data(), size);
-  testQueue.copy(ptrOut, hostTaskOutput.data(), size);
+  TestQueue.copy(PtrA, DataA.data(), size);
+  TestQueue.copy(PtrB, DataB.data(), size);
+  TestQueue.copy(PtrC, DataC.data(), size);
+  TestQueue.copy(PtrOut, hostTaskOutput.data(), size);
 
-  testQueue.copy(ptrA2, dataA.data(), size);
-  testQueue.copy(ptrB2, dataB.data(), size);
-  testQueue.copy(ptrC2, dataC.data(), size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(PtrA2, DataA.data(), size);
+  TestQueue.copy(PtrB2, DataB.data(), size);
+  TestQueue.copy(PtrC2, DataC.data(), size);
+  TestQueue.wait_and_throw();
 
-  free(ptrA, testQueue);
-  free(ptrB, testQueue);
-  free(ptrC, testQueue);
-  free(ptrOut, testQueue);
+  free(PtrA, TestQueue);
+  free(PtrB, TestQueue);
+  free(PtrC, TestQueue);
+  free(PtrOut, TestQueue);
 
-  free(ptrA2, testQueue);
-  free(ptrB2, testQueue);
-  free(ptrC2, testQueue);
+  free(PtrA2, TestQueue);
+  free(PtrB2, TestQueue);
+  free(PtrC2, TestQueue);
 
-  assert(referenceA == dataA);
-  assert(referenceB == dataB);
-  assert(referenceC == dataC);
-  assert(referenceC == hostTaskOutput);
+  assert(ReferenceA == DataA);
+  assert(ReferenceB == DataB);
+  assert(ReferenceC == DataC);
+  assert(ReferenceC == hostTaskOutput);
 
-  assert(referenceA == dataA2);
-  assert(referenceB == dataB2);
-  assert(referenceC == dataC2);
+  assert(ReferenceA == DataA2);
+  assert(ReferenceB == DataB2);
+  assert(ReferenceC == DataC2);
 
   return 0;
 }

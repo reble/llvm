@@ -12,105 +12,105 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
-  std::vector<T> dataA(size), dataB(size), dataC(size);
-  std::vector<T> dataA2(size), dataB2(size), dataC2(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
+  std::vector<T> DataA2(size), DataB2(size), DataC2(size);
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
-  std::iota(dataA2.begin(), dataA2.end(), 3);
-  std::iota(dataB2.begin(), dataB2.end(), 13);
-  std::iota(dataC2.begin(), dataC2.end(), 1333);
+  std::iota(DataA2.begin(), DataA2.end(), 3);
+  std::iota(DataB2.begin(), DataB2.end(), 13);
+  std::iota(DataC2.begin(), DataC2.end(), 1333);
 
   // Create reference data for output
-  std::vector<T> referenceA(dataA), referenceB(dataB), referenceC(dataC);
-  std::vector<T> referenceA2(dataA2), referenceB2(dataB2), referenceC2(dataC2);
-  // Calculate reference data
-  calculate_reference_data(iterations, size, referenceA, referenceB,
-                           referenceC);
-  calculate_reference_data(iterations, size, referenceA2, referenceB2,
-                           referenceC2);
+  std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
+  std::vector<T> ReferenceA2(DataA2), ReferenceB2(DataB2), ReferenceC2(DataC2);
+  // Calculate Reference data
+  calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
+                           ReferenceC);
+  calculate_reference_data(iterations, size, ReferenceA2, ReferenceB2,
+                           ReferenceC2);
 
-  exp_ext::command_graph graph{testQueue.get_context(), testQueue.get_device()};
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *ptrA = malloc_device<T>(size, testQueue);
-  T *ptrB = malloc_device<T>(size, testQueue);
-  T *ptrC = malloc_device<T>(size, testQueue);
+  T *PtrA = malloc_device<T>(size, TestQueue);
+  T *PtrB = malloc_device<T>(size, TestQueue);
+  T *PtrC = malloc_device<T>(size, TestQueue);
 
-  T *ptrA2 = malloc_device<T>(size, testQueue);
-  T *ptrB2 = malloc_device<T>(size, testQueue);
-  T *ptrC2 = malloc_device<T>(size, testQueue);
+  T *PtrA2 = malloc_device<T>(size, TestQueue);
+  T *PtrB2 = malloc_device<T>(size, TestQueue);
+  T *PtrC2 = malloc_device<T>(size, TestQueue);
 
-  testQueue.copy(dataA.data(), ptrA, size);
-  testQueue.copy(dataB.data(), ptrB, size);
-  testQueue.copy(dataC.data(), ptrC, size);
+  TestQueue.copy(DataA.data(), PtrA, size);
+  TestQueue.copy(DataB.data(), PtrB, size);
+  TestQueue.copy(DataC.data(), PtrC, size);
 
-  testQueue.copy(dataA2.data(), ptrA, size);
-  testQueue.copy(dataB2.data(), ptrB, size);
-  testQueue.copy(dataC2.data(), ptrC, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA2.data(), PtrA, size);
+  TestQueue.copy(DataB2.data(), PtrB, size);
+  TestQueue.copy(DataC2.data(), PtrC, size);
+  TestQueue.wait_and_throw();
 
-  graph.begin_recording(testQueue);
-  run_kernels_usm(testQueue, size, ptrA, ptrB, ptrC);
-  graph.end_recording();
+  Graph.begin_recording(TestQueue);
+  run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
+  Graph.end_recording();
 
-  auto execGraph = graph.finalize();
+  auto ExecGraph = Graph.finalize();
 
   // Create second graph using other buffer set
-  exp_ext::command_graph graphUpdate{testQueue.get_context(),
-                                     testQueue.get_device()};
-  graphUpdate.begin_recording(testQueue);
-  run_kernels_usm(testQueue, size, ptrA2, ptrB2, ptrC2);
-  graphUpdate.end_recording();
+  exp_ext::command_graph GraphUpdate{TestQueue.get_context(),
+                                     TestQueue.get_device()};
+  GraphUpdate.begin_recording(TestQueue);
+  run_kernels_usm(TestQueue, size, PtrA2, PtrB2, PtrC2);
+  GraphUpdate.end_recording();
 
-  event e;
+  event Event;
   for (size_t i = 0; i < iterations; i++) {
-    e = testQueue.submit([&](handler &cgh) {
-      cgh.depends_on(e);
-      cgh.ext_oneapi_graph(graphExec);
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
     });
     // Update to second set of buffers
-    execGraph.update(graphUpdate);
+    ExecGraph.update(GraphUpdate);
 
-    e = testQueue.submit([&](handler &cgh) {
-      cgh.depends_on(e);
-      cgh.ext_oneapi_graph(graphExec);
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
     });
     // Reset back to original buffers
-    execGraph.update(graph);
+    ExecGraph.update(Graph);
   }
 
-  testQueue.wait_and_throw();
+  TestQueue.wait_and_throw();
 
-  testQueue.copy(ptrA, dataA.data(), size);
-  testQueue.copy(ptrB, dataB.data(), size);
-  testQueue.copy(ptrC, dataC.data(), size);
+  TestQueue.copy(PtrA, DataA.data(), size);
+  TestQueue.copy(PtrB, DataB.data(), size);
+  TestQueue.copy(PtrC, DataC.data(), size);
 
-  testQueue.copy(ptrA2, dataA2.data(), size);
-  testQueue.copy(ptrB2, dataB2.data(), size);
-  testQueue.copy(ptrC2, dataC2.data(), size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(PtrA2, DataA2.data(), size);
+  TestQueue.copy(PtrB2, DataB2.data(), size);
+  TestQueue.copy(PtrC2, DataC2.data(), size);
+  TestQueue.wait_and_throw();
 
-  free(ptrA, testQueue);
-  free(ptrB, testQueue);
-  free(ptrC, testQueue);
+  free(PtrA, TestQueue);
+  free(PtrB, TestQueue);
+  free(PtrC, TestQueue);
 
-  free(ptrA2, testQueue);
-  free(ptrB2, testQueue);
-  free(ptrC2, testQueue);
+  free(PtrA2, TestQueue);
+  free(PtrB2, TestQueue);
+  free(PtrC2, TestQueue);
 
-  assert(referenceA == dataA);
-  assert(referenceB == dataB);
-  assert(referenceC == dataC);
+  assert(ReferenceA == DataA);
+  assert(ReferenceB == DataB);
+  assert(ReferenceC == DataC);
 
-  assert(referenceA2 == dataA2);
-  assert(referenceB2 == dataB2);
-  assert(referenceC2 == dataC2);
+  assert(ReferenceA2 == DataA2);
+  assert(ReferenceB2 == DataB2);
+  assert(ReferenceC2 == DataC2);
 
   return 0;
 }

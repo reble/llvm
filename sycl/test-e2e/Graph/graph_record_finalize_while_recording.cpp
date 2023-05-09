@@ -8,17 +8,17 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
-  exp_ext::command_graph graph{testQueue.get_context(), testQueue.get_device()};
-  graph.begin_recording(testQueue);
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
+  Graph.begin_recording(TestQueue);
 
   try {
-    graph.finalize();
-  } catch (sycl::exception &e) {
+    Graph.finalize();
+  } catch (sycl::exception &E) {
     assert(false && "Exception thrown on finalize.\n");
   }
 
-  graph.end_recording();
+  Graph.end_recording();
   return 0;
 }

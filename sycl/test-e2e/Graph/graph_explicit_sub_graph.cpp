@@ -8,117 +8,116 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
   // Values used to modify data inside kernels.
-  const int mod_value = 7;
-  std::vector<T> dataA(size), dataB(size), dataC(size), dataOut(size);
+  const int ModValue = 7;
+  std::vector<T> DataA(size), DataB(size), DataC(size), DataOut(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
-  std::iota(dataOut.begin(), dataOut.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
+  std::iota(DataOut.begin(), DataOut.end(), 1000);
 
   // Create reference data for output
-  std::vector<T> referenceA(dataA);
-  std::vector<T> referenceB(dataB);
-  std::vector<T> referenceC(dataC);
-  std::vector<T> referenceOut(dataOut);
-  for (unsigned n = 0; n < iterations; n++) {
+  std::vector<T> ReferenceA(DataA);
+  std::vector<T> ReferenceB(DataB);
+  std::vector<T> ReferenceC(DataC);
+  std::vector<T> ReferenceOut(DataOut);
+  for (size_t n = 0; n < iterations; n++) {
     for (size_t i = 0; i < size; i++) {
-      referenceA[i] += mod_value;
-      referenceB[i] += mod_value;
-      referenceC[i] = (referenceA[i] + referenceB[i]);
-      referenceC[i] -= mod_value;
-      referenceOut[i] = referenceC[i] + mod_value;
+      ReferenceA[i] += ModValue;
+      ReferenceB[i] += ModValue;
+      ReferenceC[i] = (ReferenceA[i] + ReferenceB[i]);
+      ReferenceC[i] -= ModValue;
+      ReferenceOut[i] = ReferenceC[i] + ModValue;
     }
   }
 
-  exp_ext::command_graph subGraph{testQueue.get_context(),
-                                  testQueue.get_device()};
+  exp_ext::command_graph SubGraph{TestQueue.get_context(),
+                                  TestQueue.get_device()};
 
-  T *ptrA = malloc_device<T>(size, testQueue);
-  T *ptrB = malloc_device<T>(size, testQueue);
-  T *ptrC = malloc_device<T>(size, testQueue);
-  T *ptrOut = malloc_device<T>(size, testQueue);
+  T *PtrA = malloc_device<T>(size, TestQueue);
+  T *PtrB = malloc_device<T>(size, TestQueue);
+  T *PtrC = malloc_device<T>(size, TestQueue);
+  T *PtrOut = malloc_device<T>(size, TestQueue);
 
-  testQueue.copy(dataA.data(), ptrA, size);
-  testQueue.copy(dataB.data(), ptrB, size);
-  testQueue.copy(dataC.data(), ptrC, size);
-  testQueue.copy(dataOut.data(), ptrOut, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA.data(), PtrA, size);
+  TestQueue.copy(DataB.data(), PtrB, size);
+  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.copy(DataOut.data(), PtrOut, size);
+  TestQueue.wait_and_throw();
 
   // Add some operations to a graph which will later be submitted as part
   // of another graph.
 
   // Vector add two values
-  auto nodeSubA = subGraph.add([&](handler &cgh) {
-    cgh.parallel_for(range<1>(size),
-                     [=](item<1> id) { ptrC[id] = ptrA[id] + ptrB[id]; });
+  auto NodeSubA = SubGraph.add([&](handler &CGH) {
+    CGH.parallel_for(range<1>(size),
+                     [=](item<1> id) { PtrC[id] = PtrA[id] + PtrB[id]; });
   });
 
   // Modify the output value with some other value
-  subGraph.add(
-      [&](handler &cgh) {
-        cgh.parallel_for(range<1>(size),
-                         [=](item<1> id) { ptrC[id] -= mod_value; });
+  SubGraph.add(
+      [&](handler &CGH) {
+        CGH.parallel_for(range<1>(size),
+                         [=](item<1> id) { PtrC[id] -= ModValue; });
       },
-      {exp_ext::property::node::depends_on(nodeSubA)});
+      {exp_ext::property::node::depends_on(NodeSubA)});
 
-  auto subGraphExec = subGraph.finalize();
+  auto SubGraphExec = SubGraph.finalize();
 
-  exp_ext::command_graph mainGraph{testQueue.get_context(),
-                                   testQueue.get_device()};
+  exp_ext::command_graph MainGraph{TestQueue.get_context(),
+                                   TestQueue.get_device()};
 
   // Modify the input values.
-  auto nodeMainA = mainGraph.add([&](handler &cgh) {
-    cgh.parallel_for(range<1>(size), [=](item<1> id) {
-      ptrA[id] += mod_value;
-      ptrB[id] += mod_value;
+  auto NodeMainA = MainGraph.add([&](handler &CGH) {
+    CGH.parallel_for(range<1>(size), [=](item<1> id) {
+      PtrA[id] += ModValue;
+      PtrB[id] += ModValue;
     });
   });
 
-  auto nodeMainB =
-      mainGraph.add([&](handler &cgh) { cgh.ext_oneapi_graph(subGraphExec); },
-                    {exp_ext::property::node::depends_on(nodeMainA)});
+  auto NodeMainB =
+      MainGraph.add([&](handler &CGH) { CGH.ext_oneapi_graph(SubGraphExec); },
+                    {exp_ext::property::node::depends_on(NodeMainA)});
 
   // Copy to another output buffer.
-  mainGraph.add(
-      [&](handler &cgh) {
-        cgh.parallel_for(range<1>(size), [=](item<1> id) {
-          ptrOut[id] = ptrC[id] + mod_value;
-        });
+  MainGraph.add(
+      [&](handler &CGH) {
+        CGH.parallel_for(range<1>(size),
+                         [=](item<1> id) { PtrOut[id] = PtrC[id] + ModValue; });
       },
-      {exp_ext::property::node::depends_on(nodeMainB)});
+      {exp_ext::property::node::depends_on(NodeMainB)});
 
   // Finalize a graph with the additional kernel for writing out to
-  auto mainGraphExec = mainGraph.finalize();
+  auto MainGraphExec = MainGraph.finalize();
 
   // Execute several iterations of the graph
-  for (unsigned n = 0; n < iterations; n++) {
-    testQueue.submit(
-        [&](handler &cgh) { cgh.ext_oneapi_graph(mainGraphExec); });
+  for (size_t n = 0; n < iterations; n++) {
+    TestQueue.submit(
+        [&](handler &CGH) { CGH.ext_oneapi_graph(MainGraphExec); });
   }
   // Perform a wait on all graph submissions.
-  testQueue.wait_and_throw();
+  TestQueue.wait_and_throw();
 
-  testQueue.copy(ptrA, dataA.data(), size);
-  testQueue.copy(ptrB, dataB.data(), size);
-  testQueue.copy(ptrC, dataC.data(), size);
-  testQueue.copy(ptrOut, dataOut.data(), size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(PtrA, DataA.data(), size);
+  TestQueue.copy(PtrB, DataB.data(), size);
+  TestQueue.copy(PtrC, DataC.data(), size);
+  TestQueue.copy(PtrOut, DataOut.data(), size);
+  TestQueue.wait_and_throw();
 
-  free(ptrA, testQueue);
-  free(ptrB, testQueue);
-  free(ptrC, testQueue);
-  free(ptrOut, testQueue);
+  free(PtrA, TestQueue);
+  free(PtrB, TestQueue);
+  free(PtrC, TestQueue);
+  free(PtrOut, TestQueue);
 
-  assert(referenceA == dataA);
-  assert(referenceB == dataB);
-  assert(referenceC == dataC);
-  assert(referenceOut == dataOut);
+  assert(ReferenceA == DataA);
+  assert(ReferenceB == DataB);
+  assert(ReferenceC == DataC);
+  assert(ReferenceOut == DataOut);
   return 0;
 }

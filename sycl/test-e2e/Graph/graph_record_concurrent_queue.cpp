@@ -8,27 +8,27 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
-  bool success = false;
+  bool Success = false;
 
-  exp_ext::command_graph graphA{testQueue.get_context(),
-                                testQueue.get_device()};
-  graphA.begin_recording(testQueue);
+  exp_ext::command_graph GraphA{TestQueue.get_context(),
+                                TestQueue.get_device()};
+  GraphA.begin_recording(TestQueue);
 
   try {
-    exp_ext::command_graph graphB{testQueue.get_context(),
-                                  testQueue.get_device()};
-    graphB.begin_recording(testQueue);
-  } catch (sycl::exception &e) {
-    auto stdErrc = e.code().value();
-    if (stdErrc == static_cast<int>(errc::invalid)) {
-      success = true;
+    exp_ext::command_graph GraphB{TestQueue.get_context(),
+                                  TestQueue.get_device()};
+    GraphB.begin_recording(TestQueue);
+  } catch (sycl::exception &E) {
+    auto StdErrc = E.code().value();
+    if (StdErrc == static_cast<int>(errc::invalid)) {
+      Success = true;
     }
   }
 
-  graphA.end_recording();
+  GraphA.end_recording();
 
-  assert(success);
+  assert(Success);
   return 0;
 }

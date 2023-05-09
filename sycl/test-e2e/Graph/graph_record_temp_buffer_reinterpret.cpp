@@ -2,9 +2,6 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Expected fail as buffer accessors not yet supported
-// XFAIL: *
-
 // This test creates a temporary buffer (which is reinterpreted from the main
 // application buffers) which is used in kernels but destroyed before
 // finalization and execution of the graph. The original buffers lifetime
@@ -13,55 +10,55 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
-  std::vector<T> dataA(size), dataB(size), dataC(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
   // Create reference data for output
-  std::vector<T> referenceA(dataA), referenceB(dataB), referenceC(dataC);
-  calculate_reference_data(iterations, size, referenceA, referenceB,
-                           referenceC);
+  std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
+  calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
+                           ReferenceC);
 
   {
-    exp_ext::command_graph graph{testQueue.get_context(),
-                                 testQueue.get_device()};
-    buffer<T> bufferA{dataA.data(), range<1>{dataA.size()}};
-    buffer<T> bufferB{dataB.data(), range<1>{dataB.size()}};
-    buffer<T> bufferC{dataC.data(), range<1>{dataC.size()}};
+    exp_ext::command_graph Graph{TestQueue.get_context(),
+                                 TestQueue.get_device()};
+    buffer<T> BufferA{DataA.data(), range<1>{DataA.size()}};
+    buffer<T> BufferB{DataB.data(), range<1>{DataB.size()}};
+    buffer<T> BufferC{DataC.data(), range<1>{DataC.size()}};
 
-    graph.begin_recording(testQueue);
+    Graph.begin_recording(TestQueue);
 
     // Create some temporary buffers only for recording
     {
-      auto bufferA2 = bufferA.reinterpret<T, 1>(bufferA.get_range());
-      auto bufferB2 = bufferB.reinterpret<T, 1>(bufferB.get_range());
-      auto bufferC2 = bufferC.reinterpret<T, 1>(bufferC.get_range());
+      auto BufferA2 = BufferA.reinterpret<T, 1>(BufferA.get_range());
+      auto BufferB2 = BufferB.reinterpret<T, 1>(BufferB.get_range());
+      auto BufferC2 = BufferC.reinterpret<T, 1>(BufferC.get_range());
 
       // Record commands to graph
-      run_kernels(testQueue, size, bufferA2, bufferB2, bufferC2);
+      run_kernels(TestQueue, size, BufferA2, BufferB2, BufferC2);
 
-      graph.end_recording();
+      Graph.end_recording();
     }
-    auto graphExec = graph.finalize();
+    auto GraphExec = Graph.finalize();
 
     // Execute several iterations of the graph
-    for (unsigned n = 0; n < iterations; n++) {
-      testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
+    for (size_t n = 0; n < iterations; n++) {
+      TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
     }
     // Perform a wait on all graph submissions.
-    testQueue.wait();
+    TestQueue.wait();
   }
 
-  assert(referenceA == dataA);
-  assert(referenceB == dataB);
-  assert(referenceC == dataC);
+  assert(ReferenceA == DataA);
+  assert(ReferenceB == DataB);
+  assert(ReferenceC == DataC);
 
   return 0;
 }

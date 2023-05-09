@@ -10,42 +10,42 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
-  size_t work_items = 16;
-  std::vector<T> dataIn(work_items);
+  size_t WorkItems = 16;
+  std::vector<T> DataIn(WorkItems);
 
   // Initialize the data
-  std::iota(dataIn.begin(), dataIn.end(), 1);
+  std::iota(DataIn.begin(), DataIn.end(), 1);
 
-  exp_ext::command_graph graph{testQueue.get_context(), testQueue.get_device()};
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *ptrIn = malloc_device<T>(work_items, testQueue);
-  testQueue.copy(dataIn.data(), ptrIn, work_items);
+  T *PtrIn = malloc_device<T>(WorkItems, TestQueue);
+  TestQueue.copy(DataIn.data(), PtrIn, WorkItems);
 
-  graph.begin_recording(testQueue);
+  Graph.begin_recording(TestQueue);
 
   // Vector add to temporary output buffer
-  testQueue.submit([&](handler &cgh) {
-    sycl::stream out(work_items * 16, 16, cgh);
-    cgh.parallel_for(range<1>(work_items), [=](item<1> id) {
-      out << "Val: " << ptrIn[id.get_linear_id()] << sycl::endl;
+  TestQueue.submit([&](handler &CGH) {
+    sycl::stream Out(WorkItems * 16, 16, CGH);
+    CGH.parallel_for(range<1>(WorkItems), [=](item<1> id) {
+      Out << "Val: " << PtrIn[id.get_linear_id()] << sycl::endl;
     });
   });
-  graph.end_recording();
+  Graph.end_recording();
 
-  auto graphExec = graph.finalize();
+  auto GraphExec = Graph.finalize();
 
-  testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
+  TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
 
   // Perform a wait on all graph submissions.
-  testQueue.wait_and_throw();
+  TestQueue.wait_and_throw();
 
-  testQueue.copy(ptrIn, dataIn.data(), size);
+  TestQueue.copy(PtrIn, DataIn.data(), size);
 
-  free(ptrIn, testQueue);
+  free(PtrIn, TestQueue);
 
   return 0;
 }

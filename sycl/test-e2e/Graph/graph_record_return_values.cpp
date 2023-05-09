@@ -8,24 +8,24 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
-  exp_ext::command_graph graph{testQueue.get_context(), testQueue.get_device()};
+  queue TestQueue;
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  bool changedState = graph.end_recording();
-  assert(changedState == false);
+  bool ChangedState = Graph.end_recording();
+  assert(ChangedState == false);
 
-  changedState = graph.begin_recording(testQueue);
-  assert(changedState == true);
+  ChangedState = Graph.begin_recording(TestQueue);
+  assert(ChangedState == true);
 
   // Recording to same graph is not an exception
-  changedState = graph.begin_recording(testQueue);
-  assert(changedState == false);
+  ChangedState = Graph.begin_recording(TestQueue);
+  assert(ChangedState == false);
 
-  changedState = graph.end_recording();
-  assert(changedState == true);
+  ChangedState = Graph.end_recording();
+  assert(ChangedState == true);
 
-  changedState = graph.end_recording();
-  assert(changedState == false);
+  ChangedState = Graph.end_recording();
+  assert(ChangedState == false);
 
   return 0;
 }

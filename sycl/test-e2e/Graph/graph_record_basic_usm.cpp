@@ -11,61 +11,60 @@
 using namespace sycl;
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
-  std::vector<T> dataA(size), dataB(size), dataC(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
   // Create reference data for output
-  std::vector<T> referenceA(dataA), referenceB(dataB), referenceC(dataC);
-  calculate_reference_data(iterations, size, referenceA, referenceB,
-                           referenceC);
+  std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
+  calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
+                           ReferenceC);
 
   {
-    ext::oneapi::experimental::command_graph<
-        ext::oneapi::experimental::graph_state::modifiable>
-        graph{testQueue.get_context(), testQueue.get_device()};
-    auto ptrA = malloc_device<T>(dataA.size(), testQueue);
-    testQueue.memcpy(ptrA, dataA.data(), dataA.size() * sizeof(T)).wait();
-    auto ptrB = malloc_device<T>(dataB.size(), testQueue);
-    testQueue.memcpy(ptrB, dataB.data(), dataB.size() * sizeof(T)).wait();
-    auto ptrC = malloc_device<T>(dataC.size(), testQueue);
-    testQueue.memcpy(ptrC, dataC.data(), dataC.size() * sizeof(T)).wait();
+    ext::oneapi::experimental::command_graph Graph{TestQueue.get_context(),
+                                                   TestQueue.get_device()};
+    auto PtrA = malloc_device<T>(DataA.size(), TestQueue);
+    TestQueue.memcpy(PtrA, DataA.data(), DataA.size() * sizeof(T)).wait();
+    auto PtrB = malloc_device<T>(DataB.size(), TestQueue);
+    TestQueue.memcpy(PtrB, DataB.data(), DataB.size() * sizeof(T)).wait();
+    auto PtrC = malloc_device<T>(DataC.size(), TestQueue);
+    TestQueue.memcpy(PtrC, DataC.data(), DataC.size() * sizeof(T)).wait();
 
-    graph.begin_recording(testQueue);
+    Graph.begin_recording(TestQueue);
 
     // Record commands to graph
 
-    run_kernels_usm(testQueue, size, ptrA, ptrB, ptrC);
+    run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
 
-    graph.end_recording();
-    auto graphExec = graph.finalize();
+    Graph.end_recording();
+    auto GraphExec = Graph.finalize();
 
     // Execute several iterations of the graph
-    for (unsigned n = 0; n < iterations; n++) {
-      testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
+    for (size_t n = 0; n < iterations; n++) {
+      TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
     }
     // Perform a wait on all graph submissions.
-    testQueue.wait_and_throw();
+    TestQueue.wait_and_throw();
 
-    testQueue.memcpy(dataA.data(), ptrA, dataA.size() * sizeof(T)).wait();
-    testQueue.memcpy(dataB.data(), ptrB, dataB.size() * sizeof(T)).wait();
-    testQueue.memcpy(dataC.data(), ptrC, dataC.size() * sizeof(T)).wait();
+    TestQueue.memcpy(DataA.data(), PtrA, DataA.size() * sizeof(T)).wait();
+    TestQueue.memcpy(DataB.data(), PtrB, DataB.size() * sizeof(T)).wait();
+    TestQueue.memcpy(DataC.data(), PtrC, DataC.size() * sizeof(T)).wait();
 
-    free(ptrA, testQueue.get_context());
-    free(ptrB, testQueue.get_context());
-    free(ptrC, testQueue.get_context());
+    free(PtrA, TestQueue.get_context());
+    free(PtrB, TestQueue.get_context());
+    free(PtrC, TestQueue.get_context());
   }
 
-  assert(referenceA == dataA);
-  assert(referenceB == dataB);
-  assert(referenceC == dataC);
+  assert(ReferenceA == DataA);
+  assert(ReferenceB == DataB);
+  assert(ReferenceC == DataC);
 
   return 0;
 }

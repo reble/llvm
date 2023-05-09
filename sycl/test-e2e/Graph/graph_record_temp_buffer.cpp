@@ -2,7 +2,6 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Expected fail as buffer accessors not yet supported
 // XFAIL: *
 
 // This test creates a temporary buffer which is used in kernels but
@@ -11,72 +10,72 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
-  std::vector<T> dataA(size), dataB(size), dataC(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
   // Create reference data for output
-  std::vector<T> referenceC(dataC);
-  for (unsigned n = 0; n < iterations; n++) {
+  std::vector<T> ReferenceC(DataC);
+  for (size_t n = 0; n < iterations; n++) {
     for (size_t i = 0; i < size; i++) {
-      referenceC[i] += (dataA[i] + dataB[i]) + 1;
+      ReferenceC[i] += (DataA[i] + DataB[i]) + 1;
     }
   }
 
   {
-    exp_ext::command_graph graph{testQueue.get_context(),
-                                 testQueue.get_device()};
-    buffer<T> bufferA{dataA.data(), range<1>{dataA.size()}};
-    bufferA.set_write_back(false);
-    buffer<T> bufferB{dataB.data(), range<1>{dataB.size()}};
-    bufferB.set_write_back(false);
-    buffer<T> bufferC{dataC.data(), range<1>{dataC.size()}};
-    bufferC.set_write_back(false);
+    exp_ext::command_graph Graph{TestQueue.get_context(),
+                                 TestQueue.get_device()};
+    buffer<T> BufferA{DataA.data(), range<1>{DataA.size()}};
+    BufferA.set_write_back(false);
+    buffer<T> BufferB{DataB.data(), range<1>{DataB.size()}};
+    BufferB.set_write_back(false);
+    buffer<T> BufferC{DataC.data(), range<1>{DataC.size()}};
+    BufferC.set_write_back(false);
 
-    graph.begin_recording(testQueue);
+    Graph.begin_recording(TestQueue);
 
     // Create a temporary output buffer to use between kernels.
     {
-      buffer<T> bufferTemp{range<1>{dataA.size()}};
-      bufferTemp.set_write_back(false);
+      buffer<T> BufferTemp{range<1>{DataA.size()}};
+      BufferTemp.set_write_back(false);
 
       // Vector add to temporary output buffer
-      testQueue.submit([&](handler &cgh) {
-        auto ptrA = bufferA.get_access<access::mode::read>(cgh);
-        auto ptrB = bufferB.get_access<access::mode::read>(cgh);
-        auto ptrOut = bufferTemp.get_access<access::mode::write>(cgh);
-        cgh.parallel_for(range<1>(size),
-                         [=](item<1> id) { ptrOut[id] = ptrA[id] + ptrB[id]; });
+      TestQueue.submit([&](handler &CGH) {
+        auto PtrA = BufferA.get_access<access::mode::read>(CGH);
+        auto PtrB = BufferB.get_access<access::mode::read>(CGH);
+        auto PtrOut = BufferTemp.get_access<access::mode::write>(CGH);
+        CGH.parallel_for(range<1>(size),
+                         [=](item<1> id) { PtrOut[id] = PtrA[id] + PtrB[id]; });
       });
 
       // Modify temp buffer and write to output buffer
-      testQueue.submit([&](handler &cgh) {
-        auto ptrTemp = bufferTemp.get_access<access::mode::read>(cgh);
-        auto ptrOut = bufferC.get_access<access::mode::write>(cgh);
-        cgh.parallel_for(range<1>(size),
-                         [=](item<1> id) { ptrOut[id] += ptrTemp[id] + 1; });
+      TestQueue.submit([&](handler &CGH) {
+        auto PtrTemp = BufferTemp.get_access<access::mode::read>(CGH);
+        auto PtrOut = BufferC.get_access<access::mode::write>(CGH);
+        CGH.parallel_for(range<1>(size),
+                         [=](item<1> id) { PtrOut[id] += PtrTemp[id] + 1; });
       });
-      graph.end_recording();
+      Graph.end_recording();
     }
-    auto graphExec = graph.finalize();
+    auto GraphExec = Graph.finalize();
 
     // Execute several iterations of the graph
-    for (unsigned n = 0; n < iterations; n++) {
-      testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
+    for (size_t n = 0; n < iterations; n++) {
+      TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
     }
     // Perform a wait on all graph submissions.
-    testQueue.wait();
+    TestQueue.wait();
 
-    host_accessor hostAccC(bufferC);
+    host_accessor HostAccC(BufferC);
     for (size_t i = 0; i < size; i++) {
-      assert(referenceC[i] == hostAccC[i]);
+      assert(ReferenceC[i] == HostAccC[i]);
     }
   }
 

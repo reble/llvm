@@ -8,18 +8,15 @@
 
 #include "graph_common.hpp"
 
-using namespace sycl;
-
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
-  ext::oneapi::experimental::command_graph<
-      ext::oneapi::experimental::graph_state::modifiable>
-      graph{testQueue.get_context(), testQueue.get_device()};
-  auto graphExec = graph.finalize();
+  ext::oneapi::experimental::command_graph Graph{TestQueue.get_context(),
+                                                 TestQueue.get_device()};
+  auto GraphExec = Graph.finalize();
 
-  testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
-  testQueue.wait();
+  TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+  TestQueue.wait();
 
   return 0;
 }

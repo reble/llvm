@@ -10,84 +10,83 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
-  if (!testQueue.get_device().has(sycl::aspect::usm_shared_allocations)) {
+  if (!TestQueue.get_device().has(sycl::aspect::usm_shared_allocations)) {
     return 0;
   }
 
   const T modValue = T{7};
-  std::vector<T> dataA(size), dataB(size), dataC(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
   // Create reference data for output
-  std::vector<T> referenceC(dataC);
-  for (unsigned n = 0; n < iterations; n++) {
+  std::vector<T> ReferenceC(DataC);
+  for (size_t n = 0; n < iterations; n++) {
     for (size_t i = 0; i < size; i++) {
-      referenceC[i] += (dataA[i] + dataB[i]) + modValue + 1;
+      ReferenceC[i] += (DataA[i] + DataB[i]) + modValue + 1;
     }
   }
 
-  exp_ext::command_graph<exp_ext::graph_state::modifiable> graph{
-      testQueue.get_context(), testQueue.get_device()};
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *ptrA = malloc_device<T>(size, testQueue);
-  T *ptrB = malloc_device<T>(size, testQueue);
-  T *ptrC = malloc_shared<T>(size, testQueue);
+  T *PtrA = malloc_device<T>(size, TestQueue);
+  T *PtrB = malloc_device<T>(size, TestQueue);
+  T *PtrC = malloc_shared<T>(size, TestQueue);
 
-  testQueue.copy(dataA.data(), ptrA, size);
-  testQueue.copy(dataB.data(), ptrB, size);
-  testQueue.copy(dataC.data(), ptrC, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA.data(), PtrA, size);
+  TestQueue.copy(DataB.data(), PtrB, size);
+  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.wait_and_throw();
 
-  graph.begin_recording(testQueue);
+  Graph.begin_recording(TestQueue);
 
   // Vector add to output
-  event node1 = testQueue.submit([&](handler &cgh) {
-    cgh.parallel_for(range<1>(size),
-                     [=](item<1> id) { ptrC[id] += ptrA[id] + ptrB[id]; });
+  event Node1 = TestQueue.submit([&](handler &CGH) {
+    CGH.parallel_for(range<1>(size),
+                     [=](item<1> id) { PtrC[id] += PtrA[id] + PtrB[id]; });
   });
 
   // Modify the output values in a host_task
-  auto node2 = testQueue.submit([&](handler &cgh) {
-    cgh.depends_on(node1);
-    cgh.host_task([=]() {
+  auto Node2 = TestQueue.submit([&](handler &CGH) {
+    CGH.depends_on(Node1);
+    CGH.host_task([=]() {
       for (size_t i = 0; i < size; i++) {
-        ptrC[i] += modValue;
+        PtrC[i] += modValue;
       }
     });
   });
 
   // Modify temp buffer and write to output buffer
-  testQueue.submit([&](handler &cgh) {
-    cgh.depends_on(node2);
-    cgh.parallel_for(range<1>(size), [=](item<1> id) { ptrC[id] += 1; });
+  TestQueue.submit([&](handler &CGH) {
+    CGH.depends_on(Node2);
+    CGH.parallel_for(range<1>(size), [=](item<1> id) { PtrC[id] += 1; });
   });
-  graph.end_recording();
+  Graph.end_recording();
 
-  auto graphExec = graph.finalize();
+  auto GraphExec = Graph.finalize();
 
   // Execute several iterations of the graph
-  for (unsigned n = 0; n < iterations; n++) {
-    testQueue.submit([&](handler &cgh) { cgh.ext_oneapi_graph(graphExec); });
+  for (size_t n = 0; n < iterations; n++) {
+    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
   }
   // Perform a wait on all graph submissions.
-  testQueue.wait_and_throw();
+  TestQueue.wait_and_throw();
 
-  testQueue.copy(ptrC, dataC.data(), size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(PtrC, DataC.data(), size);
+  TestQueue.wait_and_throw();
 
-  free(ptrA, testQueue);
-  free(ptrB, testQueue);
-  free(ptrC, testQueue);
+  free(PtrA, TestQueue);
+  free(PtrB, TestQueue);
+  free(PtrC, TestQueue);
 
-  assert(referenceC == dataC);
+  assert(ReferenceC == DataC);
 
   return 0;
 }

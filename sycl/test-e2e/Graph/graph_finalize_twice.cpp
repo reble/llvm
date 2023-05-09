@@ -2,21 +2,18 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-/**  Tests calling finalize() more than once on the same command_graph.
+/**  Tests calling finalize() more than once on the same command_Graph.
  */
 
 #include "graph_common.hpp"
 
-using namespace sycl;
-
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
-  ext::oneapi::experimental::command_graph<
-      ext::oneapi::experimental::graph_state::modifiable>
-      graph{testQueue.get_context(), testQueue.get_device()};
-  auto graphExec = graph.finalize();
-  auto graphExec2 = graph.finalize();
+  ext::oneapi::experimental::command_graph Graph{TestQueue.get_context(),
+                                                 TestQueue.get_device()};
+  auto GraphExec = Graph.finalize();
+  auto GraphExec2 = Graph.finalize();
 
   return 0;
 }

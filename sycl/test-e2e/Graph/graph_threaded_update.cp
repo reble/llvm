@@ -11,63 +11,63 @@
 #include <thread>
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
   const unsigned iterations = std::thread::hardware_concurrency();
-  std::vector<T> dataA(size), dataB(size), dataC(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
-  auto dataA2 = dataA;
-  auto dataB2 = dataB;
-  auto dataC2 = dataC;
+  auto DataA2 = DataA;
+  auto DataB2 = DataB;
+  auto DataC2 = DataC;
 
-  exp_ext::command_graph graphA{testQueue.get_context(),
-                                testQueue.get_device()};
+  exp_ext::command_graph GraphA{TestQueue.get_context(),
+                                TestQueue.get_device()};
 
-  T *ptrA = malloc_device<T>(size, testQueue);
-  T *ptrB = malloc_device<T>(size, testQueue);
-  T *ptrC = malloc_device<T>(size, testQueue);
+  T *PtrA = malloc_device<T>(size, TestQueue);
+  T *PtrB = malloc_device<T>(size, TestQueue);
+  T *PtrC = malloc_device<T>(size, TestQueue);
 
-  testQueue.copy(dataA.data(), ptrA, size);
-  testQueue.copy(dataB.data(), ptrB, size);
-  testQueue.copy(dataC.data(), ptrC, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA.data(), PtrA, size);
+  TestQueue.copy(DataB.data(), PtrB, size);
+  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.wait_and_throw();
 
-  graphA.begin_recording(testQueue);
-
-  // Record commands to graph
-  run_kernels_usm(testQueue, size, ptrA, ptrB, ptrC);
-
-  graphA.end_recording();
-
-  auto graphExec = graphA.finalize();
-
-  exp_ext::command_graph graphB{testQueue.get_context(),
-                                testQueue.get_device()};
-
-  T *ptrA2 = malloc_device<T>(size, testQueue);
-  T *ptrB2 = malloc_device<T>(size, testQueue);
-  T *ptrC2 = malloc_device<T>(size, testQueue);
-
-  testQueue.copy(dataA2.data(), ptrA2, size);
-  testQueue.copy(dataB2.data(), ptrB2, size);
-  testQueue.copy(dataC2.data(), ptrC2, size);
-  testQueue.wait_and_throw();
-
-  graphB.begin_recording(testQueue);
+  GraphA.begin_recording(TestQueue);
 
   // Record commands to graph
-  run_kernels_usm(testQueue, size, ptrA2, ptrB2, ptrC2);
+  run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
 
-  graphB.end_recording();
+  GraphA.end_recording();
 
-  auto updateGraph = [&]() { graphExec.update(graphB); };
+  auto GraphExec = GraphA.finalize();
+
+  exp_ext::command_graph GraphB{TestQueue.get_context(),
+                                TestQueue.get_device()};
+
+  T *PtrA2 = malloc_device<T>(size, TestQueue);
+  T *PtrB2 = malloc_device<T>(size, TestQueue);
+  T *PtrC2 = malloc_device<T>(size, TestQueue);
+
+  TestQueue.copy(DataA2.data(), PtrA2, size);
+  TestQueue.copy(DataB2.data(), PtrB2, size);
+  TestQueue.copy(DataC2.data(), PtrC2, size);
+  TestQueue.wait_and_throw();
+
+  GraphB.begin_recording(TestQueue);
+
+  // Record commands to graph
+  run_kernels_usm(TestQueue, size, PtrA2, PtrB2, PtrC2);
+
+  GraphB.end_recording();
+
+  auto updateGraph = [&]() { GraphExec.update(GraphB); };
 
   std::vector<std::thread> threads;
   threads.reserve(iterations);
@@ -80,9 +80,9 @@ int main() {
     threads[i].join();
   }
 
-  free(ptrA, testQueue);
-  free(ptrB, testQueue);
-  free(ptrC, testQueue);
+  free(PtrA, TestQueue);
+  free(PtrB, TestQueue);
+  free(PtrC, TestQueue);
 
   return 0;
 }

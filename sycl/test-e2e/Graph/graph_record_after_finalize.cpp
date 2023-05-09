@@ -8,91 +8,91 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
-  std::vector<T> dataA(size), dataB(size), dataC(size), dataOut(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size), DataOut(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
-  std::iota(dataOut.begin(), dataOut.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
+  std::iota(DataOut.begin(), DataOut.end(), 1000);
 
   // Create reference data for output
-  std::vector<T> referenceC(dataC);
-  std::vector<T> referenceOut(dataOut);
-  for (unsigned n = 0; n < iterations * 2; n++) {
+  std::vector<T> ReferenceC(DataC);
+  std::vector<T> ReferenceOut(DataOut);
+  for (size_t n = 0; n < iterations * 2; n++) {
     for (size_t i = 0; i < size; i++) {
-      referenceC[i] += (dataA[i] + dataB[i]);
+      ReferenceC[i] += (DataA[i] + DataB[i]);
       if (n >= iterations)
-        referenceOut[i] += referenceC[i] + 1;
+        ReferenceOut[i] += ReferenceC[i] + 1;
     }
   }
 
-  exp_ext::command_graph graph{testQueue.get_context(), testQueue.get_device()};
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *ptrA = malloc_device<T>(size, testQueue);
-  T *ptrB = malloc_device<T>(size, testQueue);
-  T *ptrC = malloc_device<T>(size, testQueue);
-  T *ptrOut = malloc_device<T>(size, testQueue);
+  T *PtrA = malloc_device<T>(size, TestQueue);
+  T *PtrB = malloc_device<T>(size, TestQueue);
+  T *PtrC = malloc_device<T>(size, TestQueue);
+  T *PtrOut = malloc_device<T>(size, TestQueue);
 
-  testQueue.copy(dataA.data(), ptrA, size);
-  testQueue.copy(dataB.data(), ptrB, size);
-  testQueue.copy(dataC.data(), ptrC, size);
-  testQueue.copy(dataOut.data(), ptrOut, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA.data(), PtrA, size);
+  TestQueue.copy(DataB.data(), PtrB, size);
+  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.copy(DataOut.data(), PtrOut, size);
+  TestQueue.wait_and_throw();
 
-  graph.begin_recording(testQueue);
+  Graph.begin_recording(TestQueue);
 
   // Vector add to some buffer
-  auto e = testQueue.submit([&](handler &cgh) {
-    cgh.parallel_for(range<1>(size),
-                     [=](item<1> id) { ptrC[id] += ptrA[id] + ptrB[id]; });
+  auto Event = TestQueue.submit([&](handler &CGH) {
+    CGH.parallel_for(range<1>(size),
+                     [=](item<1> id) { PtrC[id] += PtrA[id] + PtrB[id]; });
   });
 
-  auto graphExec = graph.finalize();
+  auto GraphExec = Graph.finalize();
 
   // Read and modify previous output and write to output buffer
-  e = testQueue.submit([&](handler &cgh) {
-    cgh.depends_on(e);
-    cgh.parallel_for(range<1>(size),
-                     [=](item<1> id) { ptrOut[id] += ptrC[id] + 1; });
+  Event = TestQueue.submit([&](handler &CGH) {
+    CGH.depends_on(Event);
+    CGH.parallel_for(range<1>(size),
+                     [=](item<1> id) { PtrOut[id] += PtrC[id] + 1; });
   });
-  graph.end_recording();
+  Graph.end_recording();
 
   // Finalize a graph with the additional kernel for writing out to
-  auto graphExecAdditional = graph.finalize();
+  auto GraphExecAdditional = Graph.finalize();
 
   // Execute several iterations of the graph
-  for (unsigned n = 0; n < iterations; n++) {
-    e = testQueue.submit([&](handler &cgh) {
-      cgh.depends_on(e);
-      cgh.ext_oneapi_graph(graphExec);
+  for (size_t n = 0; n < iterations; n++) {
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
     });
   }
   // Execute the extended graph.
-  for (unsigned n = 0; n < iterations; n++) {
-    e = testQueue.submit([&](handler &cgh) {
-      cgh.depends_on(e);
-      cgh.ext_oneapi_graph(graphExecAdditional);
+  for (size_t n = 0; n < iterations; n++) {
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExecAdditional);
     });
   }
   // Perform a wait on all graph submissions.
-  testQueue.wait_and_throw();
+  TestQueue.wait_and_throw();
 
-  testQueue.copy(ptrC, dataC.data(), size);
-  testQueue.copy(ptrOut, dataOut.data(), size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(PtrC, DataC.data(), size);
+  TestQueue.copy(PtrOut, DataOut.data(), size);
+  TestQueue.wait_and_throw();
 
-  free(ptrA, testQueue);
-  free(ptrB, testQueue);
-  free(ptrC, testQueue);
-  free(ptrOut, testQueue);
+  free(PtrA, TestQueue);
+  free(PtrB, TestQueue);
+  free(PtrC, TestQueue);
+  free(PtrOut, TestQueue);
 
-  assert(referenceC == dataC);
-  assert(referenceOut == dataOut);
+  assert(ReferenceC == DataC);
+  assert(ReferenceOut == DataOut);
 
   return 0;
 }

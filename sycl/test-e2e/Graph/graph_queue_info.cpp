@@ -11,20 +11,19 @@
 #include "graph_common.hpp"
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
-  exp_ext::queue_state state = testQueue.get_info<info::queue::state>();
-  assert(state == exp_ext::queue_state::executing);
+  exp_ext::queue_state State = TestQueue.get_info<info::queue::state>();
+  assert(State == exp_ext::queue_state::executing);
 
-  exp_ext::command_graph<exp_ext::graph_state::modifiable> graph{
-      testQueue.get_context(), testQueue.get_device()};
-  graph.begin_recording(testQueue);
-  state = testQueue.get_info<info::queue::state>();
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
+  Graph.begin_recording(TestQueue);
+  State = TestQueue.get_info<info::queue::state>();
   assert(state == exp_ext::queue_state::recording);
 
-  graph.end_recording();
-  state = testQueue.get_info<info::queue::state>();
-  assert(state == exp_ext::queue_state::executing);
+  Graph.end_recording();
+  State = TestQueue.get_info<info::queue::state>();
+  assert(State == exp_ext::queue_state::executing);
 
   return 0;
 }

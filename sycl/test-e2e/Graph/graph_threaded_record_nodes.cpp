@@ -12,49 +12,49 @@
 #include <thread>
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   using T = int;
 
   const unsigned iterations = std::thread::hardware_concurrency();
-  std::vector<T> dataA(size), dataB(size), dataC(size);
+  std::vector<T> DataA(size), DataB(size), DataC(size);
 
   // Initialize the data
-  std::iota(dataA.begin(), dataA.end(), 1);
-  std::iota(dataB.begin(), dataB.end(), 10);
-  std::iota(dataC.begin(), dataC.end(), 1000);
+  std::iota(DataA.begin(), DataA.end(), 1);
+  std::iota(DataB.begin(), DataB.end(), 10);
+  std::iota(DataC.begin(), DataC.end(), 1000);
 
-  exp_ext::command_graph graph{testQueue.get_context(), testQueue.get_device()};
+  exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *ptrA = malloc_device<T>(size, testQueue);
-  T *ptrB = malloc_device<T>(size, testQueue);
-  T *ptrC = malloc_device<T>(size, testQueue);
+  T *PtrA = malloc_device<T>(size, TestQueue);
+  T *PtrB = malloc_device<T>(size, TestQueue);
+  T *PtrC = malloc_device<T>(size, TestQueue);
 
-  testQueue.copy(dataA.data(), ptrA, size);
-  testQueue.copy(dataB.data(), ptrB, size);
-  testQueue.copy(dataC.data(), ptrC, size);
-  testQueue.wait_and_throw();
+  TestQueue.copy(DataA.data(), PtrA, size);
+  TestQueue.copy(DataB.data(), PtrB, size);
+  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.wait_and_throw();
 
-  graph.begin_recording(testQueue);
+  Graph.begin_recording(TestQueue);
   auto recordGraph = [&]() {
     // Record commands to graph
-    run_kernels_usm(testQueue, size, ptrA, ptrB, ptrC);
+    run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
   };
-  graph.end_recording();
+  Graph.end_recording();
 
-  std::vector<std::thread> threads;
-  threads.reserve(iterations);
-  for (unsigned i = 0; i < iterations; ++i) {
-    threads.emplace_back(recordGraph);
+  std::vector<std::thread> Threads;
+  Threads.reserve(iterations);
+  for (size_t i = 0; i < iterations; ++i) {
+    Threads.emplace_back(recordGraph);
   }
 
-  for (unsigned i = 0; i < iterations; ++i) {
-    threads[i].join();
+  for (size_t i = 0; i < iterations; ++i) {
+    Threads[i].join();
   }
 
-  free(ptrA, testQueue);
-  free(ptrB, testQueue);
-  free(ptrC, testQueue);
+  free(PtrA, TestQueue);
+  free(PtrB, TestQueue);
+  free(PtrC, TestQueue);
 
   return 0;
 }

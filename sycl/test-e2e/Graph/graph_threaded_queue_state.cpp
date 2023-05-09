@@ -11,29 +11,29 @@
 #include <thread>
 
 int main() {
-  queue testQueue;
+  queue TestQueue;
 
   const unsigned iterations = std::thread::hardware_concurrency();
 
-  auto recordGraph = [&]() {
-    exp_ext::command_graph graph{testQueue.get_context(),
-                                 testQueue.get_device()};
+  auto RecordGraph = [&]() {
+    exp_ext::command_graph Graph{TestQueue.get_context(),
+                                 TestQueue.get_device()};
     try {
-      graph.begin_recording(testQueue);
-    } catch (sycl::exception &e) {
+      Graph.begin_recording(TestQueue);
+    } catch (sycl::exception &E) {
       // Can throw if graph is already being recorded to
     }
-    graph.end_recording();
+    Graph.end_recording();
   };
 
-  std::vector<std::thread> threads;
-  threads.reserve(iterations);
+  std::vector<std::thread> Threads;
+  Threads.reserve(iterations);
   for (unsigned i = 0; i < iterations; ++i) {
-    threads.emplace_back(recordGraph);
+    Threads.emplace_back(recordGraph);
   }
 
   for (unsigned i = 0; i < iterations; ++i) {
-    threads[i].join();
+    Threads[i].join();
   }
 
   return 0;
