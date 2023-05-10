@@ -26,7 +26,7 @@ namespace oneapi {
 namespace experimental {
 
 namespace detail {
-struct node_impl;
+class node_impl;
 class graph_impl;
 class exec_graph_impl;
 
