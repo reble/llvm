@@ -3,7 +3,7 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 // Tests obtaining a finalized, executable graph from a graph which is
-// currently being recorded to (no end_recording called)
+// currently being recorded to without end_recording() being called.
 
 #include "graph_common.hpp"
 

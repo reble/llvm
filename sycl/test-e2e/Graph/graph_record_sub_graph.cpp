@@ -3,7 +3,7 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 // This test creates a graph, finalizes it, then submits that as a subgraph of
-// another graph and executes that second graph.
+// another graph using Record & Replay, and executes that second graph.
 
 #include "graph_common.hpp"
 
@@ -16,13 +16,11 @@ int main() {
   const int ModValue = 7;
   std::vector<T> DataA(size), DataB(size), DataC(size), DataOut(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
   std::iota(DataOut.begin(), DataOut.end(), 1000);
 
-  // Create reference data for output
   std::vector<T> ReferenceA(DataA);
   std::vector<T> ReferenceB(DataB);
   std::vector<T> ReferenceC(DataC);

@@ -3,7 +3,7 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 // Tests the return values from queue graph functions which change the
-// internal queue state
+// internal queue state.
 
 #include "graph_common.hpp"
 
@@ -17,7 +17,6 @@ int main() {
   ChangedState = Graph.begin_recording(TestQueue);
   assert(ChangedState == true);
 
-  // Recording to same graph is not an exception
   ChangedState = Graph.begin_recording(TestQueue);
   assert(ChangedState == false);
 

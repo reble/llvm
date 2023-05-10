@@ -16,12 +16,10 @@ int main() {
 
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
-  // Create reference data for output
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
   calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
                            ReferenceC);
@@ -34,26 +32,26 @@ int main() {
     buffer<T> BufferC{DataC.data(), range<1>{DataC.size()}};
 
     Graph.begin_recording(TestQueue);
-
-    // Create some temporary buffers only for recording
     {
+      // Create some temporary buffers only for recording
       auto BufferA2 = BufferA.reinterpret<T, 1>(BufferA.get_range());
       auto BufferB2 = BufferB.reinterpret<T, 1>(BufferB.get_range());
       auto BufferC2 = BufferC.reinterpret<T, 1>(BufferC.get_range());
 
-      // Record commands to graph
       run_kernels(TestQueue, size, BufferA2, BufferB2, BufferC2);
-
-      Graph.end_recording();
     }
+    Graph.end_recording();
     auto GraphExec = Graph.finalize();
 
-    // Execute several iterations of the graph
+    event Event;
     for (size_t n = 0; n < iterations; n++) {
-      TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+      Event = TestQueue.submit([&](handler &CGH) {
+        CGH.depends_on(Event);
+        CGH.ext_oneapi_graph(GraphExec);
+      });
     }
     // Perform a wait on all graph submissions.
-    TestQueue.wait();
+    TestQueue.wait_and_throw();
   }
 
   assert(ReferenceA == DataA);

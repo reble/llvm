@@ -5,7 +5,7 @@
 // Expected fail as host tasks are not implemented yet
 // XFAIL: *
 
-// This test uses a host_task within a command_graph recording
+// This test uses a host_task within a command_graph recording.
 
 #include "graph_common.hpp"
 
@@ -21,12 +21,10 @@ int main() {
   const T modValue = T{7};
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
-  // Create reference data for output
   std::vector<T> ReferenceC(DataC);
   for (size_t n = 0; n < iterations; n++) {
     for (size_t i = 0; i < size; i++) {
@@ -72,11 +70,13 @@ int main() {
 
   auto GraphExec = Graph.finalize();
 
-  // Execute several iterations of the graph
+  event Event;
   for (size_t n = 0; n < iterations; n++) {
-    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
+    });
   }
-  // Perform a wait on all graph submissions.
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrC, DataC.data(), size);

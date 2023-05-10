@@ -19,7 +19,6 @@ int main() {
   const unsigned iterations = std::thread::hardware_concurrency();
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);

@@ -2,8 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Tests basic adding of nodes and submission of a graph using USM pointers for
-// inputs and outputs.
+// Tests basic adding of nodes using explicit API with USM pointers,
+// and submission of the graph.
 
 #include "graph_common.hpp"
 
@@ -14,12 +14,10 @@ int main() {
 
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
-  // Create reference data for output
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
   calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
                            ReferenceC);
@@ -35,16 +33,19 @@ int main() {
   TestQueue.copy(DataC.data(), PtrC, size);
   TestQueue.wait_and_throw();
 
-  // Record commands to graph
+  // Add commands to graph
   add_kernels_usm(Graph, size, PtrA, PtrB, PtrC);
 
   auto GraphExec = Graph.finalize();
 
-  // Execute several iterations of the graph
+  event Event;
   for (size_t n = 0; n < iterations; n++) {
-    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
+    });
   }
-  // Perform a wait on all graph submissions.
+
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrA, DataA.data(), size);

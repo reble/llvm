@@ -3,7 +3,7 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 // This test creates a graph, finalizes it, then submits that as a subgraph of
-// another graph and executes that second graph.
+// another graph using the explicit API, and executes that second graph.
 
 #include "graph_common.hpp"
 
@@ -16,7 +16,6 @@ int main() {
   const int ModValue = 7;
   std::vector<T> DataA(size), DataB(size), DataC(size), DataOut(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
@@ -96,12 +95,13 @@ int main() {
   // Finalize a graph with the additional kernel for writing out to
   auto MainGraphExec = MainGraph.finalize();
 
-  // Execute several iterations of the graph
+  event Event;
   for (size_t n = 0; n < iterations; n++) {
-    TestQueue.submit(
-        [&](handler &CGH) { CGH.ext_oneapi_graph(MainGraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(MainGraphExec);
+    });
   }
-  // Perform a wait on all graph submissions.
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrA, DataA.data(), size);

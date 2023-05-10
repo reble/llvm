@@ -5,8 +5,8 @@
 // Expected fail as executable graph update not implemented yet
 // XFAIL: *
 
-// Tests whole graph update by recording two graphs with different buffers and
-// attempting to update one from the other.
+// Tests executable graph update by recording two graphs with different buffers
+// and attempting to update one from the other.
 
 #include "graph_common.hpp"
 
@@ -17,7 +17,6 @@ int main() {
 
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
@@ -26,7 +25,6 @@ int main() {
   auto DataB2 = DataB;
   auto DataC2 = DataC;
 
-  // Create reference data for output
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
   calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
                            ReferenceC);
@@ -44,10 +42,7 @@ int main() {
   TestQueue.wait_and_throw();
 
   GraphA.begin_recording(TestQueue);
-
-  // Record commands to graph
   run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
-
   GraphA.end_recording();
 
   auto GraphExec = GraphA.finalize();
@@ -65,25 +60,28 @@ int main() {
   TestQueue.wait_and_throw();
 
   GraphB.begin_recording(TestQueue);
-
-  // Record commands to graph
-
   run_kernels_usm(TestQueue, size, PtrA2, PtrB2, PtrC2);
-
   GraphB.end_recording();
+
+  event Event;
   // Execute several iterations of the graph for 1st set of buffers
   for (size_t n = 0; n < iterations; n++) {
-    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
+    });
   }
 
   GraphExec.update(GraphB);
 
   // Execute several iterations of the graph for 2nd set of buffers
   for (size_t n = 0; n < iterations; n++) {
-    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
+    });
   }
 
-  // Perform a wait on all graph submissions.
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrA, DataA.data(), size);

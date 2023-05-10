@@ -3,7 +3,8 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 // This test creates a graph, finalizes it, then continues to add new nodes to
-// the graph before finalizing and executing the second graph.
+// the graph with the record & replay API before finalizing and executing the
+// second graph.
 
 #include "graph_common.hpp"
 
@@ -14,7 +15,6 @@ int main() {
 
   std::vector<T> DataA(size), DataB(size), DataC(size), DataOut(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
@@ -79,7 +79,6 @@ int main() {
       CGH.ext_oneapi_graph(GraphExecAdditional);
     });
   }
-  // Perform a wait on all graph submissions.
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrC, DataC.data(), size);

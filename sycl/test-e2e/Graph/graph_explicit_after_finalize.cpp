@@ -2,9 +2,9 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// This test creates a graph, finalizes it, then to adds a new nodes
-// with the explicit API to the graph before finalizing and executing the
-// second Graph.
+// This test adds a new node with the explicit API to an already finalized
+// modifiable graph, before finalizing and executing the graph for a second
+// time.
 
 #include "graph_common.hpp"
 
@@ -15,13 +15,11 @@ int main() {
 
   std::vector<T> DataA(size), DataB(size), DataC(size), DataOut(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
   std::iota(DataOut.begin(), DataOut.end(), 1000);
 
-  // Create reference data for output
   std::vector<T> ReferenceC(DataC);
   std::vector<T> ReferenceOut(DataOut);
   for (size_t n = 0; n < iterations * 2; n++) {
@@ -45,7 +43,6 @@ int main() {
   TestQueue.copy(DataOut.data(), PtrOut, size);
   TestQueue.wait_and_throw();
 
-  // Vector add to some buffer
   auto NodeA = Graph.add([&](handler &CGH) {
     CGH.parallel_for(range<1>(size),
                      [=](item<1> id) { PtrC[id] += PtrA[id] + PtrB[id]; });
@@ -53,7 +50,6 @@ int main() {
 
   auto GraphExec = Graph.finalize();
 
-  // Read and modify previous output and write to output buffer
   Graph.add(
       [&](handler &CGH) {
         CGH.parallel_for(range<1>(size),
@@ -61,10 +57,8 @@ int main() {
       },
       {exp_ext::property::node::depends_on(NodeA)});
 
-  // Finalize a graph with the additional kernel for writing out to
   auto GraphExecAdditional = Graph.finalize();
 
-  // Execute several iterations of the graph
   event Event;
   for (size_t n = 0; n < iterations; n++) {
     Event = TestQueue.submit([&](handler &CGH) {
@@ -72,14 +66,14 @@ int main() {
       CGH.ext_oneapi_graph(GraphExec);
     });
   }
-  // Execute the extended Graph.
+
   for (size_t n = 0; n < iterations; n++) {
     Event = TestQueue.submit([&](handler &CGH) {
       CGH.depends_on(Event);
       CGH.ext_oneapi_graph(GraphExecAdditional);
     });
   }
-  // Perform a wait on all graph submissions.
+
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrC, DataC.data(), size);

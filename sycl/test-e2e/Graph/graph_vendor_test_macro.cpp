@@ -4,7 +4,7 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Tests the existence of the vendor test macro for graphs
+// Tests the existence of the vendor test macro for graphs.
 
 #include "graph_common.hpp"
 

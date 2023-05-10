@@ -2,7 +2,7 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-//  Tests the ability to finalize a command graph while it is currently being
+// Tests the ability to finalize a command graph while it is currently being
 // recorded to.
 
 #include "graph_common.hpp"

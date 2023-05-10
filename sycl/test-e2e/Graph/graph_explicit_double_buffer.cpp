@@ -5,7 +5,7 @@
 // Expected fail as executable graph update isn't implemented yet
 // XFAIL: *
 
-// Tests whole graph update by creating a double buffering scenario, where a
+// Tests executable graph update by creating a double buffering scenario, where a
 // single graph is repeatedly executed then updated to swap between two sets of
 // buffers.
 
@@ -18,7 +18,7 @@ int main() {
 
   std::vector<T> DataA(size), DataB(size), DataC(size);
   std::vector<T> DataA2(size), DataB2(size), DataC2(size);
-  // Initialize the data
+
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
@@ -27,10 +27,9 @@ int main() {
   std::iota(DataB2.begin(), DataB2.end(), 13);
   std::iota(DataC2.begin(), DataC2.end(), 1333);
 
-  // Create reference data for output
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
   std::vector<T> ReferenceA2(DataA2), ReferenceB2(DataB2), ReferenceC2(DataC2);
-  // Calculate Reference data
+
   calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
                            ReferenceC);
   calculate_reference_data(iterations, size, ReferenceA2, ReferenceB2,

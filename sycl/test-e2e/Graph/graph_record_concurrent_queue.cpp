@@ -2,8 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Tests attempting to begin recording to a new graph when recording is
-// already in progress on another.
+// Tests attempting to begin recording to a graph when recording is
+// already in progress on another graph throws an error.
 
 #include "graph_common.hpp"
 

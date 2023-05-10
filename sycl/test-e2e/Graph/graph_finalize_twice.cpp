@@ -2,8 +2,7 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-/**  Tests calling finalize() more than once on the same command_Graph.
- */
+// Tests calling finalize() more than once on the same command_graph.
 
 #include "graph_common.hpp"
 

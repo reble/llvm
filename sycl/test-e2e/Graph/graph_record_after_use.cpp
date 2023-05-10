@@ -14,12 +14,10 @@ int main() {
 
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
-  // Create reference data for output
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
   calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
                            ReferenceC);
@@ -36,23 +34,23 @@ int main() {
   TestQueue.wait_and_throw();
 
   // run commands first
-  run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
+  event Event = run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
   TestQueue.wait_and_throw();
 
   Graph.begin_recording(TestQueue);
-
-  // Record commands to graph
   run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
-
   Graph.end_recording();
+
   auto GraphExec = Graph.finalize();
 
   // Execute several iterations of the graph (first iteration has already run
   // before graph recording)
   for (size_t n = 1; n < iterations; n++) {
-    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
+    });
   }
-  // Perform a wait on all graph submissions.
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrA, DataA.data(), size);

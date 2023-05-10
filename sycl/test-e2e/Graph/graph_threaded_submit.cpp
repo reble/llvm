@@ -4,7 +4,7 @@
 // RUN: %clangxx -pthread -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Test calling queue::submit(graph) in a threaded situation
+// Test calling queue::submit(graph) in a threaded situation.
 
 #include "graph_common.hpp"
 
@@ -15,17 +15,15 @@ int main() {
 
   using T = int;
 
-  const unsigned iterations = std::thread::hardware_concurrency();
+  const unsigned NumThreads = std::thread::hardware_concurrency();
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
-  // Create reference data for output
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
-  calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
+  calculate_reference_data(NumThreads, size, ReferenceA, ReferenceB,
                            ReferenceC);
 
   exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
@@ -40,10 +38,7 @@ int main() {
   TestQueue.wait_and_throw();
 
   Graph.begin_recording(TestQueue);
-
-  // Record commands to graph
   run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
-
   Graph.end_recording();
 
   auto GraphExec = Graph.finalize();
@@ -52,18 +47,17 @@ int main() {
   };
 
   std::vector<std::thread> Threads;
-  Threads.reserve(iterations);
+  Threads.reserve(NumThreads);
 
-  for (size_t i = 0; i < iterations; ++i) {
+  for (size_t i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(SubmitGraph);
   }
 
-  for (size_t i = 0; i < iterations; ++i) {
+  for (size_t i = 0; i < NumThreads; ++i) {
     Threads[i].join();
   }
 
-  // Perform a wait on all graph submissions.
-  TestQueue.wait();
+  TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrA, DataA.data(), size);
   TestQueue.copy(PtrB, DataB.data(), size);

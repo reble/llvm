@@ -2,10 +2,11 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Expected fail as executable graph update isn't implemented
+// Expected fail as executable graph update and host tasks both aren't
+// implemented.
 // XFAIL: *
 
-// Tests whole graph update by introducing a delay in to the update
+// Tests executable graph update by introducing a delay in to the update
 // transactions dependencies to check correctness of behaviour.
 
 #include "graph_common.hpp"
@@ -21,9 +22,8 @@ int main() {
   }
 
   std::vector<T> DataA(size), DataB(size), DataC(size);
-  std::vector<T> hostTaskOutput(size);
+  std::vector<T> HostTaskOutput(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
@@ -32,7 +32,6 @@ int main() {
   auto DataB2 = DataB;
   auto DataC2 = DataC;
 
-  // Create reference data for output
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
   calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
                            ReferenceC);
@@ -50,7 +49,7 @@ int main() {
   TestQueue.copy(DataC.data(), PtrC, size);
   TestQueue.wait_and_throw();
 
-  // Add commands to graph
+  // Add commands to first graph
   auto NodeA = add_kernels_usm(GraphA, size, PtrA, PtrB, PtrC);
 
   // host task to induce a wait for dependencies
@@ -79,7 +78,7 @@ int main() {
   TestQueue.copy(DataC2.data(), PtrC2, size);
   TestQueue.wait_and_throw();
 
-  // Record commands to graph
+  // Adds commands to second graph
   auto NodeB = add_kernels_usm(GraphB, size, PtrA2, PtrB2, PtrC2);
 
   // host task to match the graph topology, but we don't need to sleep this
@@ -96,25 +95,30 @@ int main() {
       },
       {exp_ext::property::node::depends_on(NodeB)});
 
-  // Execute several iterations of the graph for 1st set of buffers
+  event Event;
   for (size_t n = 0; n < iterations; n++) {
-    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
+    });
   }
 
   GraphExec.update(GraphB);
 
   // Execute several iterations of the graph for 2nd set of buffers
   for (size_t n = 0; n < iterations; n++) {
-    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
+    });
   }
 
-  // Perform a wait on all graph submissions.
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrA, DataA.data(), size);
   TestQueue.copy(PtrB, DataB.data(), size);
   TestQueue.copy(PtrC, DataC.data(), size);
-  TestQueue.copy(PtrOut, hostTaskOutput.data(), size);
+  TestQueue.copy(PtrOut, HostTaskOutput.data(), size);
 
   TestQueue.copy(PtrA2, DataA.data(), size);
   TestQueue.copy(PtrB2, DataB.data(), size);
@@ -133,7 +137,7 @@ int main() {
   assert(ReferenceA == DataA);
   assert(ReferenceB == DataB);
   assert(ReferenceC == DataC);
-  assert(ReferenceC == hostTaskOutput);
+  assert(ReferenceC == HostTaskOutput);
 
   assert(ReferenceA == DataA2);
   assert(ReferenceB == DataB2);

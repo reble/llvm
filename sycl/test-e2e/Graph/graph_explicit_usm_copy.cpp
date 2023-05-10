@@ -15,10 +15,9 @@ int main() {
 
   using T = int;
 
-  const T modValue = 7;
+  const T ModValue = 7;
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
@@ -28,9 +27,9 @@ int main() {
   for (size_t i = 0; i < iterations; i++) {
     for (size_t j = 0; j < size; j++) {
       ReferenceA[j] = ReferenceB[j];
-      ReferenceA[j] += modValue;
+      ReferenceA[j] += ModValue;
       ReferenceB[j] = ReferenceA[j];
-      ReferenceB[j] += modValue;
+      ReferenceB[j] += ModValue;
       ReferenceC[j] = ReferenceB[j];
     }
   }
@@ -54,7 +53,7 @@ int main() {
       [&](handler &CGH) {
         CGH.parallel_for(range<1>(size), [=](item<1> id) {
           auto LinID = id.get_linear_id();
-          PtrA[LinID] += modValue;
+          PtrA[LinID] += ModValue;
         });
       },
       {exp_ext::property::node::depends_on(NodeA)});
@@ -68,7 +67,7 @@ int main() {
       [&](handler &CGH) {
         CGH.parallel_for(range<1>(size), [=](item<1> id) {
           auto LinID = id.get_linear_id();
-          PtrB[LinID] += modValue;
+          PtrB[LinID] += ModValue;
         });
       },
       {exp_ext::property::node::depends_on(NodeC)});
@@ -79,11 +78,14 @@ int main() {
 
   auto GraphExec = graph.finalize();
 
-  // Execute graph over n iterations
+  event Event;
   for (size_t n = 0; n < iterations; n++) {
-    TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Event = TestQueue.submit([&](handler &CGH) {
+      CGH.depends_on(Event);
+      CGH.ext_oneapi_graph(GraphExec);
+    });
   }
-  // Perform a wait on all graph submissions.
+
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrA, DataA.data(), size);

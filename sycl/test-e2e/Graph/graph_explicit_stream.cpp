@@ -6,7 +6,7 @@
 // XFAIL: *
 
 // This test checks that we can use a stream when explicitly adding a
-// command_graph node
+// command_graph node.
 
 #include "graph_common.hpp"
 
@@ -18,7 +18,6 @@ int main() {
   size_t WorkItems = 16;
   std::vector<T> DataIn(WorkItems);
 
-  // Initialize the data
   std::iota(DataIn.begin(), DataIn.end(), 1);
 
   exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
@@ -26,7 +25,6 @@ int main() {
   T *PtrIn = malloc_device<T>(WorkItems, TestQueue);
   TestQueue.copy(DataIn.data(), PtrIn, WorkItems);
 
-  // Vector add to temporary output buffer
   Graph.add([&](handler &CGH) {
     sycl::stream Out(WorkItems * 16, 16, CGH);
     CGH.parallel_for(range<1>(WorkItems), [=](item<1> id) {
@@ -38,7 +36,6 @@ int main() {
 
   TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
 
-  // Perform a wait on all graph submissions.
   TestQueue.wait_and_throw();
 
   TestQueue.copy(PtrIn, DataIn.data(), size);

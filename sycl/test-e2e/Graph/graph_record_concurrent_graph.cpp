@@ -5,8 +5,8 @@
 // Expected fail as exception not yet implemented
 // XFAIL: *
 
-// Tests attempting to record to a command_graph when it is already being
-// recorded to by another queue.
+// Tests that attempting to record to a command_graph when it is already being
+// being recorded to by another queue throws an exception.
 
 #include "graph_common.hpp"
 

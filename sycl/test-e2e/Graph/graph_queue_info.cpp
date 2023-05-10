@@ -6,7 +6,7 @@
 // XFAIL: *
 
 // Tests the return values from queue graph functions which change the
-// internal queue state
+// internal queue state.
 
 #include "graph_common.hpp"
 

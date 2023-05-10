@@ -2,9 +2,10 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Fail that needs investigation
 // XFAIL: *
 
-// This test creates a temporary buffer which is used in kernels but
+// This test creates a temporary buffer which is used in kernels, but
 // destroyed before finalization and execution of the graph.
 
 #include "graph_common.hpp"
@@ -16,12 +17,10 @@ int main() {
 
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
-  // Initialize the data
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
-  // Create reference data for output
   std::vector<T> ReferenceC(DataC);
   for (size_t n = 0; n < iterations; n++) {
     for (size_t i = 0; i < size; i++) {
@@ -66,12 +65,14 @@ int main() {
     }
     auto GraphExec = Graph.finalize();
 
-    // Execute several iterations of the graph
+    event Event;
     for (size_t n = 0; n < iterations; n++) {
-      TestQueue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+      Event = TestQueue.submit([&](handler &CGH) {
+        CGH.depends_on(Event);
+        CGH.ext_oneapi_graph(GraphExec);
+      });
     }
-    // Perform a wait on all graph submissions.
-    TestQueue.wait();
+    TestQueue.wait_and_throw();
 
     host_accessor HostAccC(BufferC);
     for (size_t i = 0; i < size; i++) {
