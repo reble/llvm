@@ -19,7 +19,7 @@ int main() {
   exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
   Graph.begin_recording(TestQueue);
   State = TestQueue.get_info<info::queue::state>();
-  assert(state == exp_ext::queue_state::recording);
+  assert(State == exp_ext::queue_state::recording);
 
   Graph.end_recording();
   State = TestQueue.get_info<info::queue::state>();

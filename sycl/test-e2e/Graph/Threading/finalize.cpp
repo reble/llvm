@@ -42,7 +42,7 @@ int main() {
   Graph.end_recording();
 
   auto FinalizeGraph = [&]() {
-    auto GraphExec = graph.finalize();
+    auto GraphExec = Graph.finalize();
     TestQueue.submit(
         [&](sycl::handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
   };

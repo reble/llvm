@@ -13,7 +13,7 @@
 int main() {
   queue TestQueue;
 
-  const unsigned iterations = std::thread::hardware_concurrency();
+  const unsigned NumThreads = std::thread::hardware_concurrency();
 
   auto RecordGraph = [&]() {
     exp_ext::command_graph Graph{TestQueue.get_context(),
@@ -27,12 +27,12 @@ int main() {
   };
 
   std::vector<std::thread> Threads;
-  Threads.reserve(iterations);
-  for (unsigned i = 0; i < iterations; ++i) {
-    Threads.emplace_back(recordGraph);
+  Threads.reserve(NumThreads);
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads.emplace_back(RecordGraph);
   }
 
-  for (unsigned i = 0; i < iterations; ++i) {
+  for (unsigned i = 0; i < NumThreads; ++i) {
     Threads[i].join();
   }
 

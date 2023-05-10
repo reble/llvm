@@ -16,7 +16,7 @@ int main() {
 
   using T = int;
 
-  const unsigned iterations = std::thread::hardware_concurrency();
+  const unsigned NumThreads = std::thread::hardware_concurrency();
   std::vector<T> DataA(size), DataB(size), DataC(size);
 
   std::iota(DataA.begin(), DataA.end(), 1);
@@ -42,12 +42,12 @@ int main() {
   Graph.end_recording();
 
   std::vector<std::thread> Threads;
-  Threads.reserve(iterations);
-  for (size_t i = 0; i < iterations; ++i) {
+  Threads.reserve(NumThreads);
+  for (size_t i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(recordGraph);
   }
 
-  for (size_t i = 0; i < iterations; ++i) {
+  for (size_t i = 0; i < NumThreads; ++i) {
     Threads[i].join();
   }
 

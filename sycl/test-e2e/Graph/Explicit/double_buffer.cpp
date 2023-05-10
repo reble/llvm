@@ -5,9 +5,9 @@
 // Expected fail as executable graph update isn't implemented yet
 // XFAIL: *
 
-// Tests executable graph update by creating a double buffering scenario, where a
-// single graph is repeatedly executed then updated to swap between two sets of
-// buffers.
+// Tests executable graph update by creating a double buffering scenario, where
+// a single graph is repeatedly executed then updated to swap between two sets
+// of buffers.
 
 #include "../graph_common.hpp"
 
@@ -54,9 +54,9 @@ int main() {
   TestQueue.copy(DataC2.data(), PtrC, size);
   TestQueue.wait_and_throw();
 
-  add_kernels_usm(graph, size, PtrA, PtrB, PtrC);
+  add_kernels_usm(Graph, size, PtrA, PtrB, PtrC);
 
-  auto execGraph = Graph.finalize();
+  auto ExecGraph = Graph.finalize();
 
   // Create second graph using other buffer set
   exp_ext::command_graph GraphUpdate{TestQueue.get_context(),
@@ -67,13 +67,13 @@ int main() {
   for (size_t i = 0; i < iterations; i++) {
     Event = TestQueue.submit([&](handler &CGH) {
       CGH.depends_on(Event);
-      CGH.ext_oneapi_graph(GraphExec);
+      CGH.ext_oneapi_graph(ExecGraph);
     });
     // Update to second set of buffers
     ExecGraph.update(GraphUpdate);
     Event = TestQueue.submit([&](handler &CGH) {
       CGH.depends_on(Event);
-      CGH.ext_oneapi_graph(GraphExec);
+      CGH.ext_oneapi_graph(ExecGraph);
     });
     // Reset back to original buffers
     ExecGraph.update(Graph);

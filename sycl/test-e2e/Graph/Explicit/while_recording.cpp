@@ -21,7 +21,7 @@ int main() {
   try {
     Graph.add([&](handler &CGH) {});
   } catch (sycl::exception &E) {
-    auto stdErrc = E.code().value();
+    auto StdErrc = E.code().value();
     if (StdErrc == static_cast<int>(errc::invalid)) {
       Success = true;
     }

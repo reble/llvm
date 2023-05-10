@@ -22,7 +22,7 @@ int main() {
   try {
     Graph.begin_recording(TestQueue2);
   } catch (sycl::exception &E) {
-    auto StdErrc = e.code().value();
+    auto StdErrc = E.code().value();
     if (StdErrc == static_cast<int>(errc::invalid)) {
       Success = true;
     }

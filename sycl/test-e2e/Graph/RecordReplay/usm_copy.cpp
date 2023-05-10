@@ -73,7 +73,7 @@ int main() {
   TestQueue.copy(PtrB, PtrC, size, EventD);
 
   Graph.end_recording();
-  auto GraphExec = graph.finalize();
+  auto GraphExec = Graph.finalize();
 
   event Event;
   for (size_t n = 0; n < iterations; n++) {

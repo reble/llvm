@@ -71,14 +71,14 @@ int main() {
   for (size_t i = 0; i < iterations; i++) {
     Event = TestQueue.submit([&](handler &CGH) {
       CGH.depends_on(Event);
-      CGH.ext_oneapi_graph(GraphExec);
+      CGH.ext_oneapi_graph(ExecGraph);
     });
     // Update to second set of buffers
     ExecGraph.update(GraphUpdate);
 
     Event = TestQueue.submit([&](handler &CGH) {
       CGH.depends_on(Event);
-      CGH.ext_oneapi_graph(GraphExec);
+      CGH.ext_oneapi_graph(ExecGraph);
     });
     // Reset back to original buffers
     ExecGraph.update(Graph);

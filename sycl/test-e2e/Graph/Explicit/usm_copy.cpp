@@ -46,10 +46,10 @@ int main() {
   TestQueue.wait_and_throw();
 
   // memcpy from B to A
-  auto NodeA = graph.add([&](handler &CGH) { CGH.copy(PtrB, PtrA, size); });
+  auto NodeA = Graph.add([&](handler &CGH) { CGH.copy(PtrB, PtrA, size); });
 
   // Read & write A
-  auto NodeB = graph.add(
+  auto NodeB = Graph.add(
       [&](handler &CGH) {
         CGH.parallel_for(range<1>(size), [=](item<1> id) {
           auto LinID = id.get_linear_id();
@@ -59,11 +59,11 @@ int main() {
       {exp_ext::property::node::depends_on(NodeA)});
 
   // memcpy from B to A
-  auto NodeC = graph.add([&](handler &CGH) { CGH.copy(PtrA, PtrB, size); },
+  auto NodeC = Graph.add([&](handler &CGH) { CGH.copy(PtrA, PtrB, size); },
                          {exp_ext::property::node::depends_on(NodeB)});
 
   // Read and write B
-  auto nodeD = graph.add(
+  auto nodeD = Graph.add(
       [&](handler &CGH) {
         CGH.parallel_for(range<1>(size), [=](item<1> id) {
           auto LinID = id.get_linear_id();
@@ -73,10 +73,10 @@ int main() {
       {exp_ext::property::node::depends_on(NodeC)});
 
   // memcpy from B to C
-  graph.add([&](handler &CGH) { CGH.copy(PtrB, PtrC, size); },
+  Graph.add([&](handler &CGH) { CGH.copy(PtrB, PtrC, size); },
             {exp_ext::property::node::depends_on(NodeB)});
 
-  auto GraphExec = graph.finalize();
+  auto GraphExec = Graph.finalize();
 
   event Event;
   for (size_t n = 0; n < iterations; n++) {
