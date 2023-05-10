@@ -40,7 +40,7 @@ int main() {
 
   TestQueue.wait_and_throw();
 
-  TestQueue.copy(PtrIn, DataIn.data(), size);
+  TestQueue.copy(PtrIn, DataIn.data(), Size);
 
   free(PtrIn, TestQueue);
 

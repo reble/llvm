@@ -11,14 +11,14 @@ int main() {
 
   using T = int;
 
-  std::vector<T> DataA(size), DataB(size), DataC(size);
+  std::vector<T> DataA(Size), DataB(Size), DataC(Size);
 
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
-  calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
+  calculate_reference_data(Iterations, Size, ReferenceA, ReferenceB,
                            ReferenceC);
 
   exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
@@ -27,17 +27,17 @@ int main() {
   buffer<T> BufferB{DataB.data(), range<1>{DataB.size()}};
   buffer<T> BufferC{DataC.data(), range<1>{DataC.size()}};
 
-  T *PtrA = malloc_device<T>(size, TestQueue);
-  T *PtrB = malloc_device<T>(size, TestQueue);
-  T *PtrC = malloc_device<T>(size, TestQueue);
+  T *PtrA = malloc_device<T>(Size, TestQueue);
+  T *PtrB = malloc_device<T>(Size, TestQueue);
+  T *PtrC = malloc_device<T>(Size, TestQueue);
 
-  TestQueue.copy(DataA.data(), PtrA, size);
-  TestQueue.copy(DataB.data(), PtrB, size);
-  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.copy(DataA.data(), PtrA, Size);
+  TestQueue.copy(DataB.data(), PtrB, Size);
+  TestQueue.copy(DataC.data(), PtrC, Size);
   TestQueue.wait_and_throw();
 
   Graph.begin_recording(TestQueue);
-  run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
+  run_kernels_usm(TestQueue, Size, PtrA, PtrB, PtrC);
   Graph.end_recording();
 
   auto GraphExec = Graph.finalize();
@@ -45,18 +45,18 @@ int main() {
   // Execute several iterations of the graph using the different shortcuts
   event Event = TestQueue.ext_oneapi_graph(GraphExec);
 
-  assert(iterations > 2);
-  const size_t LoopIterations = iterations - 2;
+  assert(Iterations > 2);
+  const size_t LoopIterations = Iterations - 2;
   std::vector<event> Events(LoopIterations);
-  for (size_t n = 0; n < LoopIterations; n++) {
+  for (unsigned n = 0; n < LoopIterations; n++) {
     Events[n] = TestQueue.ext_oneapi_graph(GraphExec, Event);
   }
 
   TestQueue.ext_oneapi_graph(GraphExec, Events).wait();
 
-  TestQueue.copy(PtrA, DataA.data(), size);
-  TestQueue.copy(PtrB, DataB.data(), size);
-  TestQueue.copy(PtrC, DataC.data(), size);
+  TestQueue.copy(PtrA, DataA.data(), Size);
+  TestQueue.copy(PtrB, DataB.data(), Size);
+  TestQueue.copy(PtrC, DataC.data(), Size);
   TestQueue.wait_and_throw();
 
   free(PtrA, TestQueue);

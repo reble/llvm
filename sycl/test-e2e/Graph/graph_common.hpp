@@ -5,8 +5,8 @@
 #include <numeric>
 
 // Test constants.
-constexpr size_t size = 1024;      // Number of data elements in a buffer.
-constexpr unsigned iterations = 5; // Iterations of graph to execute.
+constexpr size_t Size = 1024;      // Number of data elements in a buffer.
+constexpr unsigned Iterations = 5; // Iterations of graph to execute.
 
 // Namespace alias to use in test code.
 namespace exp_ext = sycl::ext::oneapi::experimental;

@@ -17,7 +17,7 @@ int main() {
   using T = int;
 
   const unsigned NumThreads = std::thread::hardware_concurrency();
-  std::vector<T> DataA(size), DataB(size), DataC(size);
+  std::vector<T> DataA(Size), DataB(Size), DataC(Size);
 
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
@@ -25,29 +25,29 @@ int main() {
 
   exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *PtrA = malloc_device<T>(size, TestQueue);
-  T *PtrB = malloc_device<T>(size, TestQueue);
-  T *PtrC = malloc_device<T>(size, TestQueue);
+  T *PtrA = malloc_device<T>(Size, TestQueue);
+  T *PtrB = malloc_device<T>(Size, TestQueue);
+  T *PtrC = malloc_device<T>(Size, TestQueue);
 
-  TestQueue.copy(DataA.data(), PtrA, size);
-  TestQueue.copy(DataB.data(), PtrB, size);
-  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.copy(DataA.data(), PtrA, Size);
+  TestQueue.copy(DataB.data(), PtrB, Size);
+  TestQueue.copy(DataC.data(), PtrC, Size);
   TestQueue.wait_and_throw();
 
   Graph.begin_recording(TestQueue);
   auto recordGraph = [&]() {
     // Record commands to graph
-    run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
+    run_kernels_usm(TestQueue, Size, PtrA, PtrB, PtrC);
   };
   Graph.end_recording();
 
   std::vector<std::thread> Threads;
   Threads.reserve(NumThreads);
-  for (size_t i = 0; i < NumThreads; ++i) {
+  for (unsigned i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(recordGraph);
   }
 
-  for (size_t i = 0; i < NumThreads; ++i) {
+  for (unsigned i = 0; i < NumThreads; ++i) {
     Threads[i].join();
   }
 

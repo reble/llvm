@@ -16,29 +16,29 @@ int main() {
   using T = int;
 
   const unsigned NumThreads = std::thread::hardware_concurrency();
-  std::vector<T> DataA(size), DataB(size), DataC(size);
+  std::vector<T> DataA(Size), DataB(Size), DataC(Size);
 
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
-  calculate_reference_data(NumThreads, size, ReferenceA, ReferenceB,
+  calculate_reference_data(NumThreads, Size, ReferenceA, ReferenceB,
                            ReferenceC);
 
   exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *PtrA = malloc_device<T>(size, TestQueue);
-  T *PtrB = malloc_device<T>(size, TestQueue);
-  T *PtrC = malloc_device<T>(size, TestQueue);
+  T *PtrA = malloc_device<T>(Size, TestQueue);
+  T *PtrB = malloc_device<T>(Size, TestQueue);
+  T *PtrC = malloc_device<T>(Size, TestQueue);
 
-  TestQueue.copy(DataA.data(), PtrA, size);
-  TestQueue.copy(DataB.data(), PtrB, size);
-  TestQueue.copy(DataC.data(), PtrC, size);
+  TestQueue.copy(DataA.data(), PtrA, Size);
+  TestQueue.copy(DataB.data(), PtrB, Size);
+  TestQueue.copy(DataC.data(), PtrC, Size);
   TestQueue.wait_and_throw();
 
   Graph.begin_recording(TestQueue);
-  run_kernels_usm(TestQueue, size, PtrA, PtrB, PtrC);
+  run_kernels_usm(TestQueue, Size, PtrA, PtrB, PtrC);
   Graph.end_recording();
 
   auto GraphExec = Graph.finalize();
@@ -49,19 +49,19 @@ int main() {
   std::vector<std::thread> Threads;
   Threads.reserve(NumThreads);
 
-  for (size_t i = 0; i < NumThreads; ++i) {
+  for (unsigned i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(SubmitGraph);
   }
 
-  for (size_t i = 0; i < NumThreads; ++i) {
+  for (unsigned i = 0; i < NumThreads; ++i) {
     Threads[i].join();
   }
 
   TestQueue.wait_and_throw();
 
-  TestQueue.copy(PtrA, DataA.data(), size);
-  TestQueue.copy(PtrB, DataB.data(), size);
-  TestQueue.copy(PtrC, DataC.data(), size);
+  TestQueue.copy(PtrA, DataA.data(), Size);
+  TestQueue.copy(PtrB, DataB.data(), Size);
+  TestQueue.copy(PtrC, DataC.data(), Size);
   TestQueue.wait_and_throw();
 
   free(PtrA, TestQueue);

@@ -13,7 +13,7 @@ int main() {
 
   using T = int;
 
-  std::vector<T> DataA(size), DataB(size), DataC(size), DataOut(size);
+  std::vector<T> DataA(Size), DataB(Size), DataC(Size), DataOut(Size);
 
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
@@ -23,32 +23,32 @@ int main() {
   // Create reference data for output
   std::vector<T> ReferenceC(DataC);
   std::vector<T> ReferenceOut(DataOut);
-  for (size_t n = 0; n < iterations * 2; n++) {
-    for (size_t i = 0; i < size; i++) {
+  for (unsigned n = 0; n < Iterations * 2; n++) {
+    for (size_t i = 0; i < Size; i++) {
       ReferenceC[i] += (DataA[i] + DataB[i]);
-      if (n >= iterations)
+      if (n >= Iterations)
         ReferenceOut[i] += ReferenceC[i] + 1;
     }
   }
 
   exp_ext::command_graph Graph{TestQueue.get_context(), TestQueue.get_device()};
 
-  T *PtrA = malloc_device<T>(size, TestQueue);
-  T *PtrB = malloc_device<T>(size, TestQueue);
-  T *PtrC = malloc_device<T>(size, TestQueue);
-  T *PtrOut = malloc_device<T>(size, TestQueue);
+  T *PtrA = malloc_device<T>(Size, TestQueue);
+  T *PtrB = malloc_device<T>(Size, TestQueue);
+  T *PtrC = malloc_device<T>(Size, TestQueue);
+  T *PtrOut = malloc_device<T>(Size, TestQueue);
 
-  TestQueue.copy(DataA.data(), PtrA, size);
-  TestQueue.copy(DataB.data(), PtrB, size);
-  TestQueue.copy(DataC.data(), PtrC, size);
-  TestQueue.copy(DataOut.data(), PtrOut, size);
+  TestQueue.copy(DataA.data(), PtrA, Size);
+  TestQueue.copy(DataB.data(), PtrB, Size);
+  TestQueue.copy(DataC.data(), PtrC, Size);
+  TestQueue.copy(DataOut.data(), PtrOut, Size);
   TestQueue.wait_and_throw();
 
   Graph.begin_recording(TestQueue);
 
   // Vector add to some buffer
   auto Event = TestQueue.submit([&](handler &CGH) {
-    CGH.parallel_for(range<1>(size),
+    CGH.parallel_for(range<1>(Size),
                      [=](item<1> id) { PtrC[id] += PtrA[id] + PtrB[id]; });
   });
 
@@ -57,7 +57,7 @@ int main() {
   // Read and modify previous output and write to output buffer
   Event = TestQueue.submit([&](handler &CGH) {
     CGH.depends_on(Event);
-    CGH.parallel_for(range<1>(size),
+    CGH.parallel_for(range<1>(Size),
                      [=](item<1> id) { PtrOut[id] += PtrC[id] + 1; });
   });
   Graph.end_recording();
@@ -66,14 +66,14 @@ int main() {
   auto GraphExecAdditional = Graph.finalize();
 
   // Execute several iterations of the graph
-  for (size_t n = 0; n < iterations; n++) {
+  for (unsigned n = 0; n < Iterations; n++) {
     Event = TestQueue.submit([&](handler &CGH) {
       CGH.depends_on(Event);
       CGH.ext_oneapi_graph(GraphExec);
     });
   }
   // Execute the extended graph.
-  for (size_t n = 0; n < iterations; n++) {
+  for (unsigned n = 0; n < Iterations; n++) {
     Event = TestQueue.submit([&](handler &CGH) {
       CGH.depends_on(Event);
       CGH.ext_oneapi_graph(GraphExecAdditional);
@@ -81,8 +81,8 @@ int main() {
   }
   TestQueue.wait_and_throw();
 
-  TestQueue.copy(PtrC, DataC.data(), size);
-  TestQueue.copy(PtrOut, DataOut.data(), size);
+  TestQueue.copy(PtrC, DataC.data(), Size);
+  TestQueue.copy(PtrOut, DataOut.data(), Size);
   TestQueue.wait_and_throw();
 
   free(PtrA, TestQueue);

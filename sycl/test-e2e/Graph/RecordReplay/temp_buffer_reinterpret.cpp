@@ -14,14 +14,14 @@ int main() {
 
   using T = int;
 
-  std::vector<T> DataA(size), DataB(size), DataC(size);
+  std::vector<T> DataA(Size), DataB(Size), DataC(Size);
 
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
-  calculate_reference_data(iterations, size, ReferenceA, ReferenceB,
+  calculate_reference_data(Iterations, Size, ReferenceA, ReferenceB,
                            ReferenceC);
 
   {
@@ -38,13 +38,13 @@ int main() {
       auto BufferB2 = BufferB.reinterpret<T, 1>(BufferB.get_range());
       auto BufferC2 = BufferC.reinterpret<T, 1>(BufferC.get_range());
 
-      run_kernels(TestQueue, size, BufferA2, BufferB2, BufferC2);
+      run_kernels(TestQueue, Size, BufferA2, BufferB2, BufferC2);
     }
     Graph.end_recording();
     auto GraphExec = Graph.finalize();
 
     event Event;
-    for (size_t n = 0; n < iterations; n++) {
+    for (unsigned n = 0; n < Iterations; n++) {
       Event = TestQueue.submit([&](handler &CGH) {
         CGH.depends_on(Event);
         CGH.ext_oneapi_graph(GraphExec);

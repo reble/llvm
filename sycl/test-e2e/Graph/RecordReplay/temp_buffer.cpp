@@ -15,15 +15,15 @@ int main() {
 
   using T = int;
 
-  std::vector<T> DataA(size), DataB(size), DataC(size);
+  std::vector<T> DataA(Size), DataB(Size), DataC(Size);
 
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
   std::iota(DataC.begin(), DataC.end(), 1000);
 
   std::vector<T> ReferenceC(DataC);
-  for (size_t n = 0; n < iterations; n++) {
-    for (size_t i = 0; i < size; i++) {
+  for (unsigned n = 0; n < Iterations; n++) {
+    for (size_t i = 0; i < Size; i++) {
       ReferenceC[i] += (DataA[i] + DataB[i]) + 1;
     }
   }
@@ -50,7 +50,7 @@ int main() {
         auto PtrA = BufferA.get_access<access::mode::read>(CGH);
         auto PtrB = BufferB.get_access<access::mode::read>(CGH);
         auto PtrOut = BufferTemp.get_access<access::mode::write>(CGH);
-        CGH.parallel_for(range<1>(size),
+        CGH.parallel_for(range<1>(Size),
                          [=](item<1> id) { PtrOut[id] = PtrA[id] + PtrB[id]; });
       });
 
@@ -58,7 +58,7 @@ int main() {
       TestQueue.submit([&](handler &CGH) {
         auto PtrTemp = BufferTemp.get_access<access::mode::read>(CGH);
         auto PtrOut = BufferC.get_access<access::mode::write>(CGH);
-        CGH.parallel_for(range<1>(size),
+        CGH.parallel_for(range<1>(Size),
                          [=](item<1> id) { PtrOut[id] += PtrTemp[id] + 1; });
       });
       Graph.end_recording();
@@ -66,7 +66,7 @@ int main() {
     auto GraphExec = Graph.finalize();
 
     event Event;
-    for (size_t n = 0; n < iterations; n++) {
+    for (unsigned n = 0; n < Iterations; n++) {
       Event = TestQueue.submit([&](handler &CGH) {
         CGH.depends_on(Event);
         CGH.ext_oneapi_graph(GraphExec);
@@ -75,7 +75,7 @@ int main() {
     TestQueue.wait_and_throw();
 
     host_accessor HostAccC(BufferC);
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < Size; i++) {
       assert(ReferenceC[i] == HostAccC[i]);
     }
   }

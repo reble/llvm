@@ -46,11 +46,11 @@ int main() {
 
   std::vector<std::thread> Threads;
   Threads.reserve(NumThreads);
-  for (size_t i = 0; i < NumThreads; ++i) {
+  for (unsigned i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(RecordGraph);
   }
 
-  for (size_t i = 0; i < NumThreads; ++i) {
+  for (unsigned i = 0; i < NumThreads; ++i) {
     Threads[i].join();
   }
 
