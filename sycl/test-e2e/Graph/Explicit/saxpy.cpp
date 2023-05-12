@@ -1,4 +1,6 @@
+// REQUIRES: level_zero, gpu
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+// RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 #include "../graph_common.hpp"
 
@@ -6,12 +8,16 @@ int main() {
 
   queue Queue{gpu_selector_v};
 
+  if (!Queue.get_device().has(sycl::aspect::usm_host_allocations)) {
+    return 0;
+  }
+
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 
   const size_t N = 1000;
   const float A = 3.0f;
   float *X = malloc_device<float>(N, Queue);
-  float *Y = malloc_shared<float>(N, Queue);
+  float *Y = malloc_host<float>(N, Queue);
 
   auto Init = Graph.add([&](handler &CGH) {
     CGH.parallel_for(range<1>{N}, [=](id<1> idx) {

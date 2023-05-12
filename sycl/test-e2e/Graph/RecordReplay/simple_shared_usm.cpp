@@ -5,10 +5,14 @@
 #include "../graph_common.hpp"
 
 int main() {
+  queue Queue{default_selector_v};
+
+  if (!Queue.get_device().has(sycl::aspect::usm_shared_allocations)) {
+    return 0;
+  }
+
   const size_t N = 10;
   const float ExpectedValue = 7.f;
-
-  queue Queue{default_selector_v};
 
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 

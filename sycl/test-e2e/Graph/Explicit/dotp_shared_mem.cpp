@@ -7,9 +7,13 @@
 int main() {
   queue Queue{gpu_selector_v};
 
+  if (!Queue.get_device().has(sycl::aspect::usm_shared_allocations)) {
+    return 0;
+  }
+
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 
-  float *Dotp = malloc_device<float>(1, Queue);
+  float *Dotp = malloc_shared<float>(1, Queue);
 
   const size_t N = 10;
   float *X = malloc_device<float>(N, Queue);
@@ -68,10 +72,7 @@ int main() {
   // Using shortcut for executing a graph of commands
   Queue.ext_oneapi_graph(ExecGraph).wait();
 
-  std::vector<float> DotpHost(1);
-  Queue.copy(Dotp, DotpHost.data(), 1).wait();
-
-  assert(DotpHost[0] == dotp_reference_result(N));
+  assert(*Dotp == dotp_reference_result(N));
 
   sycl::free(Dotp, Queue);
   sycl::free(X, Queue);

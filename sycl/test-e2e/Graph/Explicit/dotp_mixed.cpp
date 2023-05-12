@@ -18,8 +18,8 @@ int main() {
     buffer DotpBuf(&DotpData, range<1>(1));
 
     buffer XBuf(XData);
-    float *Y = malloc_shared<float>(N, Queue);
-    float *Z = malloc_shared<float>(N, Queue);
+    float *Y = malloc_device<float>(N, Queue);
+    float *Z = malloc_device<float>(N, Queue);
 
     auto NodeI = Graph.add([&](handler &CGH) {
       auto X = XBuf.get_access(CGH);

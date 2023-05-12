@@ -24,7 +24,7 @@ int main() {
 
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 
-  float *Arr = malloc_shared<float>(N, Queue);
+  float *Arr = malloc_device<float>(N, Queue);
 
   Graph.begin_recording(Queue);
   run_some_kernel(Queue, Arr);
@@ -34,8 +34,10 @@ int main() {
 
   Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph); }).wait();
 
+  std::vector<float> Output(N);
+  Queue.memcpy(Output.data(), Arr, N * sizeof(float)).wait();
   for (size_t i = 0; i < N; i++) {
-    assert(Arr[i] == ExpectedValue);
+    assert(Output[i] == ExpectedValue);
   }
 
   sycl::free(Arr, Queue);

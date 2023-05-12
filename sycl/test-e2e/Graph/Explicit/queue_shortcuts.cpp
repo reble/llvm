@@ -14,7 +14,7 @@ int main() {
                                EmptyProperties);
 
   const size_t N = 10;
-  float *Arr = malloc_shared<float>(N, Queue);
+  float *Arr = malloc_device<float>(N, Queue);
 
   Graph.add([&](handler &CGH) {
     CGH.parallel_for(range<1>{N}, [=](id<1> idx) {
@@ -30,8 +30,10 @@ int main() {
   auto Event3 = Queue.ext_oneapi_graph(ExecGraph, Event1);
   Queue.ext_oneapi_graph(ExecGraph, {Event2, Event3}).wait();
 
+  std::vector<float> Output(N);
+  Queue.memcpy(Output.data(), Arr, N * sizeof(float)).wait();
   for (int i = 0; i < N; i++)
-    assert(Arr[i] == 1);
+    assert(Output[i] == 1);
 
   sycl::free(Arr, Queue);
 

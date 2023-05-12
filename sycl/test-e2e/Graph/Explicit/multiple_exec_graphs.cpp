@@ -9,12 +9,12 @@ int main() {
 
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 
-  float *Dotp = malloc_shared<float>(1, Queue);
+  float *Dotp = malloc_device<float>(1, Queue);
 
   const size_t N = 10;
-  float *X = malloc_shared<float>(N, Queue);
-  float *Y = malloc_shared<float>(N, Queue);
-  float *Z = malloc_shared<float>(N, Queue);
+  float *X = malloc_device<float>(N, Queue);
+  float *Y = malloc_device<float>(N, Queue);
+  float *Z = malloc_device<float>(N, Queue);
 
   auto NodeI = Graph.add([&](handler &CGH) {
     CGH.parallel_for(N, [=](id<1> it) {
@@ -66,11 +66,14 @@ int main() {
   // Using shortcut for executing a graph of commands
   Queue.ext_oneapi_graph(ExecGraph).wait();
 
-  assert(*Dotp == dotp_reference_result(N));
+  float Output;
+  Queue.memcpy(&Output, Dotp, sizeof(float)).wait();
+  assert(Output == dotp_reference_result(N));
 
   Queue.ext_oneapi_graph(ExecGraph2).wait();
 
-  assert(*Dotp == dotp_reference_result(N) + 1);
+  Queue.memcpy(&Output, Dotp, sizeof(float)).wait();
+  assert(Output == dotp_reference_result(N) + 1);
 
   sycl::free(Dotp, Queue);
   sycl::free(X, Queue);
