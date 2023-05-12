@@ -63,7 +63,7 @@ int main() {
                          {exp_ext::property::node::depends_on(NodeB)});
 
   // Read and write B
-  auto nodeD = Graph.add(
+  auto NodeD = Graph.add(
       [&](handler &CGH) {
         CGH.parallel_for(range<1>(Size), [=](item<1> id) {
           auto LinID = id.get_linear_id();

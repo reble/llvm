@@ -1,0 +1,80 @@
+// REQUIRES: level_zero, gpu
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+// RUN: %GPU_RUN_PLACEHOLDER %t.out
+
+#include "../graph_common.hpp"
+
+int main() {
+
+  queue Queue{gpu_selector_v};
+
+  exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
+
+  float *Dotp = malloc_shared<float>(1, Queue);
+
+  const size_t N = 10;
+  float *X = malloc_shared<float>(N, Queue);
+  float *Y = malloc_shared<float>(N, Queue);
+  float *Z = malloc_shared<float>(N, Queue);
+
+  Graph.begin_recording(Queue);
+
+  auto InitEvent = Queue.submit([&](handler &CGH) {
+    CGH.parallel_for(N, [=](id<1> it) {
+      const size_t i = it[0];
+      X[i] = 1.0f;
+      Y[i] = 2.0f;
+      Z[i] = 3.0f;
+    });
+  });
+
+  auto EventA = Queue.submit([&](handler &CGH) {
+    CGH.depends_on(InitEvent);
+    CGH.parallel_for(range<1>{N}, [=](id<1> it) {
+      const size_t i = it[0];
+      X[i] = Alpha * X[i] + Beta * Y[i];
+    });
+  });
+
+  auto EventB = Queue.submit([&](handler &CGH) {
+    CGH.depends_on(InitEvent);
+    CGH.parallel_for(range<1>{N}, [=](id<1> it) {
+      const size_t i = it[0];
+      Z[i] = Gamma * Z[i] + Beta * Y[i];
+    });
+  });
+
+  Queue.submit([&](handler &CGH) {
+    CGH.depends_on({EventA, EventB});
+#ifdef TEST_GRAPH_REDUCTIONS
+    CGH.parallel_for(range<1>{N}, reduction(Dotp, 0.0f, std::plus()),
+                     [=](id<1> it, auto &Sum) {
+                       const size_t i = it[0];
+                       Sum += X[i] * Z[i];
+                     });
+#else
+    CGH.single_task([=]() {
+      // Doing a manual reduction here because reduction objects cause issues
+      // with graphs.
+      for (size_t j = 0; j < N; j++) {
+        Dotp[0] += X[j] * Z[j];
+      }
+    });
+#endif
+  });
+
+  Graph.end_recording();
+
+  auto ExecGraph = Graph.finalize();
+
+  Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph); }).wait();
+
+  assert(Dotp[0] == dotp_reference_result(N));
+
+  sycl::free(Dotp, Queue);
+  sycl::free(X, Queue);
+  sycl::free(Y, Queue);
+  sycl::free(Z, Queue);
+
+  return 0;
+}
