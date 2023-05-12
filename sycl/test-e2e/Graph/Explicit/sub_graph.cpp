@@ -10,7 +10,7 @@
 int main() {
   queue TestQueue;
 
-  using T = int;
+  using T = short;
 
   // Values used to modify data inside kernels.
   const int ModValue = 7;

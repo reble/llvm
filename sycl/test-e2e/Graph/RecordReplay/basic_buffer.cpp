@@ -10,7 +10,7 @@
 int main() {
   queue TestQueue;
 
-  using T = int;
+  using T = unsigned short;
 
   std::vector<T> DataA(Size), DataB(Size), DataC(Size);
 

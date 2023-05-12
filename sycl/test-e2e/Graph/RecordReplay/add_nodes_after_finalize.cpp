@@ -11,7 +11,7 @@
 int main() {
   queue TestQueue;
 
-  using T = int;
+  using T = unsigned int;
 
   std::vector<T> DataA(Size), DataB(Size), DataC(Size), DataOut(Size);
 
