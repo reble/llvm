@@ -2,6 +2,9 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Tests that graph.make_edge() correctly defines the dependency between two
+// nodes.
+
 #include "../graph_common.hpp"
 
 int main() {

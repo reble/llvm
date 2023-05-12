@@ -2,6 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Tests using USM shared memory with an explicitly constructed graph.
+
 #include "../graph_common.hpp"
 
 int main() {

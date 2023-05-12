@@ -2,6 +2,9 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Tests the explicit API interface for adding empty nodes, and that
+// no_cycle_check is accepted as a command_graph construction property.
+
 #include "../graph_common.hpp"
 
 int main() {

@@ -2,6 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Tests capturing a dotp operation through queue recording using buffers.
+
 #include "../graph_common.hpp"
 
 int main() {
@@ -18,10 +20,14 @@ int main() {
 
   {
     buffer DotpBuf(&DotpData, range<1>(1));
+    DotpBuf.set_write_back(false);
 
     buffer XBuf(XData);
+    XBuf.set_write_back(false);
     buffer YBuf(YData);
+    YBuf.set_write_back(false);
     buffer ZBuf(ZData);
+    ZBuf.set_write_back(false);
 
     Graph.begin_recording(Queue);
 
@@ -80,9 +86,10 @@ int main() {
     auto ExecGraph = Graph.finalize();
 
     Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph); }).wait();
-  }
 
-  assert(DotpData == dotp_reference_result(N));
+    host_accessor HostAcc(DotpBuf);
+    assert(HostAcc[0] == dotp_reference_result(N));
+  }
 
   return 0;
 }

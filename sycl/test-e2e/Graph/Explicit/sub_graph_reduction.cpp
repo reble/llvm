@@ -2,8 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Modified version of the Dotp example which submits part of the graph as a
-// sub-graph
+// Modified version of the dotp example which submits part of the graph as a
+// sub-graph.
 
 #include "../graph_common.hpp"
 

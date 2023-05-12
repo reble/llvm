@@ -2,6 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Tests a handler USM fill operation begin used as a graph node.
+
 #include "../graph_common.hpp"
 
 int main() {

@@ -2,6 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Tests mixing buffers and USM in the same graph.
+
 #include "../graph_common.hpp"
 
 int main() {

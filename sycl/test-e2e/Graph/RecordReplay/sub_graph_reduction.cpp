@@ -3,7 +3,7 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 // Modified version of the dotp example which records part of the graph as a
-// sub-graph
+// sub-graph.
 
 #include "../graph_common.hpp"
 

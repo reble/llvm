@@ -2,6 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Test executing a graph created with the explicit API multiple times.
+
 #include "../graph_common.hpp"
 
 int main() {

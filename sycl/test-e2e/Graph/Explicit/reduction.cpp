@@ -2,6 +2,9 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Verifies that the implementation changes to implement the graph
+// extension don't regress reductions.
+
 #include "../graph_common.hpp"
 
 int main() {

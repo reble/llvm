@@ -2,6 +2,9 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Tests creating a dotp operation through explicit graph creation with
+// buffers.
+
 #include "../graph_common.hpp"
 
 int main() {
@@ -19,10 +22,14 @@ int main() {
 
   {
     buffer DotpBuf(&DotpData, range<1>(1));
+    DotpBuf.set_write_back(false);
 
     buffer XBuf(XData);
+    XBuf.set_write_back(false);
     buffer YBuf(YData);
+    YBuf.set_write_back(false);
     buffer ZBuf(ZData);
+    ZBuf.set_write_back(false);
 
     auto NodeI = Graph.add([&](handler &CGH) {
       auto X = XBuf.get_access(CGH);
@@ -79,8 +86,10 @@ int main() {
 
     // Using shortcut for executing a graph of commands
     Queue.ext_oneapi_graph(ExecGraph).wait();
+
+    host_accessor HostAcc(DotpBuf);
+    assert(HostAcc[0] == dotp_reference_result(N));
   }
 
-  assert(DotpData == dotp_reference_result(N));
   return 0;
 }
