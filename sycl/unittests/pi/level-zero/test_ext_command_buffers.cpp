@@ -36,7 +36,7 @@ protected:
     pi_uint32 NumPlatforms = 0;
     pi_platform Platform = nullptr;
 
-    ASSERT_EQ(Plugin->getBackend(), backend::level_zero);
+    ASSERT_EQ(Plugin->hasBackend(backend::level_zero), PI_SUCCESS);
 
     ASSERT_EQ((Plugin->call_nocheck<detail::PiApiKind::piPlatformsGet>(
                   0, nullptr, &NumPlatforms)),

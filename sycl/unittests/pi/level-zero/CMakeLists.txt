@@ -14,6 +14,9 @@ target_include_directories(PiLevelZeroTests
   "${sycl_inc_dir}/sycl/detail/"
   "${sycl_inc_dir}"
   "${sycl_plugin_dir}/level_zero/"
+  "${sycl_plugin_dir}/unified_runtime/"
+  "${LEVEL_ZERO_INCLUDE_DIR}"
+  "${UNIFIED_RUNTIME_SOURCE_DIR}/include"
 )
 
 message("LevelZero var: ${LEVEL_ZERO_LOADER}")
