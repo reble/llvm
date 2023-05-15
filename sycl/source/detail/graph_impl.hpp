@@ -122,6 +122,7 @@ public:
     case sycl::detail::CG::RunOnHostIntel:
       return createCGCopy<sycl::detail::CGExecKernel>();
     case sycl::detail::CG::CodeplayInteropTask:
+      assert(false);
     // TODO: Uncomment this once we implement support for interop task so we can
     // test required changes to the CG class.
 
@@ -149,6 +150,7 @@ public:
     case sycl::detail::CG::Memset2DUSM:
       return createCGCopy<sycl::detail::CGMemset2DUSM>();
     case sycl::detail::CG::CodeplayHostTask:
+      assert(false);
       // TODO: Uncomment this once we implement support for host task so we can
       // test required changes to the CG class.
 
