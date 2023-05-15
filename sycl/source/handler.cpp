@@ -396,9 +396,13 @@ event handler::finalize() {
     break;
   }
   case detail::CG::ExecCommandBuffer:
-    if (!MSubgraphNode)
-      assert(false &&
-             "Error: Command graph submission should not be finalized");
+    // If we have a subgraph node we don't want to actually execute this command
+    // graph submission.
+    if (!MSubgraphNode) {
+      auto GraphCompletionEvent = MExecGraph->exec(MQueue);
+      MLastEvent = GraphCompletionEvent;
+      return MLastEvent;
+    }
     break;
   case detail::CG::None:
     if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_ALL)) {
@@ -1036,11 +1040,8 @@ void handler::ext_oneapi_graph(
     auto SubgraphEvent = std::make_shared<event_impl>();
     ParentGraph->add_event_for_node(SubgraphEvent, MSubgraphNode);
   } else {
-    MIsFinalized = true;
-    // TODO: This could probably be moved to handler::finalize()
-    auto GraphCompletionEvent = GraphImpl->exec(MQueue);
-    auto EventImpl = detail::getSyclObjImpl(GraphCompletionEvent);
-    MLastEvent = GraphCompletionEvent;
+    // Set the exec graph for execution during finalize.
+    MExecGraph = GraphImpl;
   }
 }
 

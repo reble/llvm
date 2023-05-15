@@ -2880,8 +2880,12 @@ private:
   /// before barrier command can be executed
   std::vector<detail::EventImplPtr> MEventsWaitWithBarrier;
 
-  /// The graph that is associated with this handler.        
+  /// The graph that is associated with this handler.
   std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph;
+  /// If we are submitting a graph using ext_oneapi_graph this will be the graph
+  /// to be executed.
+  std::shared_ptr<ext::oneapi::experimental::detail::exec_graph_impl>
+      MExecGraph;
   /// Storage for a node created from a subgraph submission.
   std::shared_ptr<ext::oneapi::experimental::detail::node_impl> MSubgraphNode;
   /// Storage for the CG created when handling graph nodes added explicitly.
