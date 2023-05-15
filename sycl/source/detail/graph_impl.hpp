@@ -39,7 +39,7 @@ public:
   std::vector<std::weak_ptr<node_impl>> MPredecessors;
   /// Type of the command-group for the node.
   sycl::detail::CG::CGTYPE MCGType = sycl::detail::CG::None;
-  // Command group object which stores all args etc needed to enqueue the node
+  /// Command group object which stores all args etc needed to enqueue the node
   std::unique_ptr<sycl::detail::CG> MCommandGroup;
 
   /// True if an empty node, false otherwise.
@@ -114,6 +114,8 @@ public:
   /// @return True if this is an empty node, false otherwise.
   bool is_empty() const { return MIsEmpty; }
 
+  /// Get a deep copy of this node's command group
+  /// @return A unique ptr to the new command group object.
   std::unique_ptr<sycl::detail::CG> getCGCopy() const {
     switch (MCGType) {
     case sycl::detail::CG::Kernel:
@@ -173,12 +175,16 @@ public:
   }
 
 private:
+  /// Creates a copy of the node's CG by casting to it's actual type, then using
+  /// that to copy construct and create a new unique ptr from that copy.
+  /// @tparam CGT The derived type of the CG.
+  /// @return A new unique ptr to the copied CG.
   template <typename CGT> std::unique_ptr<CGT> createCGCopy() const {
     return std::make_unique<CGT>(*static_cast<CGT *>(MCommandGroup.get()));
   }
 };
 
-/// Class resenting implementation details of command_graph<modifiable>.
+/// Class representing implementation details of command_graph<modifiable>.
 class graph_impl {
 public:
   /// Constructor.
@@ -197,17 +203,9 @@ public:
   void remove_root(const std::shared_ptr<node_impl> &Root);
 
   /// Create a kernel node in the graph.
-  /// @param Kernel Kernel to run when node executes.
-  /// @param NDRDesc NDRange description for kernel.
-  /// @param OSModuleHandle Module handle for the kernel to be executed.
-  /// @param KernelName Name of kernel.
-  /// @param AccStorage Accessor storage for node arguments.
-  /// @param LocalAccStorage Local accessor storage for node arguments.
   /// @param CGType Type of the command-group.
-  /// @param Args Node arguments.
-  /// @param AuxiliaryResources Auxiliary resources used by internal operations.
+  /// @param CommandGroup The CG which stores all information for this node.
   /// @param Dep Dependencies of the created node.
-  /// @param DepEvents Dependent events of the created node.
   /// @return Created node in the graph.
   std::shared_ptr<node_impl>
   add(sycl::detail::CG::CGTYPE CGType,
