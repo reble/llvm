@@ -94,6 +94,7 @@ public:
   /// @return True if \p Arg is used in node, false otherwise.
   bool has_arg(const sycl::detail::ArgDesc &Arg) {
     // TODO: Handle types other than exec kernel
+    assert(MCGType == sycl::detail::CG::Kernel);
     const auto &Args =
         static_cast<sycl::detail::CGExecKernel *>(MCommandGroup.get())->MArgs;
     for (auto &NodeArg : Args) {
