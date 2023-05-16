@@ -2,7 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Tests a dotp operation constructed by graph recording using system USM.
+// Tests a dotp operation using a sycl reduction with device USM being added
+// to the graph using the explicit API.
 
 #include "../graph_common.hpp"
 
@@ -10,13 +11,9 @@ int main() {
 
   queue Queue{gpu_selector_v};
 
-  if (!Queue.get_device().has(sycl::aspect::usm_system_allocations)) {
-    return 0;
-  }
-
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 
-  float *Dotp = new float;
+  float *Dotp = malloc_device<float>(1, Queue);
 
   const size_t N = 10;
   float *X = malloc_device<float>(N, Queue);
@@ -52,11 +49,11 @@ int main() {
 
   Queue.submit([&](handler &CGH) {
     CGH.depends_on({EventA, EventB});
-    CGH.single_task([=]() {
-      for (size_t j = 0; j < N; j++) {
-        Dotp[0] += X[j] * Z[j];
-      }
-    });
+    CGH.parallel_for(range<1>{N}, reduction(Dotp, 0.0f, std::plus()),
+                     [=](id<1> it, auto &Sum) {
+                       const size_t i = it[0];
+                       Sum += X[i] * Z[i];
+                     });
   });
 
   Graph.end_recording();
@@ -65,9 +62,12 @@ int main() {
 
   Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph); }).wait();
 
-  assert(*Dotp == dotp_reference_result(N));
+  float Output;
+  Queue.memcpy(&Output, Dotp, sizeof(float)).wait();
 
-  delete Dotp;
+  assert(Output == dotp_reference_result(N));
+
+  sycl::free(Dotp, Queue);
   sycl::free(X, Queue);
   sycl::free(Y, Queue);
   sycl::free(Z, Queue);

@@ -57,22 +57,11 @@ int main() {
         [&](handler &CGH) {
           auto Dotp = DotpBuf.get_access(CGH);
           auto X = XBuf.get_access(CGH);
-#ifdef TEST_GRAPH_REDUCTIONS
-          CGH.parallel_for(range<1>{N},
-                           reduction(DotpBuf, CGH, 0.0f, std::plus()),
-                           [=](id<1> it, auto &Sum) {
-                             const size_t i = it[0];
-                             Sum += X[i] * Z[i];
-                           });
-#else
           CGH.single_task([=]() {
-            // Doing a manual reduction here because reduction objects cause
-            // issues with graphs.
             for (size_t j = 0; j < N; j++) {
               Dotp[0] += X[j] * Z[j];
             }
           });
-#endif
         },
         {exp_ext::property::node::depends_on(NodeB)});
 

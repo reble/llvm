@@ -2,11 +2,16 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Tests capturing a dotp operation through queue recording using buffers.
+// Expected fail as reduction support is not complete.
+// XFAIL: *
+
+// Tests creating a dotp operation which uses a sycl reduction through explicit
+// graph creation with buffers.
 
 #include "../graph_common.hpp"
 
 int main() {
+
   queue Queue{gpu_selector_v};
 
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
@@ -29,9 +34,7 @@ int main() {
     buffer ZBuf(ZData);
     ZBuf.set_write_back(false);
 
-    Graph.begin_recording(Queue);
-
-    Queue.submit([&](handler &CGH) {
+    auto NodeI = Graph.add([&](handler &CGH) {
       auto X = XBuf.get_access(CGH);
       auto Y = YBuf.get_access(CGH);
       auto Z = ZBuf.get_access(CGH);
@@ -43,7 +46,7 @@ int main() {
       });
     });
 
-    Queue.submit([&](handler &CGH) {
+    auto NodeA = Graph.add([&](handler &CGH) {
       auto X = XBuf.get_access(CGH);
       auto Y = YBuf.get_access(CGH);
       CGH.parallel_for(range<1>{N}, [=](id<1> it) {
@@ -52,7 +55,7 @@ int main() {
       });
     });
 
-    Queue.submit([&](handler &CGH) {
+    auto NodeB = Graph.add([&](handler &CGH) {
       auto Y = YBuf.get_access(CGH);
       auto Z = ZBuf.get_access(CGH);
       CGH.parallel_for(range<1>{N}, [=](id<1> it) {
@@ -61,21 +64,21 @@ int main() {
       });
     });
 
-    Queue.submit([&](handler &CGH) {
+    auto NodeC = Graph.add([&](handler &CGH) {
       auto Dotp = DotpBuf.get_access(CGH);
       auto X = XBuf.get_access(CGH);
       auto Z = ZBuf.get_access(CGH);
-      CGH.single_task([=]() {
-        for (size_t j = 0; j < N; j++) {
-          Dotp[0] += X[j] * Z[j];
-        }
-      });
+      CGH.parallel_for(range<1>{N}, reduction(DotpBuf, CGH, 0.0f, std::plus()),
+                       [=](id<1> it, auto &Sum) {
+                         const size_t i = it[0];
+                         Sum += X[i] * Z[i];
+                       });
     });
-    Graph.end_recording();
 
     auto ExecGraph = Graph.finalize();
 
-    Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph); }).wait();
+    // Using shortcut for executing a graph of commands
+    Queue.ext_oneapi_graph(ExecGraph).wait();
 
     host_accessor HostAcc(DotpBuf);
     assert(HostAcc[0] == dotp_reference_result(N));

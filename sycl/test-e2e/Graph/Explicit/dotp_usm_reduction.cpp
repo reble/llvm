@@ -2,8 +2,11 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
+// Expected fail as reduction support is not complete.
+// XFAIL: *
+
 // Tests constructing a graph using the explicit API to perform a dotp
-// operation using USM memory.
+// operation which uses a sycl reduction with USM memory.
 
 #include "../graph_common.hpp"
 
@@ -48,11 +51,11 @@ int main() {
 
   auto NodeC = Graph.add(
       [&](handler &CGH) {
-        CGH.single_task([=]() {
-          for (size_t j = 0; j < N; j++) {
-            Dotp[0] += X[j] * Z[j];
-          }
-        });
+        CGH.parallel_for(range<1>{N}, reduction(Dotp, 0.0f, std::plus()),
+                         [=](id<1> it, auto &Sum) {
+                           const size_t i = it[0];
+                           Sum += X[i] * Z[i];
+                         });
       },
       {exp_ext::property::node::depends_on(NodeA, NodeB)});
 

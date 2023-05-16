@@ -2,7 +2,8 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
-// Tests capturing a dotp operation through queue recording using buffers.
+// Tests capturing a dotp operation which uses a sycl reduction through queue
+// recording using buffers.
 
 #include "../graph_common.hpp"
 
@@ -65,11 +66,11 @@ int main() {
       auto Dotp = DotpBuf.get_access(CGH);
       auto X = XBuf.get_access(CGH);
       auto Z = ZBuf.get_access(CGH);
-      CGH.single_task([=]() {
-        for (size_t j = 0; j < N; j++) {
-          Dotp[0] += X[j] * Z[j];
-        }
-      });
+      CGH.parallel_for(range<1>{N}, reduction(DotpBuf, CGH, 0.0f, std::plus()),
+                       [=](id<1> it, auto &Sum) {
+                         const size_t i = it[0];
+                         Sum += X[i] * Z[i];
+                       });
     });
     Graph.end_recording();
 
