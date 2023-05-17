@@ -404,6 +404,20 @@ public:
 }  // namespace sycl
 ----
 
+=== Device Info Query
+
+Due to the experimental nature of the extension, support is not available across
+all devices. The following device support query is added to report devices which
+are currently supported.
+
+[source, c++]
+----
+sycl::ext::oneapi::experimental::info::device::graph_support;
+----
+
+When passed to `device::get_info<...>()`, the function returns `true` if the SYCL
+`device` supports using this graph extension.
+
 === Node
 
 :crs: https://www.khronos.org/registry/SYCL/specs/sycl-2020/html/sycl-2020.html#sec:reference-semantics
@@ -547,6 +561,9 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if `syclDevice` is not
 associated with `syclContext`.
+
+* Throws synchronously with error code `invalid` if `syclDevice` does not
+  <<device-info-query, report support for this extension>>.
 
 |===
 
