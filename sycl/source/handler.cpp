@@ -399,7 +399,7 @@ event handler::finalize() {
     // If we have a subgraph node we don't want to actually execute this command
     // graph submission.
     if (!MSubgraphNode) {
-      auto GraphCompletionEvent = MExecGraph->exec(MQueue);
+      event GraphCompletionEvent = MExecGraph->exec(MQueue);
       MLastEvent = GraphCompletionEvent;
       return MLastEvent;
     }
@@ -434,7 +434,8 @@ event handler::finalize() {
 
     // Extract relevant data from the handler and pass to graph to create a
     // new node representing this command group.
-    auto NodeImpl = GraphImpl->add(MCGType, std::move(CommandGroup));
+    std::shared_ptr<ext::oneapi::experimental::detail::node_impl> NodeImpl =
+        GraphImpl->add(MCGType, std::move(CommandGroup));
 
     // Associate an event with this new node and return the event.
     GraphImpl->add_event_for_node(EventImpl, NodeImpl);

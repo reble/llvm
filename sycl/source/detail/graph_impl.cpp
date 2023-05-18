@@ -417,14 +417,16 @@ sycl::event exec_graph_impl::enqueue(
       ScheduledEvents.push_back(NewEvent);
     } else {
 
-      auto EventImpl = sycl::detail::Scheduler::getInstance().addCG(
-          std::move(NodeImpl->getCGCopy()), Queue);
+      sycl::detail::EventImplPtr EventImpl =
+          sycl::detail::Scheduler::getInstance().addCG(
+              std::move(NodeImpl->getCGCopy()), Queue);
 
       ScheduledEvents.push_back(EventImpl);
     }
   }
   // Create an event which has all kernel events as dependencies
-  auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
+  sycl::detail::EventImplPtr NewEvent =
+      std::make_shared<sycl::detail::event_impl>(Queue);
   NewEvent->setStateIncomplete();
   NewEvent->getPreparedDepsEvents() = ScheduledEvents;
 #endif
