@@ -1,15 +1,7 @@
-<<<<<<< HEAD
-// REQUIRES: level_zero, gpu, TEMPORARY_DISABLED
-// Disabled as emulation mode doesn't set macro
-
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
-=======
 // REQUIRES: level_zero, gpu
 
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
->>>>>>> sycl-graph-develop
 
 // Tests the existence of the vendor test macro for graphs.
 

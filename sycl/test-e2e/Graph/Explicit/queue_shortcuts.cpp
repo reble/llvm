@@ -1,11 +1,6 @@
 // REQUIRES: level_zero, gpu
-<<<<<<< HEAD
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
-=======
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
->>>>>>> sycl-graph-develop
 
 // Tests passing empty properties to graph APIs that take properties,
 // as well as the queue shortcuts for submitting an executable graph.

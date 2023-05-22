@@ -1,11 +1,6 @@
 // REQUIRES: level_zero, gpu
-<<<<<<< HEAD
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
-=======
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
->>>>>>> sycl-graph-develop
 
 // Verifies that the implementation changes to implement the graph
 // extension don't regress reductions.

@@ -2915,9 +2915,6 @@ private:
   /// The list of valid SYCL events that need to complete
   /// before barrier command can be executed
   std::vector<detail::EventImplPtr> MEventsWaitWithBarrier;
-          
-  std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph;
-  std::shared_ptr<ext::oneapi::experimental::detail::node_impl> MSubgraphNode;
 
   /// The graph that is associated with this handler.
   std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph;
