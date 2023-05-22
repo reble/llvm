@@ -12,9 +12,29 @@ A draft of our Command Graph extension proposal can be found here:
 Our current prototype implementation can be found here:
 [https://github.com/reble/llvm/tree/sycl-graph-develop](https://github.com/reble/llvm/tree/sycl-graph-develop).
 
-Limitations include:
-* LevelZero backend support only. A fallback emulation mode is used for correctness on other backends.
-* Accessors and reductions are currently not supported.
+#### Backends
+
+An application can query the SYCL library for the level of support it
+provides for using the extension with a device by using
+`ext::oneapi::experimental::info::device::graph_support`, which returns one of:
+
+* Native - Backend command-buffer construct is used to implement graphs.
+* Emulated - Graphs support is emulated by reissuing commands to the backend.
+* Unsupported - Extension is not supported on the device.
+
+Currently the Level Zero backend is the only supported SYCL backend for the
+`sycl_ext_oneapi_graph` extension. As the focus of the current prototype is good
+Level Zero support to prove the value of the extension, rather than emulated
+support for many backends. However, broadening the number of backends supported
+is something we are interested in expanding on.
+
+| Backend    | Implementation Support     |
+| ---------- | -------------------------- |
+| Level Zero | Native using command-lists |
+| CUDA       | Unsupported                |
+| OpenCL     | Unsupported                |
+| HIP        | Unsupported                |
+| Others     | Unsupported                |
 
 #### Implementation Status
 
