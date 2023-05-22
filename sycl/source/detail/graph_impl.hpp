@@ -397,7 +397,9 @@ public:
   /// @param GraphImpl Modifiable graph implementation to create with.
   exec_graph_impl(sycl::context Context,
                   const std::shared_ptr<graph_impl> &GraphImpl)
-      : MSchedule(), MGraphImpl(GraphImpl), MPiCommandBuffers(),
+      : MSchedule(GraphImpl->compute_schedule()),
+  /*    MGraphImpl(GraphImpl), */
+        MPiCommandBuffers(),
         MPiSyncPoints(), MContext(Context) {}
 
   /// Destructor.
@@ -405,8 +407,10 @@ public:
   /// Releases any PI command-buffers the object has created.
   ~exec_graph_impl();
 
-  /// Add nodes to MSchedule.
-  void schedule();
+  /*
+  // /// Add nodes to MSchedule.
+  // void schedule();
+  */
 
   /// Enqueues the backend objects for the graph to the parametrized queue.
   /// @param Queue Command-queue to submit backend objects to.
@@ -467,9 +471,11 @@ private:
 
   /// Execution schedule of nodes in the graph.
   std::list<std::shared_ptr<node_impl>> MSchedule;
-  /// Pointer to the modifiable graph impl associated with this executable
-  /// graph.
-  std::shared_ptr<graph_impl> MGraphImpl;
+  /*
+  // /// Pointer to the modifiable graph impl associated with this executable
+  // /// graph.
+  // std::shared_ptr<graph_impl> MGraphImpl;
+  */
   /// Map of devices to command buffers.
   std::unordered_map<sycl::device, RT::PiExtCommandBuffer> MPiCommandBuffers;
   /// Map of nodes in the exec graph to the sync point representing their
