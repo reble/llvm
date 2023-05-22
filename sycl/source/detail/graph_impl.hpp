@@ -19,6 +19,7 @@
 #include <functional>
 #include <list>
 #include <set>
+#inlcude <optional>
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
@@ -91,6 +92,28 @@ public:
   // }
   */
 
+private:
+  /// Depth of this node in a containing graph
+  ///
+  /// The first call to graph.exec_order_recompute computes & caches the value
+  /// It will likely become stale whenever the containing graph is changed and
+  /// a single value will be inequate if this node is added to multiple graphs
+  /// Caching is dangerous but recomputing takes O(graph_size) worst-case time
+  std::optional<int> MDepth;
+
+public:
+  int get_depth(node_impl &V) { return V.get_depth(); };
+  int get_depth() {
+    if (!MDepth.has_value()) {
+      int max_depth_found = -1;
+      for (auto P : MPredecessors) {
+        max_depth_found = std::max(max_depth_found, P.lock()->get_depth());
+      }
+      MDepth = max_depth_found + 1;
+    }
+    return MDepth.value();
+  };
+  
   /// Checks if this node has an argument.
   /// @param Arg Argument to lookup.
   /// @return True if \p Arg is used in node, false otherwise.
