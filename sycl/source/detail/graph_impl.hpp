@@ -19,7 +19,8 @@
 #include <functional>
 #include <list>
 #include <set>
-#inlcude <optional>
+#include <optional>
+#include <map>
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
@@ -222,6 +223,63 @@ public:
       : MContext(SyclContext), MDevice(SyclDevice), MRecordingQueues(),
         MEventsMap() {}
 
+private:
+  /// A cache of pointers to exit nodes
+  ///
+  /// This is not used (yet), but depth computation starts from exit nodes
+  /// Perhaps, it might be better to do the exec_order_recompute traversal
+  /// starting from each exit node and working upwards using MPredecessors
+  /// rather than from each root node and doing depth-first to exit nodes?
+  std::vector<node_impl *> MExitNodes;
+
+  /// A sorted multimap capturing the optimal execution/submission order
+  ///
+  /// The SortKey is the depth in the graph for the node_impl in the value
+  /// Depth is the length of the longest dependence chain to any root node
+  std::multimap<int, std::shared_ptr<node_impl>> MExecOrder;
+
+  /// <summary>
+  /// Depth-first recursion from V to build the optimal execution order
+  /// </summary>
+  /// <param name="V">Starting node for depth-first recursion</param>
+  void exec_order_recompute(node_impl &V) {
+    // depth-first recursion to access all nodes that succeed this node
+    for (auto &S : V.MSuccessors) {
+      exec_order_recompute(*S.get());
+    }
+    // insert this into execution order based on its depth in the graph
+    MExecOrder.insert(std::pair(V.get_depth(), &V));
+    // cache all the exit nodes; no reason, just feels like a good idea
+    if (V.MSuccessors.empty()) {
+      MExitNodes.push_back(&V);
+    }
+  };
+
+  /// <summary>
+  /// Recomputes the optimal submission/execution order for this whole graph
+  /// </summary>
+  void exec_order_recompute() {
+    MExecOrder.clear();
+    // for all root nodes ...
+    for (auto &root : MRoots) {
+      // ... recurse towards all exit nodes
+      exec_order_recompute(*root);
+    }
+  };
+
+public:
+  /// <summary>
+  /// Recomputes the optimal submission/execution order then schedules all nodes
+  /// </summary>
+  std::list<std::shared_ptr<node_impl>> compute_schedule() {
+    exec_order_recompute();
+    std::list<std::shared_ptr<node_impl>> sched;
+    for (auto &next : MExecOrder) {
+      sched.push_front(*next.second.get());
+    }
+    return sched;
+  };
+  
   /// Insert node into list of root nodes.
   /// @param Root Node to add to list of root nodes.
   void add_root(const std::shared_ptr<node_impl> &Root);
