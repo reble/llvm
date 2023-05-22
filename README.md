@@ -16,9 +16,47 @@ Limitations include:
 * LevelZero backend support only. A fallback emulation mode is used for correctness on other backends.
 * Accessors and reductions are currently not supported.
 
+#### Implementation Status
+
+| Feature                                                            | Implementation Status |
+| ------------------------------------------------------------------ | --------------------- |
+| Adding a command-group node with `command_graph::add()`            | Implemented           |
+| Begin & end queue recording to a graph to create nodes             | Implemented           |
+| Edges created from buffer accessor dependencies                    | Implemented           |
+| Edges created from `handler::depends_on` dependencies              | Implemented           |
+| Edges created using `make_edge()`                                  | Implemented           |
+| Edges created by passing a property list to `command_graph::add()` | Implemented           |
+| Empty node                                                         | Implemented           |
+| Queue `ext_oneapi_get_state()` query                               | Implemented           |
+| Vendor test macro                                                  | Implemented           |
+| Ability to add a graph as a node of another graph (Sub-graphs)     | Implemented           |
+| Using all capabilities of USM in a graph node                      | Implemented           |
+| Extending lifetime of buffers used in a graph                      | Not implemented       |
+| Buffer taking a copy of host data when buffer is used in a graph   | Not implemented       |
+| Executable graph `update()`                                        | Not implemented       |
+| Using `handler::parallel_for` in a graph node                      | Implemented           |
+| Using `handler::single_task` in a graph node                       | Implemented           |
+| Using `handler::memcpy` in a graph node                            | Not implemented       |
+| Using `handler::copy` in a graph node                              | Not implemented       |
+| Using `handler::host_task` in a graph node                         | Not implemented       |
+| Using `handler::fill` in a graph node                              | Implemented for USM, not implemented for buffer accessors |
+| Using `handler::memset` in a graph node                            | Not implemented       |
+| Using `handler::prefech` in a graph node                           | Not implemented       |
+| Using `handler::memadvise` in a graph node                         | Not implemented       |
+| Using specialization constants in a graph node                     | Not implemented       |
+| Using reductions in a graph node                                   | Not implemented       |
+| Using sycl streams in a graph node                                 | Not implemented       |
+| Thread safety of new methods                                       | Not implemented       |
+| Profiling an event returned from graph submission                  | Not implemented       |
+| Querying the state of an event returned from graph submission      | Not implemented       |
+| Error checking                                                     | Throwing exceptions for invalid usage is only partially implemented |
+>>>>>>> [SYCL][Graphs] Readme table of implementation coverage
+
 ### Other Material
 
 This extension was presented at the oneAPI Technical Advisory board (Sept'22 meeting). Slides: [https://github.com/oneapi-src/oneAPI-tab/blob/main/language/presentations/2022-09-28-TAB-SYCL-Graph.pdf](https://github.com/oneapi-src/oneAPI-tab/blob/main/language/presentations/2022-09-28-TAB-SYCL-Graph.pdf).
+
+Extension was presented at IWOCL 2023, and the [talk can be found on Youtube](https://www.youtube.com/watch?v=aOTAmyr04rM).
 
 ## Intel Project for LLVM\* technology
 
