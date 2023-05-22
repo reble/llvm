@@ -2,7 +2,11 @@
 // Disabled as thread safety not yet implemented
 
 // RUN: %clangxx -pthread -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+<<<<<<< HEAD
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
+=======
+// RUN: %{run} %t.out
+>>>>>>> sycl-graph-develop
 
 // Test finalizing and submitting a graph in a threaded situation.
 

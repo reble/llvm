@@ -1,6 +1,11 @@
 // REQUIRES: level_zero, gpu
+<<<<<<< HEAD
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
+=======
+// RUN: %{build} -o %t.out
+// RUN: %{run} %t.out
+>>>>>>> sycl-graph-develop
 
 // Tests that an event returned from adding a graph node using the queue
 // recording API can be passed to `handler::depends_on` inside a node
