@@ -75,24 +75,6 @@ public:
             std::unique_ptr<sycl::detail::CG> &&CommandGroup)
       : MCGType(CGType), MCommandGroup(std::move(CommandGroup)) {}
 
-  /*
-  // /// Recursively add nodes to execution stack.
-  // /// @param NodeImpl Node to schedule.
-  // /// @param Schedule Execution ordering to add node to.
-  // void topology_sort(std::shared_ptr<node_impl> NodeImpl,
-  //                    std::list<std::shared_ptr<node_impl>> &Schedule) {
-  //   for (auto Next : MSuccessors) {
-  //     // Check if we've already scheduled this node
-  //     if (std::find(Schedule.begin(), Schedule.end(), Next) == Schedule.end())
-  //       Next->topology_sort(Next, Schedule);
-  //   }
-  //   // We don't need to schedule empty nodes as they are only used when
-  //   // calculating dependencies
-  //   if (!NodeImpl->is_empty())
-  //     Schedule.push_front(NodeImpl);
-  // }
-  */
-
 private:
   /// Depth of this node in a containing graph
   ///
@@ -398,7 +380,6 @@ public:
   exec_graph_impl(sycl::context Context,
                   const std::shared_ptr<graph_impl> &GraphImpl)
       : MSchedule(GraphImpl->compute_schedule()),
-  /*    MGraphImpl(GraphImpl), */
         MPiCommandBuffers(),
         MPiSyncPoints(), MContext(Context) {}
 
@@ -406,11 +387,6 @@ public:
   ///
   /// Releases any PI command-buffers the object has created.
   ~exec_graph_impl();
-
-  /*
-  // /// Add nodes to MSchedule.
-  // void schedule();
-  */
 
   /// Enqueues the backend objects for the graph to the parametrized queue.
   /// @param Queue Command-queue to submit backend objects to.
@@ -471,11 +447,6 @@ private:
 
   /// Execution schedule of nodes in the graph.
   std::list<std::shared_ptr<node_impl>> MSchedule;
-  /*
-  // /// Pointer to the modifiable graph impl associated with this executable
-  // /// graph.
-  // std::shared_ptr<graph_impl> MGraphImpl;
-  */
   /// Map of devices to command buffers.
   std::unordered_map<sycl::device, RT::PiExtCommandBuffer> MPiCommandBuffers;
   /// Map of nodes in the exec graph to the sync point representing their
