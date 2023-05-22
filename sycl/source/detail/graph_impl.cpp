@@ -15,6 +15,10 @@
 #include <sycl/feature_test.hpp>
 #include <sycl/queue.hpp>
 
+// Developer switch to use emulation mode on all backends, even those that
+// report native support, this is useful for debugging.
+#define FORCE_EMULATION_MODE 0
+
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
@@ -60,8 +64,8 @@ bool check_for_arg(const sycl::detail::ArgDesc &Arg,
     SuccessorAddedDep |= check_for_arg(Arg, Successor, Deps);
   }
 
-  if (Deps.find(CurrentNode) == Deps.end() && CurrentNode->has_arg(Arg) &&
-      !SuccessorAddedDep) {
+  if (!CurrentNode->is_empty() && Deps.find(CurrentNode) == Deps.end() &&
+      CurrentNode->has_arg(Arg) && !SuccessorAddedDep) {
     Deps.insert(CurrentNode);
     return true;
   }
@@ -143,6 +147,7 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
                 const std::vector<std::shared_ptr<node_impl>> &Dep) {
   sycl::handler Handler{Impl};
   CGF(Handler);
+  Handler.finalize();
 
   // If the handler recorded a subgraph return that here as the relevant nodes
   // have already been added. The node returned here is an empty node with
@@ -150,47 +155,37 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
   if (Handler.MSubgraphNode) {
     return Handler.MSubgraphNode;
   }
-
-  return this->add(Handler.MKernel, Handler.MNDRDesc, Handler.MOSModuleHandle,
-                   Handler.MKernelName, Handler.MAccStorage,
-                   Handler.MLocalAccStorage, Handler.MCGType, Handler.MArgs,
-                   Handler.MImpl->MAuxiliaryResources, Dep, Handler.MEvents);
+  return this->add(Handler.MCGType, std::move(Handler.MGraphNodeCG), Dep);
 }
 
-std::shared_ptr<node_impl> graph_impl::add(
-    std::shared_ptr<sycl::detail::kernel_impl> Kernel,
-    sycl::detail::NDRDescT NDRDesc, sycl::detail::OSModuleHandle OSModuleHandle,
-    std::string KernelName,
-    const std::vector<sycl::detail::AccessorImplPtr> &AccStorage,
-    const std::vector<sycl::detail::LocalAccessorImplPtr> &LocalAccStorage,
-    sycl::detail::CG::CGTYPE CGType,
-    const std::vector<sycl::detail::ArgDesc> &Args,
-    const std::vector<std::shared_ptr<const void>> &AuxiliaryResources,
-    const std::vector<std::shared_ptr<node_impl>> &Dep,
-    const std::vector<std::shared_ptr<sycl::detail::event_impl>> &DepEvents) {
-  const std::shared_ptr<node_impl> &NodeImpl = std::make_shared<node_impl>(
-      Kernel, NDRDesc, OSModuleHandle, KernelName, AccStorage, LocalAccStorage,
-      CGType, Args, AuxiliaryResources);
+std::shared_ptr<node_impl>
+graph_impl::add(sycl::detail::CG::CGTYPE CGType,
+                std::unique_ptr<sycl::detail::CG> CommandGroup,
+                const std::vector<std::shared_ptr<node_impl>> &Dep) {
   // Copy deps so we can modify them
   auto Deps = Dep;
-  // A unique set of dependencies obtained by checking kernel arguments
-  // for accessors
-  std::set<std::shared_ptr<node_impl>> UniqueDeps;
-  for (auto &Arg : Args) {
-    if (Arg.MType != sycl::detail::kernel_param_kind_t::kind_accessor) {
-      continue;
+  if (CGType == sycl::detail::CG::Kernel) {
+    // A unique set of dependencies obtained by checking kernel arguments
+    // for accessors
+    std::set<std::shared_ptr<node_impl>> UniqueDeps;
+    const auto &Args =
+        static_cast<sycl::detail::CGExecKernel *>(CommandGroup.get())->MArgs;
+    for (auto &Arg : Args) {
+      if (Arg.MType != sycl::detail::kernel_param_kind_t::kind_accessor) {
+        continue;
+      }
+      // Look through the graph for nodes which share this argument
+      for (auto NodePtr : MRoots) {
+        check_for_arg(Arg, NodePtr, UniqueDeps);
+      }
     }
-    // Look through the graph for nodes which share this argument
-    for (auto NodePtr : MRoots) {
-      check_for_arg(Arg, NodePtr, UniqueDeps);
-    }
+
+    // Add any deps determined from accessor arguments into the dependency list
+    Deps.insert(Deps.end(), UniqueDeps.begin(), UniqueDeps.end());
   }
 
-  // Add any deps determined from accessor arguments into the dependency list
-  Deps.insert(Deps.end(), UniqueDeps.begin(), UniqueDeps.end());
-
   // Add any nodes specified by event dependencies into the dependency list
-  for (auto Dep : DepEvents) {
+  for (auto Dep : CommandGroup->MEvents) {
     if (auto NodeImpl = MEventsMap.find(Dep); NodeImpl != MEventsMap.end()) {
       Deps.push_back(NodeImpl->second);
     } else {
@@ -200,6 +195,8 @@ std::shared_ptr<node_impl> graph_impl::add(
     }
   }
 
+  const std::shared_ptr<node_impl> &NodeImpl =
+      std::make_shared<node_impl>(CGType, std::move(CommandGroup));
   if (!Deps.empty()) {
     for (auto N : Deps) {
       N->register_successor(NodeImpl, N); // register successor
@@ -256,9 +253,9 @@ RT::PiExtSyncPoint exec_graph_impl::enqueue_node_direct(
   }
   RT::PiExtSyncPoint NewSyncPoint;
   pi_int32 Res = sycl::detail::enqueueImpCommandBufferKernel(
-      Ctx, DeviceImpl, CommandBuffer, Node->MNDRDesc, Node->MArgs,
-      nullptr /* Kernel bundle ptr */, Node->MKernel, Node->MKernelName,
-      Node->MOSModuleHandle, Deps, &NewSyncPoint, nullptr);
+      Ctx, DeviceImpl, CommandBuffer,
+      *static_cast<sycl::detail::CGExecKernel *>((Node->MCommandGroup.get())),
+      Deps, &NewSyncPoint, nullptr);
 
   if (Res != pi_result::PI_SUCCESS) {
     throw sycl::exception(errc::invalid,
@@ -271,27 +268,6 @@ RT::PiExtSyncPoint exec_graph_impl::enqueue_node_direct(
 RT::PiExtSyncPoint exec_graph_impl::enqueue_node(
     sycl::context Ctx, std::shared_ptr<sycl::detail::device_impl> DeviceImpl,
     RT::PiExtCommandBuffer CommandBuffer, std::shared_ptr<node_impl> Node) {
-  std::unique_ptr<sycl::detail::CG> CommandGroup;
-  switch (Node->MCGType) {
-  case sycl::detail::CG::Kernel:
-    CommandGroup.reset(new sycl::detail::CGExecKernel(
-        Node->MNDRDesc, nullptr /* Host Kernel */, Node->MKernel,
-        nullptr /* Kernel Bundle */, Node->MArgStorage, Node->MAccStorage,
-        {} /* Shared pointer storage for copies */, Node->MRequirements,
-        {} /* Events */, Node->MArgs, Node->MKernelName, Node->MOSModuleHandle,
-        Node->MStreamStorage, Node->MAuxiliaryResources, Node->MCGType,
-        {} /* Code Location */));
-    break;
-
-  default:
-    assert(false && "Node types other than kernels are not supported!");
-    break;
-  }
-
-  if (!CommandGroup)
-    throw sycl::runtime_error(
-        "Internal Error. Command group cannot be constructed.",
-        PI_ERROR_INVALID_OPERATION);
 
   // Queue which will be used for allocation operations for accessors.
   auto AllocaQueue = std::make_shared<sycl::detail::queue_impl>(
@@ -305,7 +281,7 @@ RT::PiExtSyncPoint exec_graph_impl::enqueue_node(
 
   sycl::detail::EventImplPtr Event =
       sycl::detail::Scheduler::getInstance().addCG(
-          std::move(CommandGroup), AllocaQueue, CommandBuffer, Deps);
+          std::move(Node->getCGCopy()), AllocaQueue, CommandBuffer, Deps);
 
   return Event->getSyncPoint();
 }
@@ -315,10 +291,10 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
   RT::PiExtCommandBuffer OutCommandBuffer;
   RT::PiExtCommandBufferDesc Desc{};
   auto ContextImpl = sycl::detail::getSyclObjImpl(MContext);
-  const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
+  const sycl::detail::PluginPtr &Plugin = ContextImpl->getPlugin();
   auto DeviceImpl = sycl::detail::getSyclObjImpl(D);
   pi_result Res =
-      Plugin.call_nocheck<sycl::detail::PiApiKind::piextCommandBufferCreate>(
+      Plugin->call_nocheck<sycl::detail::PiApiKind::piextCommandBufferCreate>(
           ContextImpl->getHandleRef(), DeviceImpl->getHandleRef(), &Desc,
           &OutCommandBuffer);
   if (Res != pi_result::PI_SUCCESS) {
@@ -333,7 +309,11 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
     // If the node is a kernel with no special requirements we can enqueue it
     // directly.
     if (type == sycl::detail::CG::Kernel &&
-        Node->MRequirements.size() + Node->MStreamStorage.size() == 0) {
+        Node->MCommandGroup->MRequirements.size() +
+                static_cast<sycl::detail::CGExecKernel *>(
+                    Node->MCommandGroup.get())
+                    ->MStreams.size() ==
+            0) {
       MPiSyncPoints[Node] =
           enqueue_node_direct(MContext, DeviceImpl, OutCommandBuffer, Node);
     } else {
@@ -342,12 +322,13 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
     }
 
     // Append Node requirements to overall graph requirements
-    MRequirements.insert(MRequirements.end(), Node->MRequirements.begin(),
-                         Node->MRequirements.end());
+    MRequirements.insert(MRequirements.end(),
+                         Node->MCommandGroup->MRequirements.begin(),
+                         Node->MCommandGroup->MRequirements.end());
   }
 
   Res =
-      Plugin.call_nocheck<sycl::detail::PiApiKind::piextCommandBufferFinalize>(
+      Plugin->call_nocheck<sycl::detail::PiApiKind::piextCommandBufferFinalize>(
           OutCommandBuffer);
   if (Res != pi_result::PI_SUCCESS) {
     throw sycl::exception(errc::invalid,
@@ -358,14 +339,14 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
 exec_graph_impl::~exec_graph_impl() {
   MSchedule.clear();
   for (auto Iter : MPiCommandBuffers) {
-    const sycl::detail::plugin &Plugin =
+    const sycl::detail::PluginPtr &Plugin =
         sycl::detail::getSyclObjImpl(MContext)->getPlugin();
-    auto CmdBuf = Iter.second;
-    pi_result Res =
-        Plugin.call_nocheck<sycl::detail::PiApiKind::piextCommandBufferRelease>(
-            CmdBuf);
-    (void)Res;
-    assert(Res == pi_result::PI_SUCCESS);
+    if (auto CmdBuf = Iter.second; CmdBuf) {
+      pi_result Res = Plugin->call_nocheck<
+          sycl::detail::PiApiKind::piextCommandBufferRelease>(CmdBuf);
+      (void)Res;
+      assert(Res == pi_result::PI_SUCCESS);
+    }
   }
 }
 
@@ -378,83 +359,83 @@ sycl::event exec_graph_impl::enqueue(
     NewEvent->setStateIncomplete();
     return NewEvent;
   });
-#if SYCL_EXT_ONEAPI_GRAPH
-  auto NewEvent = CreateNewEvent();
-  RT::PiEvent *OutEvent = &NewEvent->getHandleRef();
+
   auto CommandBuffer = MPiCommandBuffers[Queue->get_device()];
+  sycl::detail::EventImplPtr NewEvent;
 
-  // If we have no requirements for accessors for the command buffer, enqueue it
-  // directly
-  if (MRequirements.empty()) {
-    pi_result Res =
-        Queue->getPlugin()
-            .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
-                CommandBuffer, Queue->getHandleRef(), RawEvents.size(),
-                RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
-    if (Res != pi_result::PI_SUCCESS) {
-      throw sycl::exception(
-          errc::event, "Failed to enqueue event for command buffer submission");
-    }
-  } else {
-    std::unique_ptr<sycl::detail::CG> CommandGroup =
-        std::make_unique<sycl::detail::CGExecCommandBuffer>(CommandBuffer,
-                                                            MRequirements);
+  if (CommandBuffer) {
+    NewEvent = CreateNewEvent();
+    RT::PiEvent *OutEvent = &NewEvent->getHandleRef();
 
-    NewEvent = sycl::detail::Scheduler::getInstance().addCG(
-        std::move(CommandGroup), Queue);
-  }
-
-#else
-  std::vector<std::shared_ptr<sycl::detail::event_impl>> ScheduledEvents;
-  for (auto &NodeImpl : MSchedule) {
-    std::vector<RT::PiEvent> RawEvents;
-
-    // If the node has no requirements for accessors etc. then we skip the
-    // scheduler and enqueue directly.
-    if (NodeImpl->MCGType == sycl::detail::CG::Kernel &&
-        NodeImpl->MRequirements.size() + NodeImpl->MStreamStorage.size() == 0) {
-      auto NewEvent = CreateNewEvent();
-      RT::PiEvent *OutEvent = &NewEvent->getHandleRef();
-      pi_int32 Res = sycl::detail::enqueueImpKernel(
-          Queue, NodeImpl->MNDRDesc, NodeImpl->MArgs,
-          nullptr /* TODO: Handle KernelBundles */, NodeImpl->MKernel,
-          NodeImpl->MKernelName, NodeImpl->MOSModuleHandle, RawEvents, OutEvent,
-          nullptr /* TODO: Pass mem allocation func for accessors */,PI_EXT_KERNEL_EXEC_INFO_CACHE_DEFAULT /* TODO: Extract from handler*/);
+    // If we have no requirements for accessors for the command buffer, enqueue
+    // it directly
+    if (MRequirements.empty()) {
+      pi_result Res =
+          Queue->getPlugin()
+              ->call_nocheck<
+                  sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
+                  CommandBuffer, Queue->getHandleRef(), RawEvents.size(),
+                  RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
       if (Res != pi_result::PI_SUCCESS) {
         throw sycl::exception(
-            sycl::errc::kernel,
-            "Error during emulated graph command group submission.");
+            errc::event,
+            "Failed to enqueue event for command buffer submission");
       }
-      ScheduledEvents.push_back(NewEvent);
     } else {
-      auto EventImpl = sycl::detail::createCommandAndEnqueue(
-          NodeImpl->MCGType, Queue, NodeImpl->MNDRDesc,
-          nullptr /* HostKernel */, nullptr /* HostTaskPtr */,
-          nullptr /* InteropTask */, NodeImpl->MKernel, NodeImpl->MKernelName,
-          nullptr /* KernelBundle */, NodeImpl->MArgStorage,
-          NodeImpl->MAccStorage, NodeImpl->MLocalAccStorage,
-          NodeImpl->MStreamStorage, {} /* shared_ptr storage */,
-          NodeImpl->MAuxiliaryResources, NodeImpl->MArgs, nullptr /* SrcPtr */,
-          nullptr /* DstPtr */, 0 /* Length */, {} /* Pattern */,
-          0 /* SrcPitch */, 0 /* DstPitch */, 0 /* Width */, 0 /* Height */,
-          0 /* Offset */, false /* IsDeviceImageScoped */,
-          {} /* HostPipeName */, nullptr /* HostPipePtr */,
-          false /* HostPipeBlocking */, 0 /* HostPipeTypeSize */,
-          false /* HostPipeRead */, {} /* Advice */, NodeImpl->MRequirements,
-          {} /* Events */, {} /* Events w/ Barrier */,
-          NodeImpl->MOSModuleHandle,
-          PI_EXT_KERNEL_EXEC_INFO_CACHE_DEFAULT
-          /* KernelCacheConfig */,
-          {} /* CodeLoc */);
+      std::unique_ptr<sycl::detail::CG> CommandGroup =
+          std::make_unique<sycl::detail::CGExecCommandBuffer>(CommandBuffer,
+                                                              MRequirements);
 
-      ScheduledEvents.push_back(EventImpl);
+      NewEvent = sycl::detail::Scheduler::getInstance().addCG(
+          std::move(CommandGroup), Queue);
     }
+  } else {
+    std::vector<std::shared_ptr<sycl::detail::event_impl>> ScheduledEvents;
+    for (auto &NodeImpl : MSchedule) {
+      std::vector<RT::PiEvent> RawEvents;
+
+      // If the node has no requirements for accessors etc. then we skip the
+      // scheduler and enqueue directly.
+      if (NodeImpl->MCGType == sycl::detail::CG::Kernel &&
+          NodeImpl->MCommandGroup->MRequirements.size() +
+                  static_cast<sycl::detail::CGExecKernel *>(
+                      NodeImpl->MCommandGroup.get())
+                      ->MStreams.size() ==
+              0) {
+        sycl::detail::CGExecKernel *CG =
+            static_cast<sycl::detail::CGExecKernel *>(
+                NodeImpl->MCommandGroup.get());
+        NewEvent = CreateNewEvent();
+        RT::PiEvent *OutEvent = &NewEvent->getHandleRef();
+        pi_int32 Res = sycl::detail::enqueueImpKernel(
+            Queue, CG->MNDRDesc, CG->MArgs,
+            // TODO: Handler KernelBundles
+            nullptr, CG->MSyclKernel, CG->MKernelName, CG->MOSModuleHandle,
+            RawEvents, OutEvent,
+            // TODO: Pass accessor mem allocations
+            nullptr,
+            // TODO: Extract from handler
+            PI_EXT_KERNEL_EXEC_INFO_CACHE_DEFAULT);
+        if (Res != pi_result::PI_SUCCESS) {
+          throw sycl::exception(
+              sycl::errc::kernel,
+              "Error during emulated graph command group submission.");
+        }
+        ScheduledEvents.push_back(NewEvent);
+      } else {
+
+        sycl::detail::EventImplPtr EventImpl =
+            sycl::detail::Scheduler::getInstance().addCG(
+                std::move(NodeImpl->getCGCopy()), Queue);
+
+        ScheduledEvents.push_back(EventImpl);
+      }
+    }
+    // Create an event which has all kernel events as dependencies
+    NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
+    NewEvent->setStateIncomplete();
+    NewEvent->getPreparedDepsEvents() = ScheduledEvents;
   }
-  // Create an event which has all kernel events as dependencies
-  auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
-  NewEvent->setStateIncomplete();
-  NewEvent->getPreparedDepsEvents() = ScheduledEvents;
-#endif
 
   sycl::event QueueEvent =
       sycl::detail::createSyclObjFromImpl<sycl::event>(NewEvent);
@@ -583,11 +564,30 @@ command_graph<graph_state::executable>::command_graph(
 void command_graph<graph_state::executable>::finalize_impl() {
   // Create PI command-buffers for each device in the finalized context
   impl->schedule();
-#if SYCL_EXT_ONEAPI_GRAPH
-  for (auto device : impl->get_context().get_devices()) {
-    impl->create_pi_command_buffers(device);
-  }
+
+  auto Context = impl->get_context();
+  for (auto Device : impl->get_context().get_devices()) {
+    pi_bool CmdBufSupport;
+
+    const sycl::detail::PluginPtr &Plugin =
+        sycl::detail::getSyclObjImpl(Context)->getPlugin();
+
+    auto DeviceImpl = sycl::detail::getSyclObjImpl(Device);
+    Plugin->call<sycl::detail::PiApiKind::piDeviceGetInfo>(
+        DeviceImpl->getHandleRef(),
+        PI_EXT_ONEAPI_DEVICE_INFO_COMMAND_BUFFER_SUPPORT, sizeof(pi_bool),
+        &CmdBufSupport, nullptr);
+
+#if FORCE_EMULATION_MODE
+    // Above query should still succeed in emulation mode, but ignore the
+    // result and use emulation.
+    CmdBufSupport = false;
 #endif
+
+    if (CmdBufSupport) {
+      impl->create_pi_command_buffers(Device);
+    }
+  }
 }
 
 void command_graph<graph_state::executable>::update(

@@ -36,7 +36,7 @@ set(SYCL_MAJOR_VERSION 7)
 set(SYCL_MINOR_VERSION 0)
 set(SYCL_PATCH_VERSION 0)
 
-set(SYCL_DEV_ABI_VERSION 1)
+set(SYCL_DEV_ABI_VERSION 2)
 if (SYCL_ADD_DEV_VERSION_POSTFIX)
   set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
 endif()
@@ -68,10 +68,6 @@ endif()
 # Create a soft option for enabling or disabling the instrumentation
 # of the SYCL runtime and expect enabling
 option(SYCL_ENABLE_XPTI_TRACING "Enable tracing of SYCL constructs" OFF)
-
-# Create a soft option for enabling or disabling the experimental support
-# for SYCl Graph
-option(SYCL_ENABLE_GRAPH "Enable experimental SYCL Graph support" OFF)
 
 if(MSVC)
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)

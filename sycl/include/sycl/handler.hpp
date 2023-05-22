@@ -292,30 +292,6 @@ private:
 using std::enable_if_t;
 using sycl::detail::queue_impl;
 
-std::shared_ptr<event_impl> createCommandAndEnqueue(
-    CG::CGTYPE Type, std::shared_ptr<detail::queue_impl> Queue,
-    NDRDescT NDRDesc, std::unique_ptr<detail::HostKernelBase> HostKernel,
-    std::unique_ptr<detail::HostTask> HostTaskPtr,
-    std::unique_ptr<detail::InteropTask> InteropTask,
-    std::shared_ptr<detail::kernel_impl> Kernel, std::string KernelName,
-    KernelBundleImplPtr KernelBundle,
-    std::vector<std::vector<char>> ArgsStorage,
-    std::vector<detail::AccessorImplPtr> AccStorage,
-    std::vector<detail::LocalAccessorImplPtr> LocalAccStorage,
-    std::vector<std::shared_ptr<detail::stream_impl>> StreamStorage,
-    std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-    std::vector<std::shared_ptr<const void>> AuxiliaryResources,
-    std::vector<detail::ArgDesc> Args, void *SrcPtr, void *DstPtr,
-    size_t Length, std::vector<char> Pattern, size_t SrcPitch, size_t DstPitch,
-    size_t Width, size_t Height, size_t Offset, bool IsDeviceImageScoped,
-    const std::string &HostPipeName, void *HostPipePtr, bool HostPipeBlocking,
-    size_t HostPipeTypeSize, bool HostPipeRead, pi_mem_advice Advice,
-    std::vector<detail::AccessorImplHost *> Requirements,
-    std::vector<detail::EventImplPtr> Events,
-    std::vector<detail::EventImplPtr> EventsWaitWithBarrier,
-    detail::OSModuleHandle OSModHandle,
-    RT::PiKernelCacheConfig KernelCacheConfig, detail::code_location CodeLoc);
-
 } // namespace detail
 
 /// Command group handler class.
@@ -2486,7 +2462,7 @@ public:
       // Special case for zero-dim accessors.
       parallel_for<
           class __fill<T, Dims, AccessMode, AccessTarget, IsPlaceholder>>(
-          range<1>(1), [=](id<1> Index) { Dst = Pattern; });
+          range<1>(1), [=](id<1>) { Dst = Pattern; });
     } else {
       range<Dims> Range = Dst.get_range();
       parallel_for<
@@ -2835,8 +2811,8 @@ public:
     if (!detail::isDeviceGlobalUsedInKernel(&Src)) {
       // If the corresponding device_global isn't used in any kernels, we fall
       // back to doing the memory operation on host-only.
-      memcpyFromHostOnlyDeviceGlobal(Dest, &Src, sizeof(T), IsDeviceImageScoped,
-                                     NumBytes, SrcOffset);
+      memcpyFromHostOnlyDeviceGlobal(Dest, &Src, IsDeviceImageScoped, NumBytes,
+                                     SrcOffset);
       return;
     }
 
@@ -2942,6 +2918,17 @@ private:
           
   std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph;
   std::shared_ptr<ext::oneapi::experimental::detail::node_impl> MSubgraphNode;
+
+  /// The graph that is associated with this handler.
+  std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph;
+  /// If we are submitting a graph using ext_oneapi_graph this will be the graph
+  /// to be executed.
+  std::shared_ptr<ext::oneapi::experimental::detail::exec_graph_impl>
+      MExecGraph;
+  /// Storage for a node created from a subgraph submission.
+  std::shared_ptr<ext::oneapi::experimental::detail::node_impl> MSubgraphNode;
+  /// Storage for the CG created when handling graph nodes added explicitly.
+  std::unique_ptr<detail::CG> MGraphNodeCG;
 
   bool MIsHost = false;
 
@@ -3177,7 +3164,6 @@ private:
 
   // Implementation of memcpy from an unregistered device_global.
   void memcpyFromHostOnlyDeviceGlobal(void *Dest, const void *DeviceGlobalPtr,
-                                      size_t DeviceGlobalTSize,
                                       bool IsDeviceImageScoped, size_t NumBytes,
                                       size_t Offset);
 
