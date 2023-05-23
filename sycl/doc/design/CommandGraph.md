@@ -28,10 +28,8 @@ command list multiple times.
 | `piextCommandBufferCreate` | create a command-buffer. |
 | `piextCommandBufferRetain` | incrementing reference count of command-buffer. |
 | `piextCommandBufferRelease` | decrementing reference count of command-buffer. |
-| `piextCommandBufferFinalize` | no more commands can be appended, makes command
- buffer ready to enqueue on command-queue. |
-| `piextCommandBufferNDRangeKernel` | append a kernel execution command to command
-buffer. |
+| `piextCommandBufferFinalize` | no more commands can be appended, makes command buffer ready to enqueue on command-queue. |
+| `piextCommandBufferNDRangeKernel` | append a kernel execution command to command buffer. |
 | `piextEnqueueCommandBuffer` | submit command-buffer to queue for execution |
 
 ## Design
