@@ -9,7 +9,10 @@ A related presentation can be found
 ## Requirements
 
 An efficient implementation of a lazy command graph execution and its replay
-requires extensions to the PI layer. Such an extension is command buffers.
+requires extensions to the PI layer. Such an extension is command buffers,
+where a command-buffer object represents a series of operations to be enqueued
+to the backend device and their dependencies. A single command graph can be
+partitioned into more than one PI command-buffer by the runtime.
 We distinguish between backends that support command buffer extensions and
 those that do not. Currently command buffer extensions are only supported by
 Level Zero. All other backends would fall back to an emulation mode.
@@ -22,14 +25,14 @@ command list multiple times.
 
 | Function | Description |
 | ------------------------- | ------------------------ |
-| piextCommandBufferCreate: | create a command-buffer. |
-| piextCommandBufferRetain: | incrementing reference count of command-buffer. |
-| piextCommandBufferRelease: decrementing reference count of command-buffer. |
-| piextCommandBufferFinalize: no more commands can be appended, makes command
+| `piextCommandBufferCreate` | create a command-buffer. |
+| `piextCommandBufferRetain` | incrementing reference count of command-buffer. |
+| `piextCommandBufferRelease` | decrementing reference count of command-buffer. |
+| `piextCommandBufferFinalize` | no more commands can be appended, makes command
  buffer ready to enqueue on command-queue. |
-| piextCommandBufferNDRangeKernel: append a kernel execution command to command
+| `piextCommandBufferNDRangeKernel` | append a kernel execution command to command
 buffer. |
-| piextEnqueueCommandBuffer: | submit command-buffer to queue for execution |
+| `piextEnqueueCommandBuffer` | submit command-buffer to queue for execution |
 
 ## Design
 
