@@ -70,7 +70,6 @@ is something we are interested in expanding on.
 | Profiling an event returned from graph submission                  | Not implemented       |
 | Querying the state of an event returned from graph submission      | Not implemented       |
 | Error checking                                                     | Throwing exceptions for invalid usage is only partially implemented |
->>>>>>> [SYCL][Graphs] Readme table of implementation coverage
 
 ### Other Material
 
