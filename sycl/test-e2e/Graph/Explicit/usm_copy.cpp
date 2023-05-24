@@ -94,9 +94,9 @@ int main() {
     });
   }
 
-  Queue.copy(PtrA, DataA.data(), Size);
-  Queue.copy(PtrB, DataB.data(), Size);
-  Queue.copy(PtrC, DataC.data(), Size);
+  Queue.copy(PtrA, DataA.data(), Size, Event);
+  Queue.copy(PtrB, DataB.data(), Size, Event);
+  Queue.copy(PtrC, DataC.data(), Size, Event);
   Queue.wait_and_throw();
 
   free(PtrA, Queue);

@@ -2157,7 +2157,7 @@ piextCommandBufferFinalize(pi_ext_command_buffer command_buffer);
 /// \param local_work_size Local work size to use when executing kernel.
 /// \param num_sync_points_in_wait_list The number of sync points in the
 /// provided wait list.
-/// \param sync_point_wait_list A list of sync points that this executions must
+/// \param sync_point_wait_list A list of sync points that this command must
 /// wait on.
 /// \param sync_point The sync_point associated with this kernel execution.
 __SYCL_EXPORT pi_result piextCommandBufferNDRangeKernel(
@@ -2169,14 +2169,14 @@ __SYCL_EXPORT pi_result piextCommandBufferNDRangeKernel(
 
 /// API to append a USM memcpy command to the command-buffer.
 /// \param command_buffer The command-buffer to append onto.
-/// \param dst_ptr is the data to be copied
 /// \param dst_ptr is the location the data will be copied
+/// \param src_ptr is the data to be copied
 /// \param size is number of bytes to copy
 /// \param num_sync_points_in_wait_list The number of sync points in the
 /// provided wait list.
-/// \param sync_point_wait_list A list of sync points that this executions must
+/// \param sync_point_wait_list A list of sync points that this command must
 /// wait on.
-/// \param sync_point The sync_point associated with this kernel execution.
+/// \param sync_point The sync_point associated with this memory operation.
 __SYCL_EXPORT pi_result piextCommandBufferMemcpyUSM(
     pi_ext_command_buffer command_buffer, void *dst_ptr, const void *src_ptr,
     size_t size, pi_uint32 num_sync_points_in_wait_list,
