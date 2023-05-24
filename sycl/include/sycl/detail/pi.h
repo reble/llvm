@@ -2167,6 +2167,22 @@ __SYCL_EXPORT pi_result piextCommandBufferNDRangeKernel(
     const pi_ext_sync_point *sync_point_wait_list,
     pi_ext_sync_point *sync_point);
 
+/// API to append a USM memcpy command to the command-buffer.
+/// \param command_buffer The command-buffer to append onto.
+/// \param dst_ptr is the data to be copied
+/// \param dst_ptr is the location the data will be copied
+/// \param size is number of bytes to copy
+/// \param num_sync_points_in_wait_list The number of sync points in the
+/// provided wait list.
+/// \param sync_point_wait_list A list of sync points that this executions must
+/// wait on.
+/// \param sync_point The sync_point associated with this kernel execution.
+__SYCL_EXPORT pi_result piextCommandBufferMemcpyUSM(
+    pi_ext_command_buffer command_buffer, void *dst_ptr, const void *src_ptr,
+    size_t size, pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point);
+
 /// API to submit the command-buffer to queue for execution, returns an error if
 /// command-buffer not finalized or another instance of same command-buffer
 /// currently executing.
