@@ -8833,7 +8833,7 @@ pi_result _pi_buffer::free() {
 
 /// Helper function to take a list of pi_ext_sync_points and fill the provided
 /// vector with the associated ZeEvents
-pi_result getEventsFromSyncPoints(
+static pi_result getEventsFromSyncPoints(
     const std::unordered_map<pi_ext_sync_point, pi_event> &SyncPoints,
     size_t NumSyncPointsInWaitList, const pi_ext_sync_point *SyncPointWaitList,
     std::vector<ze_event_handle_t> &ZeEventList) {
