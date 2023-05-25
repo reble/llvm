@@ -9058,21 +9058,16 @@ pi_result piextCommandBufferNDRangeKernel(
   return PI_SUCCESS;
 }
 
-pi_result piextCommandBufferMemcpyUSM(
-    pi_ext_command_buffer CommandBuffer, void *DstPtr, const void *SrcPtr,
+// Helper function for common code when enqueuing memory operations to a command
+// buffer.
+static pi_result enqueueCommandBufferMemCopyHelper(
+    pi_ext_command_buffer CommandBuffer, void *Dst, const void *Src,
     size_t Size, pi_uint32 NumSyncPointsInWaitList,
     const pi_ext_sync_point *SyncPointWaitList, pi_ext_sync_point *SyncPoint) {
-  if (!DstPtr) {
-    return PI_ERROR_INVALID_VALUE;
-  }
-
   std::vector<ze_event_handle_t> ZeEventList;
   pi_result Res = getEventsFromSyncPoints(CommandBuffer->SyncPoints,
                                           NumSyncPointsInWaitList,
                                           SyncPointWaitList, ZeEventList);
-  if (Res) {
-    return Res;
-  }
 
   pi_event LaunchEvent;
   Res = EventCreate(CommandBuffer->Context, nullptr, true, &LaunchEvent);
@@ -9080,8 +9075,8 @@ pi_result piextCommandBufferMemcpyUSM(
     return PI_ERROR_OUT_OF_HOST_MEMORY;
 
   ZE_CALL(zeCommandListAppendMemoryCopy,
-          (CommandBuffer->ZeCommandList, DstPtr, SrcPtr, Size,
-           LaunchEvent->ZeEvent, ZeEventList.size(), ZeEventList.data()));
+          (CommandBuffer->ZeCommandList, Dst, Src, Size, LaunchEvent->ZeEvent,
+           ZeEventList.size(), ZeEventList.data()));
 
   urPrint("calling zeCommandListAppendMemoryCopy() with"
           "  ZeEvent %#lx\n",
@@ -9091,6 +9086,45 @@ pi_result piextCommandBufferMemcpyUSM(
   *SyncPoint = CommandBuffer->GetNextSyncPoint();
   CommandBuffer->RegisterSyncPoint(*SyncPoint, LaunchEvent);
   return PI_SUCCESS;
+}
+
+pi_result piextCommandBufferMemcpyUSM(
+    pi_ext_command_buffer CommandBuffer, void *DstPtr, const void *SrcPtr,
+    size_t Size, pi_uint32 NumSyncPointsInWaitList,
+    const pi_ext_sync_point *SyncPointWaitList, pi_ext_sync_point *SyncPoint) {
+  if (!DstPtr) {
+    return PI_ERROR_INVALID_VALUE;
+  }
+
+  return enqueueCommandBufferMemCopyHelper(CommandBuffer, DstPtr, SrcPtr, Size,
+                                           NumSyncPointsInWaitList,
+                                           SyncPointWaitList, SyncPoint);
+}
+
+pi_result piextCommandBufferMemBufferCopy(
+    pi_ext_command_buffer CommandBuffer, pi_mem SrcMem, pi_mem DstMem,
+    size_t SrcOffset, size_t DstOffset, size_t Size,
+    pi_uint32 NumSyncPointsInWaitList,
+    const pi_ext_sync_point *SyncPointWaitList, pi_ext_sync_point *SyncPoint) {
+  PI_ASSERT(SrcMem && DstMem, PI_ERROR_INVALID_MEM_OBJECT);
+
+  auto SrcBuffer = ur_cast<pi_buffer>(SrcMem);
+  auto DstBuffer = ur_cast<pi_buffer>(DstMem);
+
+  std::shared_lock<ur_shared_mutex> SrcLock(SrcBuffer->Mutex, std::defer_lock);
+  std::scoped_lock<std::shared_lock<ur_shared_mutex>, ur_shared_mutex> LockAll(
+      SrcLock, DstBuffer->Mutex);
+
+  char *ZeHandleSrc;
+  PI_CALL(SrcBuffer->getZeHandle(ZeHandleSrc, _pi_mem::read_only,
+                                 CommandBuffer->Device));
+  char *ZeHandleDst;
+  PI_CALL(DstBuffer->getZeHandle(ZeHandleDst, _pi_mem::write_only,
+                                 CommandBuffer->Device));
+
+  return enqueueCommandBufferMemCopyHelper(
+      CommandBuffer, ZeHandleDst, ZeHandleSrc, Size, NumSyncPointsInWaitList,
+      SyncPointWaitList, SyncPoint);
 }
 
 pi_result piextEnqueueCommandBuffer(pi_ext_command_buffer CommandBuffer,

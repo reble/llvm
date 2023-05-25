@@ -58,6 +58,11 @@ public:
 
   template <typename... T> operator ext::oneapi::accessor_property_list<T...>();
 
+  bool operator==(const property_list &Other) {
+    return MDataLessProps == Other.MDataLessProps &&
+           MPropsWithData == Other.MPropsWithData;
+  }
+
 private:
   property_list(
       std::bitset<detail::DataLessPropKind::DataLessPropKindSize> DataLessProps,
