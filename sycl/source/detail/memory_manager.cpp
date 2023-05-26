@@ -1274,11 +1274,11 @@ void MemoryManager::ext_oneapi_copy_cmd_buffer(
                                         SrcAccessRange[SrcPos.YTerm],
                                         SrcAccessRange[SrcPos.ZTerm]};
 
-      // Plugin->call<PiApiKind::piextCommandBufferMemBufferCopyRect>(
-      //     CommandBuffer, RT::cast<RT::PiMem>(SrcMem),
-      //     RT::cast<RT::PiMem>(DstMem), &SrcOrigin, &DstOrigin, &Region,
-      //     SrcRowPitch, SrcSlicePitch, DstRowPitch, DstSlicePitch,
-      //     Deps.size(), Deps.data(), OutSyncPoint);
+      Plugin->call<PiApiKind::piextCommandBufferMemBufferCopyRect>(
+          CommandBuffer, RT::cast<RT::PiMem>(SrcMem),
+          RT::cast<RT::PiMem>(DstMem), &SrcOrigin, &DstOrigin, &Region,
+          SrcRowPitch, SrcSlicePitch, DstRowPitch, DstSlicePitch, Deps.size(),
+          Deps.data(), OutSyncPoint);
     }
   } else {
     throw sycl::exception(sycl::errc::invalid,

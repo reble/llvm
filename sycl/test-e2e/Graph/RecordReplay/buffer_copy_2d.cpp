@@ -2,8 +2,8 @@
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 
-// Tests adding buffer copy nodes using the record and replay API and submitting
-// the graph.
+// Tests adding buffer rectangular copy nodes using the record and replay API
+// and submitting the graph.
 
 #include "../graph_common.hpp"
 
@@ -13,7 +13,7 @@ int main() {
   using T = int;
 
   const T ModValue = 7;
-  std::vector<T> DataA(Size), DataB(Size), DataC(Size);
+  std::vector<T> DataA(Size * Size), DataB(Size * Size), DataC(Size * Size);
 
   std::iota(DataA.begin(), DataA.end(), 1);
   std::iota(DataB.begin(), DataB.end(), 10);
@@ -22,7 +22,7 @@ int main() {
   // Create reference data for output
   std::vector<T> ReferenceA(DataA), ReferenceB(DataB), ReferenceC(DataC);
   for (unsigned i = 0; i < Iterations; i++) {
-    for (size_t j = 0; j < Size; j++) {
+    for (size_t j = 0; j < Size * Size; j++) {
       ReferenceA[j] = ReferenceB[j];
       ReferenceA[j] += ModValue;
       ReferenceB[j] = ReferenceA[j];
@@ -33,11 +33,12 @@ int main() {
 
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 
-  buffer BufferA{DataA};
+  // Make the buffers 2D so we can test the rect copy path
+  buffer BufferA{DataA.data(), range<2>(Size, Size)};
   BufferA.set_write_back(false);
-  buffer BufferB{DataB};
+  buffer BufferB{DataB.data(), range<2>(Size, Size)};
   BufferB.set_write_back(false);
-  buffer BufferC{DataC};
+  buffer BufferC{DataC.data(), range<2>(Size, Size)};
   BufferC.set_write_back(false);
 
   Graph.begin_recording(Queue);
@@ -52,19 +53,15 @@ int main() {
   // Read & write A
   Queue.submit([&](handler &CGH) {
     auto AccA = BufferA.get_access(CGH);
-    CGH.parallel_for(range<1>(Size), [=](item<1> id) {
-      auto LinID = id.get_linear_id();
-      AccA[LinID] += ModValue;
-    });
+    CGH.parallel_for(range<2>(Size, Size),
+                     [=](item<2> id) { AccA[id] += ModValue; });
   });
 
   // Read & write B
   Queue.submit([&](handler &CGH) {
     auto AccB = BufferB.get_access(CGH);
-    CGH.parallel_for(range<1>(Size), [=](item<1> id) {
-      auto LinID = id.get_linear_id();
-      AccB[LinID] += ModValue;
-    });
+    CGH.parallel_for(range<2>(Size, Size),
+                     [=](item<2> id) { AccB[id] += ModValue; });
   });
 
   // memcpy from A to B
@@ -77,10 +74,8 @@ int main() {
   // Read and write B
   Queue.submit([&](handler &CGH) {
     auto AccB = BufferB.get_access(CGH);
-    CGH.parallel_for(range<1>(Size), [=](item<1> id) {
-      auto LinID = id.get_linear_id();
-      AccB[LinID] += ModValue;
-    });
+    CGH.parallel_for(range<2>(Size, Size),
+                     [=](item<2> id) { AccB[id] += ModValue; });
   });
 
   // Copy from B to C
@@ -108,9 +103,11 @@ int main() {
   host_accessor HostAccC(BufferC);
 
   for (size_t i = 0; i < Size; i++) {
-    assert(ReferenceA[i] == HostAccA[i]);
-    assert(ReferenceB[i] == HostAccB[i]);
-    assert(ReferenceC[i] == HostAccC[i]);
+    for (size_t j = 0; j < Size; j++) {
+      assert(ReferenceA[i * Size + j] == HostAccA[i][j]);
+      assert(ReferenceB[i * Size + j] == HostAccB[i][j]);
+      assert(ReferenceC[i * Size + j] == HostAccC[i][j]);
+    }
   }
 
   return 0;
