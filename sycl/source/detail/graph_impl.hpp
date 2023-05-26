@@ -97,7 +97,7 @@ public:
   bool has_requirement(sycl::detail::AccessorImplHost *IncomingReq) {
     for (sycl::detail::AccessorImplHost *CurrentReq :
          MCommandGroup->MRequirements) {
-      if (*IncomingReq == *CurrentReq) {
+      if (IncomingReq->MSYCLMemObj == CurrentReq->MSYCLMemObj) {
         return true;
       }
     }
