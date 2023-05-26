@@ -54,9 +54,10 @@ is something we are interested in expanding on.
 | Extending lifetime of buffers used in a graph                      | Not implemented       |
 | Buffer taking a copy of host data when buffer is used in a graph   | Not implemented       |
 | Executable graph `update()`                                        | Not implemented       |
+| Recording an in-order queue preserves linear dependencies          | Not implemented       |
 | Using `handler::parallel_for` in a graph node                      | Implemented           |
 | Using `handler::single_task` in a graph node                       | Implemented           |
-| Using `handler::memcpy` in a graph node                            | Not implemented       |
+| Using `handler::memcpy` in a graph node                            | Implemented for USM, not implemented for buffer accessors |
 | Using `handler::copy` in a graph node                              | Not implemented       |
 | Using `handler::host_task` in a graph node                         | Not implemented       |
 | Using `handler::fill` in a graph node                              | Implemented for USM, not implemented for buffer accessors |
