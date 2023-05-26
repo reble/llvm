@@ -2,7 +2,7 @@
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 
-// Tests adding buffer rectangular copy nodes using the record and replay API
+// Tests adding buffer 2d copy nodes using the record and replay API
 // and submitting the graph.
 
 #include "../graph_common.hpp"

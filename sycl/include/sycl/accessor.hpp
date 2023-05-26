@@ -234,12 +234,6 @@ struct AccHostDataT {
       : MOffset(Offset), MAccessRange(Range), MMemoryRange(MemoryRange),
         MData(Data) {}
 
-  bool operator==(const AccHostDataT &Other) {
-    return MOffset == Other.MOffset && MAccessRange == Other.MAccessRange &&
-           MMemoryRange == Other.MMemoryRange && MData == Other.MData &&
-           Reserved == Other.Reserved;
-  }
-
   sycl::id<3> MOffset;
   sycl::range<3> MAccessRange;
   sycl::range<3> MMemoryRange;
