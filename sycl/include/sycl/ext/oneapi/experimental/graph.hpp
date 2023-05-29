@@ -38,8 +38,20 @@ enum class graph_state {
   executable, ///< In executable state, the graph is ready to execute.
 };
 
-// Forward declaration
-class node;
+/// Class representing a node in the graph, returned by command_graph::add().
+class __SYCL_EXPORT node {
+private:
+  node(const std::shared_ptr<detail::node_impl> &Impl) : impl(Impl) {}
+
+  template <class Obj>
+  friend decltype(Obj::impl)
+  sycl::detail::getSyclObjImpl(const Obj &SyclObject);
+  template <class T>
+  friend T sycl::detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
+
+  std::shared_ptr<detail::node_impl> impl;
+  std::shared_ptr<detail::graph_impl> MGraph;
+};
 
 namespace property {
 namespace graph {
@@ -75,21 +87,6 @@ private:
 
 } // namespace node
 } // namespace property
-
-/// Class representing a node in the graph, returned by command_graph::add().
-class __SYCL_EXPORT node {
-private:
-  node(const std::shared_ptr<detail::node_impl> &Impl) : impl(Impl) {}
-
-  template <class Obj>
-  friend decltype(Obj::impl)
-  sycl::detail::getSyclObjImpl(const Obj &SyclObject);
-  template <class T>
-  friend T sycl::detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
-
-  std::shared_ptr<detail::node_impl> impl;
-  std::shared_ptr<detail::graph_impl> MGraph;
-};
 
 /// Class representing a graph in the modifiable state.
 template <graph_state State = graph_state::modifiable>
