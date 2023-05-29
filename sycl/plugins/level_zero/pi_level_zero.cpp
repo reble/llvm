@@ -8916,7 +8916,8 @@ pi_result piextCommandBufferNDRangeKernel(
   std::scoped_lock<ur_shared_mutex, ur_shared_mutex> Lock(
       Kernel->Mutex, Kernel->Program->Mutex);
   if (GlobalWorkOffset != NULL) {
-    if (!CommandBuffer->Context->getPlatform()->ZeDriverGlobalOffsetExtensionFound) {
+    if (!CommandBuffer->Context->getPlatform()
+             ->ZeDriverGlobalOffsetExtensionFound) {
       urPrint("No global offset extension found on this driver\n");
       return PI_ERROR_INVALID_VALUE;
     }
