@@ -106,6 +106,15 @@ exec_graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
   return RetEvent;
 }
 
+std::list<std::shared_ptr<node_impl>> graph_impl::compute_schedule() {
+  exec_order_recompute();
+  std::list<std::shared_ptr<node_impl>> Sched;
+  for (auto &Next : MExecOrder) {
+    Sched.push_back(Next.second);
+  }
+  return Sched;
+};
+
 void graph_impl::add_root(const std::shared_ptr<node_impl> &Root) {
   MRoots.insert(Root);
 }

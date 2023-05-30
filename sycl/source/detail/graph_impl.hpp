@@ -76,23 +76,24 @@ public:
       : MCGType(CGType), MCommandGroup(std::move(CommandGroup)) {}
 
 private:
-  /// Depth of this node in a containing graph
+  /// Depth of this node in a containing graph.
   ///
-  /// The first call to graph.exec_order_recompute computes & caches the value
+  /// The first call to graph.exec_order_recompute computes & caches the value.
   /// It will likely become stale whenever the containing graph is changed and
-  /// a single value will be inequate if this node is added to multiple graphs
-  /// Caching is dangerous but recomputing takes O(graph_size) worst-case time
+  /// a single value will be inadequate if this node is added to multiple graphs.
+  /// Caching is dangerous but recomputing takes O(graph_size) worst-case time.
   std::optional<int> MDepth;
 
 public:
-  int get_depth(node_impl &V) { return V.get_depth(); };
+  /// Gets the depth of this node in its containing graph.
+  /// @return the depth of this node in its containing graph.
   int get_depth() {
     if (!MDepth.has_value()) {
-      int max_depth_found = -1;
-      for (auto P : MPredecessors) {
-        max_depth_found = std::max(max_depth_found, P.lock()->get_depth());
+      int MaxDepthFound = -1;
+      for (auto &P : MPredecessors) {
+        MaxDepthFound = std::max(MaxDepthFound, P.lock()->get_depth());
       }
-      MDepth = max_depth_found + 1;
+      MDepth = MaxDepthFound + 1;
     }
     return MDepth.value();
   };
@@ -195,7 +196,7 @@ private:
   }
 };
 
-/// Class representing implementation details of command_graph<modifiable>.
+/// Class representing implementation details of modifiable command_graph.
 class graph_impl {
 public:
   /// Constructor.
@@ -206,24 +207,14 @@ public:
         MEventsMap() {}
 
 private:
-  /// A cache of pointers to exit nodes
+  /// A sorted multimap capturing a breadth-first execution/submission order.
   ///
-  /// This is not used (yet), but depth computation starts from exit nodes
-  /// Perhaps, it might be better to do the exec_order_recompute traversal
-  /// starting from each exit node and working upwards using MPredecessors
-  /// rather than from each root node and doing depth-first to exit nodes?
-  std::vector<node_impl *> MExitNodes;
-
-  /// A sorted multimap capturing the optimal execution/submission order
-  ///
-  /// The SortKey is the depth in the graph for the node_impl in the value
-  /// Depth is the length of the longest dependence chain to any root node
+  /// The SortKey is the depth in the graph for the node_impl in the value.
+  /// Depth is the length of the longest dependence chain to any root node.
   std::multimap<int, std::shared_ptr<node_impl>> MExecOrder;
 
-  /// <summary>
-  /// Depth-first recursion from V to build the optimal execution order
-  /// </summary>
-  /// <param name="V">Starting node for depth-first recursion</param>
+  /// Depth-first recursion from V to build the execution order.
+  /// @param V Starting node for depth-first recursion.
   void exec_order_recompute(node_impl &V) {
     // depth-first recursion to access all nodes that succeed this node
     for (auto &S : V.MSuccessors) {
@@ -231,36 +222,22 @@ private:
     }
     // insert this into execution order based on its depth in the graph
     MExecOrder.insert(std::pair(V.get_depth(), &V));
-    // cache all the exit nodes; no reason, just feels like a good idea
-    if (V.MSuccessors.empty()) {
-      MExitNodes.push_back(&V);
-    }
   };
 
-  /// <summary>
-  /// Recomputes the optimal submission/execution order for this whole graph
-  /// </summary>
+  /// Recomputes the submission/execution order for this whole graph.
   void exec_order_recompute() {
     MExecOrder.clear();
     // for all root nodes ...
-    for (auto &root : MRoots) {
+    for (auto &Root : MRoots) {
       // ... recurse towards all exit nodes
-      exec_order_recompute(*root);
+      exec_order_recompute(*Root);
     }
   };
 
 public:
-  /// <summary>
-  /// Recomputes the optimal submission/execution order then schedules all nodes
-  /// </summary>
-  std::list<std::shared_ptr<node_impl>> compute_schedule() {
-    exec_order_recompute();
-    std::list<std::shared_ptr<node_impl>> sched;
-    for (auto &next : MExecOrder) {
-      sched.push_front(*next.second.get());
-    }
-    return sched;
-  };
+  /// Recomputes the submission/execution order then schedules all nodes.
+  /// @return A list of shared pointers to nodes in linear scheduling order.
+  std::list<std::shared_ptr<node_impl>> compute_schedule();
   
   /// Insert node into list of root nodes.
   /// @param Root Node to add to list of root nodes.
