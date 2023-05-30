@@ -50,7 +50,6 @@ private:
   friend T sycl::detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
 
   std::shared_ptr<detail::node_impl> impl;
-  std::shared_ptr<detail::graph_impl> MGraph;
 };
 
 namespace property {
