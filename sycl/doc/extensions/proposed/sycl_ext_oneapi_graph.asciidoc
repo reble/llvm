@@ -936,21 +936,6 @@ graph LR
     Recording -->|End Recording| Executing
 ....
 
-Events returned from queue submissions when a queue is in the recording state
-may only be used as parameters to `handler::depends_on()` or as dependent
-events for queue shortcuts like `queue::parallel_for()` for submissions which
-are being recorded to the same modifiable `command_graph`.
-
-Calling `event::get_info<info::event::command_execution_status>()` or
-`event::get_profiling_info()` on an event returned from a queue submission
-recorded to a graph will throw synchronously with error code `invalid`.
-
-Waiting on an event returned from a queue submission recorded to a graph
-will throw synchronously with error code `invalid`.
-
-Waiting on a queue in the recording state is an error and will throw
-synchronously with error code `invalid`.
-
 ==== Queue Properties
 
 :queue-properties: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#sec:queue-properties
@@ -1112,21 +1097,6 @@ As a result, users don't need to manually wrap queue recording code in a
 back to the executing state. Instead, an uncaught exception destroying the
 modifiable graph will perform this action, useful in RAII pattern usage.
 
-=== Error Handling
-
-When a queue is in recording mode asynchronous exceptions will not be
-generated, as no device execution is occurring. Synchronous errors specified as
-being thrown in the default queue executing state, will still be thrown when a
-queue is in the recording state. Queue query methods operate as usual in
-recording mode, as opposed to throwing.
-
-The `command_graph::begin_recording` and `command_graph::end_recording`
-entry-points return a `bool` value informing the user whether a related queue
-state change occurred. False is returned rather than throwing an exception when
-no queue state is changed. This design is because the queues are already in
-the state the user desires, so if the function threw an exception in this case,
-the application would likely swallow it and then proceed.
-
 === Storage Lifetimes [[storage-lifetimes]]
 
 The lifetime of any buffer recorded as part of a submission
@@ -1151,25 +1121,6 @@ The copy will not occur if the buffer is accessed inside the submitted command
 group function with an accessor with `access_mode::write` or the `no_init`
 property.
 
-=== Buffer Limitations for Record & Replay API
-
-Because of the delayed execution of a recorded graph, it is not possible to support
-captured code which relies on the copy-back on destruction behavior of buffers.
-Typically, applications would rely on this behavior to do work on the host which
-cannot inherently be captured inside a command graph. Thus, when recording to a graph
-it is an error to submit a command which has an accessor on a buffer which would
-cause a write-back to happen. Using an incompatible buffer in this case will result
-in a synchronous error being thrown with error code `invalid`.
-
-The copy-back mechanism can be disabled explicitly for buffers with attached host
-storage using either `buffer::set_final_data(nullptr)` or
-`buffer::set_write_back(false)`.
-
-It is also an error to create a host accessor to a buffer which is used in
-commands which are currently being recorded to a command graph. Attempting to
-construct a host accessor to an incompatible buffer will result in a
-synchronous error being thrown with error code `invalid`.
-
 === Host Tasks
 
 :host-task: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#subsec:interfaces.hosttasks
@@ -1192,6 +1143,69 @@ auto node = graph.add([&](sycl::handler& cgh){
   });
 });
 ----
+
+=== Queue Behavior In Recording Mode
+
+When a queue is placed in recording mode via a call to `command_graph::begin_recording`,
+some features of the queue are no longer available because the commands are not
+executed during this mode. The general philosophy is to throw an exception at
+runtime when a feature is not available, so that there is an obvious indication
+of failure. The following list describes the behavior that changes during
+recording mode. Features not listed below behave the same in recording mode as
+they do in non-recording mode.
+
+==== Event Limitations
+
+Events returned from queue submissions when a queue is in the recording state
+may only be used as parameters to `handler::depends_on()` or as dependent
+events for queue shortcuts like `queue::parallel_for()` for submissions which
+are being recorded to the same modifiable `command_graph`.
+
+- Calling `event::get_info<info::event::command_execution_status>()` or
+`event::get_profiling_info()` on an event returned from a queue submission
+recorded to a graph will throw synchronously with error code `invalid`.
+
+- Waiting on an event returned from a queue submission recorded to a graph
+will throw synchronously with error code `invalid`.
+
+- Waiting on a queue in the recording state is an error and will throw
+synchronously with error code `invalid`.
+
+==== Buffer Limitations
+
+Because of the delayed execution of a recorded graph, it is not possible to support
+captured code which relies on the copy-back on destruction behavior of buffers.
+Typically, applications would rely on this behavior to do work on the host which
+cannot inherently be captured inside a command graph.
+
+- Thus, when recording to a graph it is an error to submit a command which has
+an accessor on a buffer which would cause a write-back to happen. Using an
+incompatible buffer in this case will result in a synchronous error being
+thrown with error code `invalid`.
+
+- The copy-back mechanism can be disabled explicitly for buffers with attached host
+storage using either `buffer::set_final_data(nullptr)` or
+`buffer::set_write_back(false)`.
+
+- It is also an error to create a host accessor to a buffer which is used in
+commands which are currently being recorded to a command graph. Attempting to
+construct a host accessor to an incompatible buffer will result in a
+synchronous error being thrown with error code `invalid`.
+
+==== Error Handling
+
+- When a queue is in recording mode asynchronous exceptions will not be
+generated, as no device execution is occurring. Synchronous errors specified as
+being thrown in the default queue executing state, will still be thrown when a
+queue is in the recording state. Queue query methods operate as usual in
+recording mode, as opposed to throwing.
+
+The `command_graph::begin_recording` and `command_graph::end_recording`
+entry-points return a `bool` value informing the user whether a related queue
+state change occurred. False is returned rather than throwing an exception when
+no queue state is changed. This design is because the queues are already in
+the state the user desires, so if the function threw an exception in this case,
+the application would likely swallow it and then proceed.
 
 === Interaction With Other Extensions [[extension-interaction]]
 
