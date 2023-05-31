@@ -9,19 +9,20 @@ A related presentation can be found
 ## Requirements
 
 An efficient implementation of a lazy command graph execution and its replay
-requires extensions to the PI layer. Such an extension is command buffers,
+requires extensions to the UR layer. Such an extension is command buffers,
 where a command-buffer object represents a series of operations to be enqueued
 to the backend device and their dependencies. A single command graph can be
-partitioned into more than one PI command-buffer by the runtime.
+partitioned into more than one command-buffer by the runtime.
 We distinguish between backends that support command buffer extensions and
 those that do not. Currently command buffer extensions are only supported by
-Level Zero. All other backends would fall back to an emulation mode.
+Level Zero. All other backends would fall back to an emulation mode, or not
+be reported as supported.
 
 The emulation mode targets support of functionality only, without potentially
 resulting performance improvements, i.e. execution of a closed Level Zero
 command list multiple times. 
 
-#### Command Buffer extension
+### Command Buffer extension
 
 | Function | Description |
 | ------------------------- | ------------------------ |
@@ -31,12 +32,15 @@ command list multiple times.
 | `piextCommandBufferFinalize` | no more commands can be appended, makes command buffer ready to enqueue on command-queue. |
 | `piextCommandBufferNDRangeKernel` | append a kernel execution command to command buffer. |
 | `piextEnqueueCommandBuffer` | submit command-buffer to queue for execution |
+| `piextCommandBufferMemcpyUSM` | append a USM memcpy command to the command-buffer. |
+| `piextCommandBufferMemBufferCopy` | append a mem buffer copy command to the command-buffer. |
+| `piextCommandBufferMemBufferCopyRect` | append a rectangular mem buffer copy command to the command-buffer. |
 
 ## Design
 
 ![Basic architecture diagram.](images/SYCL-Graph-Architecture.svg)
 
-There are two sets of user facing interfaces that are proposed to create a
+There are two sets of user facing interfaces that can be used to create a
 command graph object: 
 Explicit and Record & Replay API. Within the runtime they share a common
 infrastructure.
@@ -59,4 +63,4 @@ are required to adapt buffers and their lifetime to a lazy work execution model:
 - Lifetime of a buffer with host data will be extended by copying the underlying
 data.
 - Host accessor on buffer that are used by a command graph are prohibited.
-- Copy-back behavior on destruction of a data is prohibited. 
+- Copy-back behavior on destruction of a buffer is prohibited. 
