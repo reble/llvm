@@ -624,7 +624,7 @@ Exceptions:
 template<typename T>
 node add(T cgf, const property_list& propList = {});
 ----
-|The `cgf` command group function behaves in much the same was as the command
+|The `cgf` command group function behaves in much the same way as the command
 group function passed to `queue::submit` unless explicitly stated otherwise in
 <<extension-interaction, Interaction With Other Extensions>>. Code in the
 function is executed synchronously, before the function returns back to
@@ -1194,7 +1194,7 @@ synchronous error being thrown with error code `invalid`.
 
 ==== Error Handling
 
-- When a queue is in recording mode asynchronous exceptions will not be
+When a queue is in recording mode asynchronous exceptions will not be
 generated, as no device execution is occurring. Synchronous errors specified as
 being thrown in the default queue executing state, will still be thrown when a
 queue is in the recording state. Queue query methods operate as usual in
