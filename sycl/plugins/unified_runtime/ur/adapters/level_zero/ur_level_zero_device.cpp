@@ -783,6 +783,10 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
     return ReturnValue(static_cast<uint32_t>(
         0)); //__read_write attribute currently undefinde in opencl
   }
+  case UR_DEVICE_INFO_EXP_COMMAND_BUFFER_SUPPORT: {
+    return ReturnValue(ur_exp_command_buffer_support_level_t::
+                           UR_EXP_COMMAND_BUFFER_SUPPORT_LEVEL_NATIVE);
+  }
 
   default:
     urPrint("Unsupported ParamName in urGetDeviceInfo\n");

@@ -300,3 +300,25 @@ UR_DLLEXPORT ur_result_t UR_APICALL urGetDeviceProcAddrTable(
 
   return retVal;
 }
+
+UR_DLLEXPORT ur_result_t UR_APICALL urGetCommandBufferExpProcAddrTable(
+    ur_api_version_t version, ///< [in] API version requested
+    ur_command_buffer_exp_dditable_t
+        *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+  auto retVal = validateProcInputs(version, pDdiTable);
+  if (UR_RESULT_SUCCESS != retVal) {
+    return retVal;
+  }
+  pDdiTable->pfnCreateExp = urCommandBufferCreateExp;
+  pDdiTable->pfnRetainExp = urCommandBufferRetainExp;
+  pDdiTable->pfnReleaseExp = urCommandBufferReleaseExp;
+  pDdiTable->pfnFinalizeExp = urCommandBufferFinalizeExp;
+  pDdiTable->pfnAppendKernelExp = urCommandBufferAppendKernelExp;
+  pDdiTable->pfnMemcpyUSMExp = urCommandBufferMemcpyUSMExp;
+  pDdiTable->pfnMembufferCopyExp = urCommandBufferMembufferCopyExp;
+  pDdiTable->pfnMembufferCopyRectExp = urCommandBufferMembufferCopyRectExp;
+  pDdiTable->pfnEnqueueExp = urCommandBufferEnqueueExp;
+
+  return retVal;
+}
