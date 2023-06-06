@@ -4010,9 +4010,9 @@ inline pi_result piextCommandBufferMemcpyUSM(
   ur_exp_command_buffer_handle_t UrCommandBuffer =
       reinterpret_cast<ur_exp_command_buffer_handle_t>(CommandBuffer);
 
-  HANDLE_ERRORS(urCommandBufferMemcpyUSMExp(UrCommandBuffer, DstPtr, SrcPtr,
-                                            Size, NumSyncPointsInWaitList,
-                                            SyncPointWaitList, SyncPoint));
+  HANDLE_ERRORS(urCommandBufferAppendMemcpyUSMExp(
+      UrCommandBuffer, DstPtr, SrcPtr, Size, NumSyncPointsInWaitList,
+      SyncPointWaitList, SyncPoint));
 
   return PI_SUCCESS;
 }
@@ -4028,7 +4028,7 @@ inline pi_result piextCommandBufferMemBufferCopy(
   ur_mem_handle_t UrSrcMem = reinterpret_cast<ur_mem_handle_t>(SrcMem);
   ur_mem_handle_t UrDstMem = reinterpret_cast<ur_mem_handle_t>(DstMem);
 
-  HANDLE_ERRORS(urCommandBufferMembufferCopyExp(
+  HANDLE_ERRORS(urCommandBufferAppendMembufferCopyExp(
       UrCommandBuffer, UrSrcMem, UrDstMem, SrcOffset, DstOffset, Size,
       NumSyncPointsInWaitList, SyncPointWaitList, SyncPoint));
 
@@ -4056,7 +4056,7 @@ inline pi_result piextCommandBufferMemBufferCopyRect(
   UrRegion.height = Region->height_scalar;
   UrRegion.width = Region->width_bytes;
 
-  HANDLE_ERRORS(urCommandBufferMembufferCopyRectExp(
+  HANDLE_ERRORS(urCommandBufferAppendMembufferCopyRectExp(
       UrCommandBuffer, UrSrcMem, UrDstMem, UrSrcOrigin, UrDstOrigin, UrRegion,
       SrcRowPitch, SrcSlicePitch, DstRowPitch, DstSlicePitch,
       NumSyncPointsInWaitList, SyncPointWaitList, SyncPoint));

@@ -381,6 +381,7 @@ urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
 
 UR_APIEXPORT ur_result_t UR_APICALL
 urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
+  UR_ASSERT(hCommandBuffer, UR_RESULT_ERROR_INVALID_COMMAND_BUFFER_EXP);
   // We need to append signal that will indicate that command-buffer has
   // finished executing.
   ZE2UR_CALL(
@@ -396,8 +397,9 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelExp(
     uint32_t WorkDim, const size_t *pGlobalWorkOffset,
     const size_t *pGlobalWorkSize, const size_t *pLocalWorkSize,
     uint32_t numSyncPointsInWaitList,
-    const ur_exp_command_buffer_sync_point_t *pDependencies,
+    const ur_exp_command_buffer_sync_point_t *pSyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *pSyncPoint) {
+  UR_ASSERT(hCommandBuffer, UR_RESULT_ERROR_INVALID_COMMAND_BUFFER_EXP);
   UR_ASSERT(hKernel, UR_RESULT_ERROR_INVALID_KERNEL);
   UR_ASSERT((WorkDim > 0) && (WorkDim < 4),
             UR_RESULT_ERROR_INVALID_WORK_DIMENSION);
@@ -446,7 +448,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelExp(
   std::vector<ze_event_handle_t> ZeEventList;
   ur_result_t Res = getEventsFromSyncPoints(hCommandBuffer->SyncPoints,
                                             numSyncPointsInWaitList,
-                                            pDependencies, ZeEventList);
+                                            pSyncPointWaitList, ZeEventList);
   if (Res) {
     return Res;
   }
@@ -477,26 +479,28 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelExp(
   return UR_RESULT_SUCCESS;
 }
 
-UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferMemcpyUSMExp(
+UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMemcpyUSMExp(
     ur_exp_command_buffer_handle_t hCommandBuffer, void *pDst, const void *pSrc,
     size_t size, uint32_t numSyncPointsInWaitList,
-    const ur_exp_command_buffer_sync_point_t *pDependencies,
+    const ur_exp_command_buffer_sync_point_t *pSyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *pSyncPoint) {
+  UR_ASSERT(hCommandBuffer, UR_RESULT_ERROR_INVALID_COMMAND_BUFFER_EXP);
   if (!pDst) {
     return UR_RESULT_ERROR_INVALID_VALUE;
   }
 
   return enqueueCommandBufferMemCopyHelper(hCommandBuffer, pDst, pSrc, size,
                                            numSyncPointsInWaitList,
-                                           pDependencies, pSyncPoint);
+                                           pSyncPointWaitList, pSyncPoint);
 }
 
-UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferMembufferCopyExp(
+UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyExp(
     ur_exp_command_buffer_handle_t hCommandBuffer, ur_mem_handle_t hSrcMem,
     ur_mem_handle_t hDstMem, size_t srcOffset, size_t dstOffset, size_t size,
     uint32_t numSyncPointsInWaitList,
-    const ur_exp_command_buffer_sync_point_t *pDependencies,
+    const ur_exp_command_buffer_sync_point_t *pSyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *pSyncPoint) {
+  UR_ASSERT(hCommandBuffer, UR_RESULT_ERROR_INVALID_COMMAND_BUFFER_EXP);
   UR_ASSERT(hSrcMem && hDstMem, UR_RESULT_ERROR_INVALID_MEM_OBJECT);
 
   auto SrcBuffer = ur_cast<ur_mem_handle_t>(hSrcMem);
@@ -515,17 +519,18 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferMembufferCopyExp(
 
   return enqueueCommandBufferMemCopyHelper(
       hCommandBuffer, ZeHandleDst, ZeHandleSrc, size, numSyncPointsInWaitList,
-      pDependencies, pSyncPoint);
+      pSyncPointWaitList, pSyncPoint);
 }
 
-UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferMembufferCopyRectExp(
+UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyRectExp(
     ur_exp_command_buffer_handle_t hCommandBuffer, ur_mem_handle_t hSrcMem,
     ur_mem_handle_t hDstMem, ur_rect_offset_t SrcOrigin,
     ur_rect_offset_t DstOrigin, ur_rect_region_t Region, size_t SrcRowPitch,
     size_t SrcSlicePitch, size_t DstRowPitch, size_t DstSlicePitch,
     uint32_t numSyncPointsInWaitList,
-    const ur_exp_command_buffer_sync_point_t *pDependencies,
+    const ur_exp_command_buffer_sync_point_t *pSyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *pSyncPoint) {
+  UR_ASSERT(hCommandBuffer, UR_RESULT_ERROR_INVALID_COMMAND_BUFFER_EXP);
   UR_ASSERT(hSrcMem && hDstMem, UR_RESULT_ERROR_INVALID_MEM_OBJECT);
 
   auto SrcBuffer = ur_cast<ur_mem_handle_t>(hSrcMem);
@@ -545,13 +550,16 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferMembufferCopyRectExp(
   return enqueueCommandBufferMemCopyRectHelper(
       hCommandBuffer, ZeHandleDst, ZeHandleSrc, SrcOrigin, DstOrigin, Region,
       SrcRowPitch, DstRowPitch, SrcSlicePitch, DstSlicePitch,
-      numSyncPointsInWaitList, pDependencies, pSyncPoint);
+      numSyncPointsInWaitList, pSyncPointWaitList, pSyncPoint);
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
     ur_exp_command_buffer_handle_t hCommandBuffer, ur_queue_handle_t hQueue,
     uint32_t numEventsInWaitList, const ur_event_handle_t *phEventWaitList,
     ur_event_handle_t *phEvent) {
+  UR_ASSERT(hCommandBuffer, UR_RESULT_ERROR_INVALID_COMMAND_BUFFER_EXP);
+
+  std::scoped_lock<ur_shared_mutex> lock(hQueue->Mutex);
   // Use compute engine rather than copy engine
   const auto UseCopyEngine = false;
   auto &QGroup = hQueue->getQueueGroup(UseCopyEngine);
