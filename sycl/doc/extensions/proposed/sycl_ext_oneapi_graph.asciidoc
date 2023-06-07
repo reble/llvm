@@ -1122,15 +1122,16 @@ This behavior was introduced to address the case where host data used to create
 a buffer is destroyed before the copy to device has happened. For example:
 [source,c++]
 ----
-void foo(queue q /* queue in recording mode*/ ) {
-  float mem[NUM];
-  buffer buf{mem, range{NUM}};
+void foo(queue q /* queue in recording mode */ ) {
+  float data[NUM];
+  buffer buf{data, range{NUM}};
   q.submit([&](handler &cgh) {
     accessor acc{buf, cgh, read_only};
     cgh.single_task([] {
        // use "acc"
     });
   });
+  // "data" goes out of scope
 }
 ----
 
