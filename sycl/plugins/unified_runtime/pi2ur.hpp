@@ -3996,7 +3996,7 @@ inline pi_result piextCommandBufferNDRangeKernel(
 
   ur_kernel_handle_t UrKernel = reinterpret_cast<ur_kernel_handle_t>(Kernel);
 
-  HANDLE_ERRORS(urCommandBufferAppendKernelExp(
+  HANDLE_ERRORS(urCommandBufferAppendKernelLaunchExp(
       UrCommandBuffer, UrKernel, WorkDim, GlobalWorkOffset, GlobalWorkSize,
       LocalWorkSize, NumSyncPointsInWaitList, SyncPointWaitList, SyncPoint));
 

@@ -137,15 +137,16 @@ ur_result_t calculateKernelWorkDimensions(
           --GroupSize[I];
         }
         if (GlobalWorkSize[I] / GroupSize[I] > UINT32_MAX) {
-          urPrint("urCommandBufferAppendKernelExp: can't find a WG size "
+          urPrint("urCommandBufferAppendKernelLaunchExp: can't find a WG size "
                   "suitable for global work size > UINT32_MAX\n");
           return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
         }
         WG[I] = GroupSize[I];
       }
-      urPrint("urCommandBufferAppendKernelExp: using computed WG size = {%d, "
-              "%d, %d}\n",
-              WG[0], WG[1], WG[2]);
+      urPrint(
+          "urCommandBufferAppendKernelLaunchExp: using computed WG size = {%d, "
+          "%d, %d}\n",
+          WG[0], WG[1], WG[2]);
     }
   }
 
@@ -173,30 +174,30 @@ ur_result_t calculateKernelWorkDimensions(
     break;
 
   default:
-    urPrint("urCommandBufferAppendKernelExp: unsupported work_dim\n");
+    urPrint("urCommandBufferAppendKernelLaunchExp: unsupported work_dim\n");
     return UR_RESULT_ERROR_INVALID_VALUE;
   }
 
   // Error handling for non-uniform group size case
   if (GlobalWorkSize[0] !=
       size_t(ZeThreadGroupDimensions.groupCountX) * WG[0]) {
-    urPrint(
-        "urCommandBufferAppendKernelExp: invalid work_dim. The range is not a "
-        "multiple of the group size in the 1st dimension\n");
+    urPrint("urCommandBufferAppendKernelLaunchExp: invalid work_dim. The range "
+            "is not a "
+            "multiple of the group size in the 1st dimension\n");
     return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
   }
   if (GlobalWorkSize[1] !=
       size_t(ZeThreadGroupDimensions.groupCountY) * WG[1]) {
-    urPrint(
-        "urCommandBufferAppendKernelExp: invalid work_dim. The range is not a "
-        "multiple of the group size in the 2nd dimension\n");
+    urPrint("urCommandBufferAppendKernelLaunchExp: invalid work_dim. The range "
+            "is not a "
+            "multiple of the group size in the 2nd dimension\n");
     return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
   }
   if (GlobalWorkSize[2] !=
       size_t(ZeThreadGroupDimensions.groupCountZ) * WG[2]) {
-    urPrint(
-        "urCommandBufferAppendKernelExp: invalid work_dim. The range is not a "
-        "multiple of the group size in the 3rd dimension\n");
+    urPrint("urCommandBufferAppendKernelLaunchExp: invalid work_dim. The range "
+            "is not a "
+            "multiple of the group size in the 3rd dimension\n");
     return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
   }
 
@@ -392,16 +393,16 @@ urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
   return UR_RESULT_SUCCESS;
 }
 
-UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelExp(
+UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
     ur_exp_command_buffer_handle_t hCommandBuffer, ur_kernel_handle_t hKernel,
-    uint32_t WorkDim, const size_t *pGlobalWorkOffset,
+    uint32_t workDim, const size_t *pGlobalWorkOffset,
     const size_t *pGlobalWorkSize, const size_t *pLocalWorkSize,
     uint32_t numSyncPointsInWaitList,
     const ur_exp_command_buffer_sync_point_t *pSyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *pSyncPoint) {
   UR_ASSERT(hCommandBuffer, UR_RESULT_ERROR_INVALID_COMMAND_BUFFER_EXP);
   UR_ASSERT(hKernel, UR_RESULT_ERROR_INVALID_KERNEL);
-  UR_ASSERT((WorkDim > 0) && (WorkDim < 4),
+  UR_ASSERT((workDim > 0) && (workDim < 4),
             UR_RESULT_ERROR_INVALID_WORK_DIMENSION);
 
   // Lock automatically releases when this goes out of scope.
@@ -437,7 +438,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelExp(
   uint32_t WG[3];
 
   auto result = calculateKernelWorkDimensions(
-      hKernel, hCommandBuffer->Device, ZeThreadGroupDimensions, WG, WorkDim,
+      hKernel, hCommandBuffer->Device, ZeThreadGroupDimensions, WG, workDim,
       pGlobalWorkSize, pLocalWorkSize);
   if (result != UR_RESULT_SUCCESS) {
     return result;
@@ -524,9 +525,9 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyExp(
 
 UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyRectExp(
     ur_exp_command_buffer_handle_t hCommandBuffer, ur_mem_handle_t hSrcMem,
-    ur_mem_handle_t hDstMem, ur_rect_offset_t SrcOrigin,
-    ur_rect_offset_t DstOrigin, ur_rect_region_t Region, size_t SrcRowPitch,
-    size_t SrcSlicePitch, size_t DstRowPitch, size_t DstSlicePitch,
+    ur_mem_handle_t hDstMem, ur_rect_offset_t srcOrigin,
+    ur_rect_offset_t dstOrigin, ur_rect_region_t region, size_t srcRowPitch,
+    size_t srcSlicePitch, size_t dstRowPitch, size_t dstSlicePitch,
     uint32_t numSyncPointsInWaitList,
     const ur_exp_command_buffer_sync_point_t *pSyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *pSyncPoint) {
@@ -548,8 +549,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyRectExp(
                                  hCommandBuffer->Device));
 
   return enqueueCommandBufferMemCopyRectHelper(
-      hCommandBuffer, ZeHandleDst, ZeHandleSrc, SrcOrigin, DstOrigin, Region,
-      SrcRowPitch, DstRowPitch, SrcSlicePitch, DstSlicePitch,
+      hCommandBuffer, ZeHandleDst, ZeHandleSrc, srcOrigin, dstOrigin, region,
+      srcRowPitch, dstRowPitch, srcSlicePitch, dstSlicePitch,
       numSyncPointsInWaitList, pSyncPointWaitList, pSyncPoint);
 }
 

@@ -186,6 +186,9 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
         (Device->ZeDeviceProperties->deviceId & 0xff0) == 0xbd0)
       SupportedExtensions += ("cl_intel_bfloat16_conversions ");
 
+    // Return supported for the UR command-buffer experimental feature
+    SupportedExtensions += ("ur_exp_command_buffer ");
+
     return ReturnValue(SupportedExtensions.c_str());
   }
   case UR_DEVICE_INFO_NAME:
@@ -782,10 +785,6 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
   case UR_DEVICE_INFO_MAX_READ_WRITE_IMAGE_ARGS: {
     return ReturnValue(static_cast<uint32_t>(
         0)); //__read_write attribute currently undefinde in opencl
-  }
-  case UR_DEVICE_INFO_EXP_COMMAND_BUFFER_SUPPORT: {
-    return ReturnValue(ur_exp_command_buffer_support_level_t::
-                           UR_EXP_COMMAND_BUFFER_SUPPORT_LEVEL_NATIVE);
   }
 
   default:

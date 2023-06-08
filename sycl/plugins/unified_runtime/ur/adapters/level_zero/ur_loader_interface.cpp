@@ -314,7 +314,7 @@ UR_DLLEXPORT ur_result_t UR_APICALL urGetCommandBufferExpProcAddrTable(
   pDdiTable->pfnRetainExp = urCommandBufferRetainExp;
   pDdiTable->pfnReleaseExp = urCommandBufferReleaseExp;
   pDdiTable->pfnFinalizeExp = urCommandBufferFinalizeExp;
-  pDdiTable->pfnAppendKernelExp = urCommandBufferAppendKernelExp;
+  pDdiTable->pfnAppendKernelLaunchExp = urCommandBufferAppendKernelLaunchExp;
   pDdiTable->pfnAppendMemcpyUSMExp = urCommandBufferAppendMemcpyUSMExp;
   pDdiTable->pfnAppendMembufferCopyExp = urCommandBufferAppendMembufferCopyExp;
   pDdiTable->pfnAppendMembufferCopyRectExp =
