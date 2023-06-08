@@ -178,7 +178,7 @@ graph_impl::add(sycl::detail::CG::CGTYPE CGType,
     if (auto NodeImpl = MEventsMap.find(Dep); NodeImpl != MEventsMap.end()) {
       Deps.push_back(NodeImpl->second);
     } else {
-      throw sycl::exception(errc::invalid,
+      throw sycl::exception(sycl::make_error_code(errc::invalid),
                             "Event dependency from handler::depends_on does "
                             "not correspond to a node within the graph");
     }
@@ -336,7 +336,7 @@ bool command_graph<graph_state::modifiable>::begin_recording(
     impl->add_queue(QueueImpl);
     return true;
   } else if (QueueImpl->getCommandGraph() != impl) {
-    throw sycl::exception(make_error_code(errc::invalid),
+    throw sycl::exception(sycl::make_error_code(errc::invalid),
                           "begin_recording called for a queue which is already "
                           "recording to a different graph.");
   }
@@ -368,7 +368,7 @@ bool command_graph<graph_state::modifiable>::end_recording(
     impl->remove_queue(QueueImpl);
     return true;
   } else if (QueueImpl->getCommandGraph() != nullptr) {
-    throw sycl::exception(make_error_code(errc::invalid),
+    throw sycl::exception(sycl::make_error_code(errc::invalid),
                           "end_recording called for a queue which is recording "
                           "to a different graph.");
   }
@@ -402,7 +402,7 @@ void command_graph<graph_state::executable>::finalize_impl() {
 void command_graph<graph_state::executable>::update(
     const command_graph<graph_state::modifiable> &Graph) {
   (void)Graph;
-  throw sycl::exception(make_error_code(errc::invalid),
+  throw sycl::exception(sycl::make_error_code(errc::invalid),
                         "Method not yet implemented");
 }
 
