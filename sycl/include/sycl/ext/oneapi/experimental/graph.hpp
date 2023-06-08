@@ -87,7 +87,7 @@ private:
 } // namespace node
 } // namespace property
 
-/// Class representing a graph in the modifiable state.
+/// Graph in the modifiable state.
 template <graph_state State = graph_state::modifiable>
 class __SYCL_EXPORT command_graph {
 public:
@@ -153,7 +153,7 @@ public:
   /// executing.
   bool end_recording();
 
-  /// Set a queues currently recording to this graph to the executing state.
+  /// Set a queue currently recording to this graph to the executing state.
   /// @param RecordingQueue The queue to change state on.
   /// @return True if the queue had its state changed from recording to
   /// executing.
