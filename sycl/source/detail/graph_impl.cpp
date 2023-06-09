@@ -251,7 +251,7 @@ sycl::event exec_graph_impl::enqueue(
             PI_EXT_KERNEL_EXEC_INFO_CACHE_DEFAULT);
         if (Res != pi_result::PI_SUCCESS) {
           throw sycl::exception(
-              sycl::errc::kernel,
+              sycl::make_error_code(sycl::errc::kernel),
               "Error during emulated graph command group submission.");
         }
         ScheduledEvents.push_back(NewEvent);
