@@ -2,7 +2,8 @@
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 
-// Tests the explicit API interface for adding empty nodes, and that
+// Tests the explicit API interface for adding empty nodes
+// and adding dependencies (edges) on those empty nodes, and that
 // no_cycle_check is accepted as a command_graph construction property.
 
 #include "../graph_common.hpp"
@@ -28,8 +29,6 @@ int main() {
       },
       {exp_ext::property::node::depends_on(Start)});
 
-  //auto Empty = Graph.add({exp_ext::property::node::depends_on(Init)});
-  //auto Empty2 = Graph.add({exp_ext::property::node::depends_on(Empty)});
   auto Empty = Graph.add({});
   auto Empty2 = Graph.add({});
 

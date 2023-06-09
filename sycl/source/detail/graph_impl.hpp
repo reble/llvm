@@ -231,7 +231,7 @@ public:
   /// @return Created node in the graph.
   std::shared_ptr<node_impl>
   add(const std::vector<sycl::detail::EventImplPtr> Events);
-  
+
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
   /// @param RecordingQueue Queue to add to set.
