@@ -4,7 +4,7 @@
 
 // This test creates a graph with empty nodes
 // by recording a queue where empty handlers are submitted.
-// This test ensures that empty nodes a correctly added to the graph
+// This test ensures that empty nodes are correctly added to the graph
 // and other nodes can depend on them, as this is the case for non-empty nodes.
 
 #include "../graph_common.hpp"
