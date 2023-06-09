@@ -34,12 +34,12 @@ void connectToExitNodes(
     const std::vector<std::shared_ptr<node_impl>> &NewInputs) {
   if (CurrentNode->MSuccessors.size() > 0) {
     for (auto Successor : CurrentNode->MSuccessors) {
-      connect_to_exit_nodes(Successor, NewInputs);
+      connectToExitNodes(Successor, NewInputs);
     }
 
   } else {
     for (auto Input : NewInputs) {
-      CurrentNode->register_successor(Input, CurrentNode);
+      CurrentNode->registerSuccessor(Input, CurrentNode);
     }
   }
 }
@@ -324,7 +324,7 @@ command_graph<graph_state::executable>
 command_graph<graph_state::modifiable>::finalize(
     const sycl::property_list &) const {
   return command_graph<graph_state::executable>{this->impl,
-                                                this->impl->get_context()};
+                                                this->impl->getContext()};
 }
 
 template <>

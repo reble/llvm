@@ -86,7 +86,7 @@ public:
     }
     // We don't need to schedule empty nodes as they are only used when
     // calculating dependencies
-    if (!NodeImpl->is_empty())
+    if (!NodeImpl->isEmpty())
       Schedule.push_front(NodeImpl);
   }
 
