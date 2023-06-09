@@ -804,6 +804,19 @@ struct get_device_info_impl<
   }
 };
 
+// Specialization for graph extension support
+template <>
+struct get_device_info_impl<
+    ext::oneapi::experimental::info::device::graph_support_level,
+    ext::oneapi::experimental::info::device::graph_support> {
+  static ext::oneapi::experimental::info::device::graph_support_level
+  get(const DeviceImplPtr &Dev) {
+    // Return unsupported until rest of the changes are merged for this feature
+    return ext::oneapi::experimental::info::device::graph_support_level::
+        unsupported;
+  }
+};
+
 template <typename Param>
 typename Param::return_type get_device_info(const DeviceImplPtr &Dev) {
   static_assert(is_device_info_desc<Param>::value,
@@ -1690,6 +1703,14 @@ inline uint32_t get_device_info_host<
   throw runtime_error("Obtaining the maximum number of available registers per "
                       "work-group is not supported on HOST device",
                       PI_ERROR_INVALID_DEVICE);
+}
+
+template <>
+inline ext::oneapi::experimental::info::device::graph_support_level
+get_device_info_host<ext::oneapi::experimental::info::device::graph_support>() {
+  // No support for graphs on the host device.
+  return ext::oneapi::experimental::info::device::graph_support_level::
+      unsupported;
 }
 
 } // namespace detail
