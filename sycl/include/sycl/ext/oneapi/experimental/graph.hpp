@@ -167,10 +167,6 @@ public:
   bool end_recording(const std::vector<queue> &RecordingQueues);
 
 private:
-  /// Constructor used internally by the runtime.
-  /// @param Impl Detail implementation class to construct object with.
-  command_graph(const std::shared_ptr<detail::graph_impl> &Impl) : impl(Impl) {}
-
   /// Template-less implementation of add() for CGF nodes.
   /// @param CGF Command-group function to add.
   /// @param Dep List of predecessor nodes.
@@ -182,12 +178,6 @@ private:
   /// @param Dep List of predecessor nodes.
   /// @return Node added to the graph.
   node add_impl(const std::vector<node> &Dep);
-
-  template <class Obj>
-  friend decltype(Obj::impl)
-  sycl::detail::getSyclObjImpl(const Obj &SyclObject);
-  template <class T>
-  friend T sycl::detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
 
   std::shared_ptr<detail::graph_impl> impl;
 };
