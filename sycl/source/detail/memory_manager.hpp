@@ -173,6 +173,22 @@ public:
       const void *DeviceGlobalPtr, bool IsDeviceImageScoped, QueueImplPtr Queue,
       size_t NumBytes, size_t Offset, void *DstMem, OSModuleHandle M,
       const std::vector<RT::PiEvent> &DepEvents, RT::PiEvent *OutEvent);
+
+  // Command buffer extension methods
+  static void ext_oneapi_copy_cmd_buffer(
+      sycl::detail::ContextImplPtr Context,
+      RT::PiExtCommandBuffer CommandBuffer, SYCLMemObjI *SYCLMemObj,
+      void *SrcMem, unsigned int DimSrc, sycl::range<3> SrcSize,
+      sycl::range<3> SrcAccessRange, sycl::id<3> SrcOffset,
+      unsigned int SrcElemSize, void *DstMem, unsigned int DimDst,
+      sycl::range<3> DstSize, sycl::range<3> DstAccessRange,
+      sycl::id<3> DstOffset, unsigned int DstElemSize,
+      std::vector<RT::PiExtSyncPoint> Deps, RT::PiExtSyncPoint *OutSyncPoint);
+
+  static void ext_oneapi_copy_usm_cmd_buffer(
+      ContextImplPtr Context, const void *SrcMem,
+      RT::PiExtCommandBuffer CommandBuffer, size_t Len, void *DstMem,
+      std::vector<RT::PiExtSyncPoint> Deps, RT::PiExtSyncPoint *OutSyncPoint);
 };
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)

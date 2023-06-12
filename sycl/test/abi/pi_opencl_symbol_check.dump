@@ -36,6 +36,9 @@ piTearDown
 piclProgramCreateWithSource
 piextCommandBufferCreate
 piextCommandBufferFinalize
+piextCommandBufferMemBufferCopy
+piextCommandBufferMemBufferCopyRect
+piextCommandBufferMemcpyUSM
 piextCommandBufferNDRangeKernel
 piextCommandBufferRelease
 piextCommandBufferRetain
@@ -64,9 +67,7 @@ piextProgramGetNativeHandle
 piextProgramSetSpecializationConstant
 piextQueueCreate
 piextQueueCreateWithNativeHandle
-piextQueueCreateWithNativeHandle2
 piextQueueGetNativeHandle
-piextQueueGetNativeHandle2
 piextUSMDeviceAlloc
 piextUSMEnqueueFill2D
 piextUSMEnqueueMemAdvise

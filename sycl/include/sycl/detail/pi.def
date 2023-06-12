@@ -147,6 +147,9 @@ _PI_API(piextCommandBufferRetain)
 _PI_API(piextCommandBufferRelease)
 _PI_API(piextCommandBufferFinalize)
 _PI_API(piextCommandBufferNDRangeKernel)
+_PI_API(piextCommandBufferMemcpyUSM)
+_PI_API(piextCommandBufferMemBufferCopy)
+_PI_API(piextCommandBufferMemBufferCopyRect)
 _PI_API(piextEnqueueCommandBuffer)
 _PI_API(piPluginGetLastError)
 
@@ -164,10 +167,5 @@ _PI_API(piextEnqueueDeviceGlobalVariableWrite)
 _PI_API(piextEnqueueDeviceGlobalVariableRead)
 
 _PI_API(piPluginGetBackendOption)
-
-// Queue create and get APIs for immediate commandlists
-_PI_API(piextQueueCreate2)
-_PI_API(piextQueueGetNativeHandle2)
-_PI_API(piextQueueCreateWithNativeHandle2)
 
 #undef _PI_API

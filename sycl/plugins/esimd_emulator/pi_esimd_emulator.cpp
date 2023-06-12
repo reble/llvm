@@ -975,10 +975,7 @@ pi_result piextQueueCreate(pi_context Context, pi_device Device,
     return PI_ERROR_INVALID_VALUE;
   return piQueueCreate(Context, Device, Flags, Queue);
 }
-pi_result piextQueueCreate2(pi_context Context, pi_device Device,
-                            pi_queue_properties *Properties, pi_queue *Queue) {
-  return piextQueueCreate(Context, Device, Properties, Queue);
-}
+
 pi_result piQueueCreate(pi_context Context, pi_device Device,
                         pi_queue_properties Properties, pi_queue *Queue) {
   ARG_UNUSED(Device);
@@ -1047,22 +1044,13 @@ pi_result piQueueFlush(pi_queue) {
   CONTINUE_NO_IMPLEMENTATION;
 }
 
-pi_result piextQueueGetNativeHandle(pi_queue, pi_native_handle *) {
+pi_result piextQueueGetNativeHandle(pi_queue, pi_native_handle *, int32_t *) {
   DIE_NO_IMPLEMENTATION;
 }
 
-pi_result piextQueueGetNativeHandle2(pi_queue, pi_native_handle *, int32_t *) {
-  DIE_NO_IMPLEMENTATION;
-}
-
-pi_result piextQueueCreateWithNativeHandle(pi_native_handle, pi_context,
-                                           pi_device, bool, pi_queue *) {
-  DIE_NO_IMPLEMENTATION;
-}
-
-pi_result piextQueueCreateWithNativeHandle2(pi_native_handle, int32_t,
-                                            pi_context, pi_device, bool,
-                                            pi_queue_properties *, pi_queue *) {
+pi_result piextQueueCreateWithNativeHandle(pi_native_handle, int32_t,
+                                           pi_context, pi_device, bool,
+                                           pi_queue_properties *, pi_queue *) {
   DIE_NO_IMPLEMENTATION;
 }
 
@@ -2134,6 +2122,35 @@ pi_result piextCommandBufferNDRangeKernel(
     pi_ext_command_buffer command_buffer, pi_kernel kernel, pi_uint32 work_dim,
     const size_t *global_work_offset, const size_t *global_work_size,
     const size_t *local_work_size, pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point) {
+  DIE_NO_IMPLEMENTATION;
+}
+
+pi_result
+piextCommandBufferMemcpyUSM(pi_ext_command_buffer command_buffer, void *dst_ptr,
+                            const void *src_ptr, size_t size,
+                            pi_uint32 num_sync_points_in_wait_list,
+                            const pi_ext_sync_point *sync_point_wait_list,
+                            pi_ext_sync_point *sync_point) {
+  DIE_NO_IMPLEMENTATION;
+}
+
+pi_result piextCommandBufferMemBufferCopy(
+    pi_ext_command_buffer command_buffer, pi_mem src_buffer, pi_mem dst_buffer,
+    size_t src_offset, size_t dst_offset, size_t size,
+    pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point) {
+  DIE_NO_IMPLEMENTATION;
+}
+
+pi_result piextCommandBufferMemBufferCopyRect(
+    pi_ext_command_buffer command_buffer, pi_mem src_buffer, pi_mem dst_buffer,
+    pi_buff_rect_offset src_origin, pi_buff_rect_offset dst_origin,
+    pi_buff_rect_region region, size_t src_row_pitch, size_t src_slice_pitch,
+    size_t dst_row_pitch, size_t dst_slice_pitch,
+    pi_uint32 num_sync_points_in_wait_list,
     const pi_ext_sync_point *sync_point_wait_list,
     pi_ext_sync_point *sync_point) {
   DIE_NO_IMPLEMENTATION;

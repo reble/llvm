@@ -30,7 +30,7 @@ template <>
 uint32_t queue_impl::get_info<info::queue::reference_count>() const {
   RT::PiResult result = PI_SUCCESS;
   if (!is_host())
-    getPlugin().call<PiApiKind::piQueueGetInfo>(
+    getPlugin()->call<PiApiKind::piQueueGetInfo>(
         MQueues[0], PI_QUEUE_INFO_REFERENCE_COUNT, sizeof(result), &result,
         nullptr);
   return result;
@@ -146,6 +146,16 @@ event queue_impl::memcpy(const std::shared_ptr<detail::queue_impl> &Self,
   // Emit a begin/end scope for this call
   PrepareNotify.scopedNotify((uint16_t)xpti::trace_point_type_t::task_begin);
 #endif
+  // If we have a command graph set we need to capture the copy through normal
+  // queue submission rather than execute the copy directly.
+  if (MGraph) {
+    return submit(
+        [&](handler &CGH) {
+          CGH.depends_on(DepEvents);
+          CGH.memcpy(Dest, Src, Count);
+        },
+        Self, {});
+  }
   if (MHasDiscardEventsSupport) {
     MemoryManager::copy_usm(Src, Self, Count, Dest,
                             getOrWaitEvents(DepEvents, MContext), nullptr);
@@ -495,8 +505,8 @@ void queue_impl::wait(const detail::code_location &CodeLoc) {
     }
   }
   if (SupportsPiFinish) {
-    const detail::plugin &Plugin = getPlugin();
-    Plugin.call<detail::PiApiKind::piQueueFinish>(getHandleRef());
+    const PluginPtr &Plugin = getPlugin();
+    Plugin->call<detail::PiApiKind::piQueueFinish>(getHandleRef());
     assert(SharedEvents.empty() && "Queues that support calling piQueueFinish "
                                    "shouldn't have shared events");
   } else {
@@ -517,21 +527,12 @@ void queue_impl::wait(const detail::code_location &CodeLoc) {
 #endif
 }
 
-pi_native_handle queue_impl::getNative() const {
-  const detail::plugin &Plugin = getPlugin();
+pi_native_handle queue_impl::getNative(int32_t &NativeHandleDesc) const {
+  const PluginPtr &Plugin = getPlugin();
   if (getContextImplPtr()->getBackend() == backend::opencl)
-    Plugin.call<PiApiKind::piQueueRetain>(MQueues[0]);
+    Plugin->call<PiApiKind::piQueueRetain>(MQueues[0]);
   pi_native_handle Handle{};
-  Plugin.call<PiApiKind::piextQueueGetNativeHandle>(MQueues[0], &Handle);
-  return Handle;
-}
-
-pi_native_handle queue_impl::getNative2(int32_t &NativeHandleDesc) const {
-  const detail::plugin &Plugin = getPlugin();
-  if (getContextImplPtr()->getBackend() == backend::opencl)
-    Plugin.call<PiApiKind::piQueueRetain>(MQueues[0]);
-  pi_native_handle Handle{};
-  Plugin.call<PiApiKind::piextQueueGetNativeHandle2>(MQueues[0], &Handle,
+  Plugin->call<PiApiKind::piextQueueGetNativeHandle>(MQueues[0], &Handle,
                                                      &NativeHandleDesc);
   return Handle;
 }
@@ -548,7 +549,7 @@ bool queue_impl::ext_oneapi_empty() const {
   // Check the status of the backend queue if this is not a host queue.
   if (!is_host()) {
     pi_bool IsReady = false;
-    getPlugin().call<PiApiKind::piQueueGetInfo>(
+    getPlugin()->call<PiApiKind::piQueueGetInfo>(
         MQueues[0], PI_EXT_ONEAPI_QUEUE_INFO_EMPTY, sizeof(pi_bool), &IsReady,
         nullptr);
     if (!IsReady)

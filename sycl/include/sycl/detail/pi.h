@@ -83,17 +83,20 @@
 // 12.25 Added PI_EXT_DEVICE_INFO_ATOMIC_FENCE_ORDER_CAPABILITIES and
 // PI_EXT_DEVICE_INFO_ATOMIC_FENCE_SCOPE_CAPABILITIES for piDeviceGetInfo.
 // 12.26 Added piextEnqueueReadHostPipe and piextEnqueueWriteHostPipe functions.
-// 12.27 Added new queue create and get APIs for immediate commandlists
-// piextQueueCreate2, piextQueueCreateWithNativeHandle2,
-// piextQueueGetNativeHandle2
+// 12.27 Added properties parameter to piextQueueCreateWithNativeHandle and
+// changed native handle type of piextQueueCreateWithNativeHandle and
+// piextQueueGetNativeHandle
 // 12.28 Added piextMemImageCreateWithNativeHandle for creating images from
 // native handles.
 // 12.29 Support PI_EXT_PLATFORM_INFO_BACKEND query in piPlatformGetInfo
 // 12.30 Added PI_EXT_INTEL_DEVICE_INFO_MEM_CHANNEL_SUPPORT device info query.
-// 12.31 Added command-buffer extension methods
-
-#define _PI_H_VERSION_MAJOR 12
-#define _PI_H_VERSION_MINOR 31
+// 12.31 Added PI_EXT_CODEPLAY_DEVICE_INFO_MAX_REGISTERS_PER_WORK_GROUP device
+// info query.
+// 12.32 Removed backwards compatibility of piextQueueCreateWithNativeHandle and
+// piextQueueGetNativeHandle
+// 12.33 Added command-buffer extension methods
+#define _PI_H_VERSION_MAJOR 13
+#define _PI_H_VERSION_MINOR 33
 
 #define _PI_STRING_HELPER(a) #a
 #define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
@@ -351,8 +354,10 @@ typedef enum {
   PI_EXT_DEVICE_INFO_ATOMIC_FENCE_ORDER_CAPABILITIES = 0x20006,
   PI_EXT_DEVICE_INFO_ATOMIC_FENCE_SCOPE_CAPABILITIES = 0x20007,
   PI_EXT_INTEL_DEVICE_INFO_MEM_CHANNEL_SUPPORT = 0x20008,
+  // The number of max registers per block (device specific)
+  PI_EXT_CODEPLAY_DEVICE_INFO_MAX_REGISTERS_PER_WORK_GROUP = 0x20009,
   // Supports command-buffer extension entry-points
-  PI_EXT_ONEAPI_DEVICE_INFO_COMMAND_BUFFER_SUPPORT = 0x20009,
+  PI_EXT_ONEAPI_DEVICE_INFO_COMMAND_BUFFER_SUPPORT = 0x2000A,
 } _pi_device_info;
 
 typedef enum {
@@ -1210,12 +1215,6 @@ __SYCL_EXPORT pi_result piQueueCreate(pi_context context, pi_device device,
 __SYCL_EXPORT pi_result piextQueueCreate(pi_context context, pi_device device,
                                          pi_queue_properties *properties,
                                          pi_queue *queue);
-/// \param properties points to a zero-terminated array of extra data describing
-/// desired queue properties. Format is
-///  {[PROPERTY[, property-specific elements of data]*,]* 0}
-__SYCL_EXPORT pi_result piextQueueCreate2(pi_context context, pi_device device,
-                                          pi_queue_properties *properties,
-                                          pi_queue *queue);
 
 __SYCL_EXPORT pi_result piQueueGetInfo(pi_queue command_queue,
                                        pi_queue_info param_name,
@@ -1234,32 +1233,10 @@ __SYCL_EXPORT pi_result piQueueFlush(pi_queue command_queue);
 /// Gets the native handle of a PI queue object.
 ///
 /// \param queue is the PI queue to get the native handle of.
-/// \param nativeHandle is the native handle of queue.
-__SYCL_EXPORT pi_result
-piextQueueGetNativeHandle(pi_queue queue, pi_native_handle *nativeHandle);
-
-/// Gets the native handle of a PI queue object.
-///
-/// \param queue is the PI queue to get the native handle of.
 /// \param nativeHandle is the native handle of queue or commandlist.
 /// \param nativeHandleDesc provides additional properties of the native handle.
-__SYCL_EXPORT pi_result piextQueueGetNativeHandle2(
+__SYCL_EXPORT pi_result piextQueueGetNativeHandle(
     pi_queue queue, pi_native_handle *nativeHandle, int32_t *nativeHandleDesc);
-
-/// Creates PI queue object from a native handle.
-/// NOTE: The created PI object takes ownership of the native handle.
-///
-/// \param nativeHandle is the native handle to create PI queue from.
-/// \param context is the PI context of the queue.
-/// \param device is the PI device associated with the native device used when
-///   creating the native queue. This parameter is optional but some backends
-///   may fail to create the right PI queue if omitted.
-/// \param pluginOwnsNativeHandle Indicates whether the created PI object
-///        should take ownership of the native handle.
-/// \param queue is the PI queue created from the native handle.
-__SYCL_EXPORT pi_result piextQueueCreateWithNativeHandle(
-    pi_native_handle nativeHandle, pi_context context, pi_device device,
-    bool pluginOwnsNativeHandle, pi_queue *queue);
 
 /// Creates PI queue object from a native handle.
 /// NOTE: The created PI object takes ownership of the native handle.
@@ -1274,7 +1251,7 @@ __SYCL_EXPORT pi_result piextQueueCreateWithNativeHandle(
 ///        should take ownership of the native handle.
 /// \param Properties holds queue properties.
 /// \param queue is the PI queue created from the native handle.
-__SYCL_EXPORT pi_result piextQueueCreateWithNativeHandle2(
+__SYCL_EXPORT pi_result piextQueueCreateWithNativeHandle(
     pi_native_handle nativeHandle, int32_t nativeHandleDesc, pi_context context,
     pi_device device, bool pluginOwnsNativeHandle,
     pi_queue_properties *Properties, pi_queue *queue);
@@ -2125,7 +2102,7 @@ __SYCL_EXPORT pi_result piPluginGetBackendOption(pi_platform platform,
 __SYCL_EXPORT pi_result piGetDeviceAndHostTimer(pi_device Device,
                                                 uint64_t *DeviceTime,
                                                 uint64_t *HostTime);
-                                                
+
 /// Command buffer extension
 struct _pi_ext_command_buffer;
 struct _pi_ext_sync_point;
@@ -2180,13 +2157,73 @@ piextCommandBufferFinalize(pi_ext_command_buffer command_buffer);
 /// \param local_work_size Local work size to use when executing kernel.
 /// \param num_sync_points_in_wait_list The number of sync points in the
 /// provided wait list.
-/// \param sync_point_wait_list A list of sync points that this executions must
+/// \param sync_point_wait_list A list of sync points that this command must
 /// wait on.
 /// \param sync_point The sync_point associated with this kernel execution.
 __SYCL_EXPORT pi_result piextCommandBufferNDRangeKernel(
     pi_ext_command_buffer command_buffer, pi_kernel kernel, pi_uint32 work_dim,
     const size_t *global_work_offset, const size_t *global_work_size,
     const size_t *local_work_size, pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point);
+
+/// API to append a USM memcpy command to the command-buffer.
+/// \param command_buffer The command-buffer to append onto.
+/// \param dst_ptr is the location the data will be copied
+/// \param src_ptr is the data to be copied
+/// \param size is number of bytes to copy
+/// \param num_sync_points_in_wait_list The number of sync points in the
+/// provided wait list.
+/// \param sync_point_wait_list A list of sync points that this command must
+/// wait on.
+/// \param sync_point The sync_point associated with this memory operation.
+__SYCL_EXPORT pi_result piextCommandBufferMemcpyUSM(
+    pi_ext_command_buffer command_buffer, void *dst_ptr, const void *src_ptr,
+    size_t size, pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point);
+
+/// API to append a mem buffer copy command to the command-buffer.
+/// \param command_buffer The command-buffer to append onto.
+/// \param src_buffer is the data to be copied
+/// \param dst_buffer is the location the data will be copied
+/// \param src_offset offset into \p src_buffer
+/// \param dst_offset offset into \p dst_buffer
+/// \param size is number of bytes to copy
+/// \param num_sync_points_in_wait_list The number of sync points in the
+/// provided wait list.
+/// \param sync_point_wait_list A list of sync points that this command must
+/// wait on.
+/// \param sync_point The sync_point associated with this memory operation.
+__SYCL_EXPORT pi_result piextCommandBufferMemBufferCopy(
+    pi_ext_command_buffer command_buffer, pi_mem src_buffer, pi_mem dst_buffer,
+    size_t src_offset, size_t dst_offset, size_t size,
+    pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point);
+
+/// API to append a rectangular mem buffer copy command to the command-buffer.
+/// \param command_buffer The command-buffer to append onto.
+/// \param src_buffer is the data to be copied
+/// \param dst_buffer is the location the data will be copied
+/// \param src_origin offset for the start of the region to copy in src_buffer
+/// \param dst_origin offset for the start of the region to copy in dst_buffer
+/// \param region The size of the region to be copied
+/// \param src_row_pitch Row pitch for the src data
+/// \param src_slice_pitch Slice pitch for the src data
+/// \param dst_row_pitch Row pitch for the dst data
+/// \param dst_slice_pitch Slice pitch for the dst data
+/// \param num_sync_points_in_wait_list The number of sync points in the
+/// provided wait list.
+/// \param sync_point_wait_list A list of sync points that this command must
+/// wait on.
+/// \param sync_point The sync_point associated with this memory operation.
+__SYCL_EXPORT pi_result piextCommandBufferMemBufferCopyRect(
+    pi_ext_command_buffer command_buffer, pi_mem src_buffer, pi_mem dst_buffer,
+    pi_buff_rect_offset src_origin, pi_buff_rect_offset dst_origin,
+    pi_buff_rect_region region, size_t src_row_pitch, size_t src_slice_pitch,
+    size_t dst_row_pitch, size_t dst_slice_pitch,
+    pi_uint32 num_sync_points_in_wait_list,
     const pi_ext_sync_point *sync_point_wait_list,
     pi_ext_sync_point *sync_point);
 

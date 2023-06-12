@@ -13,6 +13,7 @@
 #include <sycl/ext/oneapi/experimental/graph.hpp>
 #include <sycl/handler.hpp>
 
+#include <detail/accessor_impl.hpp>
 #include <detail/kernel_impl.hpp>
 
 #include <cstring>
@@ -70,7 +71,8 @@ public:
 
   /// Construct a node representing a command-group.
   /// @param CGType Type of the command-group.
-  /// @param CommandGroup The CG which stores the command information for this node.
+  /// @param CommandGroup The CG which stores the command information for this
+  /// node.
   node_impl(sycl::detail::CG::CGTYPE CGType,
             std::unique_ptr<sycl::detail::CG> &&CommandGroup)
       : MCGType(CGType), MCommandGroup(std::move(CommandGroup)) {}
@@ -98,23 +100,14 @@ public:
     return MDepth.value();
   };
   
-  /// Checks if this node has an argument.
-  /// @param Arg Argument to lookup.
-  /// @return True if \p Arg is used in node, false otherwise.
-  bool has_arg(const sycl::detail::ArgDesc &Arg) {
-    // TODO: Handle types other than exec kernel
-    assert(MCGType == sycl::detail::CG::Kernel);
-    const auto &Args =
-        static_cast<sycl::detail::CGExecKernel *>(MCommandGroup.get())->MArgs;
-    for (auto &NodeArg : Args) {
-      if (Arg.MType == NodeArg.MType && Arg.MSize == NodeArg.MSize) {
-        // Args are actually void** so we need to dereference them to compare
-        // actual values
-        void *IncomingPtr = *static_cast<void **>(Arg.MPtr);
-        void *ArgPtr = *static_cast<void **>(NodeArg.MPtr);
-        if (IncomingPtr == ArgPtr) {
-          return true;
-        }
+  /// Checks if this node has a given requirement.
+  /// @param Requirement Requirement to lookup.
+  /// @return True if \p Requirement is present in node, false otherwise.
+  bool has_requirement(sycl::detail::AccessorImplHost *IncomingReq) {
+    for (sycl::detail::AccessorImplHost *CurrentReq :
+         MCommandGroup->MRequirements) {
+      if (IncomingReq->MSYCLMemObj == CurrentReq->MSYCLMemObj) {
+        return true;
       }
     }
     return false;
@@ -275,6 +268,12 @@ public:
   std::shared_ptr<node_impl>
   add(const std::vector<std::shared_ptr<node_impl>> &Dep = {});
 
+  /// Create an empty node in the graph.
+  /// @param Events List of events associated to this node.
+  /// @return Created node in the graph.
+  std::shared_ptr<node_impl>
+  add(const std::vector<sycl::detail::EventImplPtr> Events);
+
   /// Add a queue to the set of queues which are currently recording to this
   /// graph.
   /// @param RecordingQueue Queue to add to set.
@@ -365,16 +364,11 @@ public:
   /// Releases any PI command-buffers the object has created.
   ~exec_graph_impl();
 
-  /// Enqueues the backend objects for the graph to the parametrized queue.
-  /// @param Queue Command-queue to submit backend objects to.
-  /// @return Event associated with enqueued object.
-  sycl::event enqueue(const std::shared_ptr<sycl::detail::queue_impl> &Queue);
-
   /// Called by handler::ext_oneapi_command_graph() to schedule graph for
   /// execution.
   /// @param Queue Command-queue to schedule execution on.
-  /// @return Event associated with the execution of the graph
-  sycl::event exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue);
+  /// @return Event associated with the execution of the graph.
+  sycl::event enqueue(const std::shared_ptr<sycl::detail::queue_impl> &Queue);
 
   /// Turns our internal graph representation into PI command-buffers for a
   /// device.

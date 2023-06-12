@@ -129,7 +129,7 @@ public:
 
   /// \return the Plugin associated with the context of this event.
   /// Should be called when this is not a Host Event.
-  const plugin &getPlugin();
+  const PluginPtr &getPlugin();
 
   /// Associate event with the context.
   ///
@@ -255,7 +255,7 @@ public:
     ensureContextInitialized();
     return MContext;
   }
-  
+
   // Sets a sync point which is used when this event represents an enqueue to a
   // RT::PiExtCommandBuffer.
   void setSyncPoint(RT::PiExtSyncPoint SyncPoint) { MSyncPoint = SyncPoint; }

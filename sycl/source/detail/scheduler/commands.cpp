@@ -298,12 +298,12 @@ class DispatchHostTask {
   std::vector<interop_handle::ReqToMem> MReqToMem;
 
   pi_result waitForEvents() const {
-    std::map<const detail::plugin *, std::vector<EventImplPtr>>
+    std::map<const PluginPtr, std::vector<EventImplPtr>>
         RequiredEventsPerPlugin;
 
     for (const EventImplPtr &Event : MThisCmd->MPreparedDepsEvents) {
-      const detail::plugin &Plugin = Event->getPlugin();
-      RequiredEventsPerPlugin[&Plugin].push_back(Event);
+      const PluginPtr &Plugin = Event->getPlugin();
+      RequiredEventsPerPlugin[Plugin].push_back(Event);
     }
 
     // wait for dependency device events
@@ -458,7 +458,7 @@ void Command::waitForEvents(QueueImplPtr Queue,
 
       for (auto &CtxWithEvents : RequiredEventsPerContext) {
         std::vector<RT::PiEvent> RawEvents = getPiEvents(CtxWithEvents.second);
-        CtxWithEvents.first->getPlugin().call<PiApiKind::piEventsWait>(
+        CtxWithEvents.first->getPlugin()->call<PiApiKind::piEventsWait>(
             RawEvents.size(), RawEvents.data());
       }
     } else {
@@ -470,8 +470,8 @@ void Command::waitForEvents(QueueImplPtr Queue,
 
       std::vector<RT::PiEvent> RawEvents = getPiEvents(EventImpls);
       flushCrossQueueDeps(EventImpls, getWorkerQueue());
-      const detail::plugin &Plugin = Queue->getPlugin();
-      Plugin.call<PiApiKind::piEnqueueEventsWait>(
+      const PluginPtr &Plugin = Queue->getPlugin();
+      Plugin->call<PiApiKind::piEnqueueEventsWait>(
           Queue->getHandleRef(), RawEvents.size(), &RawEvents[0], &Event);
     }
   }
@@ -2093,69 +2093,69 @@ void ReverseRangeDimensionsForKernel(NDRDescT &NDR) {
 }
 
 void SetArgBasedOnType(
-    const detail::plugin &Plugin, RT::PiKernel Kernel,
+    const PluginPtr &Plugin, RT::PiKernel Kernel,
     const std::shared_ptr<device_image_impl> &DeviceImageImpl,
     const std::function<void *(Requirement *Req)> &getMemAllocationFunc,
     const sycl::context &Context, bool IsHost, detail::ArgDesc &Arg,
     size_t NextTrueIndex) {
-      switch (Arg.MType) {
-    case kernel_param_kind_t::kind_stream:
+  switch (Arg.MType) {
+  case kernel_param_kind_t::kind_stream:
+    break;
+  case kernel_param_kind_t::kind_accessor: {
+    Requirement *Req = (Requirement *)(Arg.MPtr);
+    if (Req->MAccessRange == range<3>({0, 0, 0}))
       break;
-    case kernel_param_kind_t::kind_accessor: {
-      Requirement *Req = (Requirement *)(Arg.MPtr);
-      if (Req->MAccessRange == range<3>({0, 0, 0}))
-        break;
-      assert(getMemAllocationFunc != nullptr &&
-             "We should have caught this earlier.");
+    assert(getMemAllocationFunc != nullptr &&
+           "We should have caught this earlier.");
 
-      RT::PiMem MemArg = (RT::PiMem)getMemAllocationFunc(Req);
-      if (Context.get_backend() == backend::opencl) {
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
-                                               sizeof(RT::PiMem), &MemArg);
-      } else {
-        Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
-                                                        &MemArg);
-      }
-      break;
+    RT::PiMem MemArg = (RT::PiMem)getMemAllocationFunc(Req);
+    if (Context.get_backend() == backend::opencl) {
+      Plugin->call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
+                                              sizeof(RT::PiMem), &MemArg);
+    } else {
+      Plugin->call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
+                                                       &MemArg);
     }
-    case kernel_param_kind_t::kind_std_layout: {
-      Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex, Arg.MSize,
-                                             Arg.MPtr);
-      break;
+    break;
+  }
+  case kernel_param_kind_t::kind_std_layout: {
+    Plugin->call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex, Arg.MSize,
+                                            Arg.MPtr);
+    break;
+  }
+  case kernel_param_kind_t::kind_sampler: {
+    sampler *SamplerPtr = (sampler *)Arg.MPtr;
+    RT::PiSampler Sampler =
+        detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
+    Plugin->call<PiApiKind::piextKernelSetArgSampler>(Kernel, NextTrueIndex,
+                                                      &Sampler);
+    break;
+  }
+  case kernel_param_kind_t::kind_pointer: {
+    Plugin->call<PiApiKind::piextKernelSetArgPointer>(Kernel, NextTrueIndex,
+                                                      Arg.MSize, Arg.MPtr);
+    break;
+  }
+  case kernel_param_kind_t::kind_specialization_constants_buffer: {
+    if (IsHost) {
+      throw sycl::feature_not_supported(
+          "SYCL2020 specialization constants are not yet supported on host "
+          "device",
+          PI_ERROR_INVALID_OPERATION);
     }
-    case kernel_param_kind_t::kind_sampler: {
-      sampler *SamplerPtr = (sampler *)Arg.MPtr;
-      RT::PiSampler Sampler =
-          detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
-      Plugin.call<PiApiKind::piextKernelSetArgSampler>(Kernel, NextTrueIndex,
-                                                       &Sampler);
-      break;
-    }
-    case kernel_param_kind_t::kind_pointer: {
-      Plugin.call<PiApiKind::piextKernelSetArgPointer>(Kernel, NextTrueIndex,
-                                                       Arg.MSize, Arg.MPtr);
-      break;
-    }
-    case kernel_param_kind_t::kind_specialization_constants_buffer: {
-      if (IsHost) {
-        throw sycl::feature_not_supported(
-            "SYCL2020 specialization constants are not yet supported on host "
-            "device",
-            PI_ERROR_INVALID_OPERATION);
-      }
-      assert(DeviceImageImpl != nullptr);
-      RT::PiMem SpecConstsBuffer = DeviceImageImpl->get_spec_const_buffer_ref();
-      // Avoid taking an address of nullptr
-      RT::PiMem *SpecConstsBufferArg =
-          SpecConstsBuffer ? &SpecConstsBuffer : nullptr;
-      Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
-                                                      SpecConstsBufferArg);
-      break;
-    }
-    case kernel_param_kind_t::kind_invalid:
-      throw runtime_error("Invalid kernel param kind", PI_ERROR_INVALID_VALUE);
-      break;
-    }
+    assert(DeviceImageImpl != nullptr);
+    RT::PiMem SpecConstsBuffer = DeviceImageImpl->get_spec_const_buffer_ref();
+    // Avoid taking an address of nullptr
+    RT::PiMem *SpecConstsBufferArg =
+        SpecConstsBuffer ? &SpecConstsBuffer : nullptr;
+    Plugin->call<PiApiKind::piextKernelSetArgMemObj>(Kernel, NextTrueIndex,
+                                                     SpecConstsBufferArg);
+    break;
+  }
+  case kernel_param_kind_t::kind_invalid:
+    throw runtime_error("Invalid kernel param kind", PI_ERROR_INVALID_VALUE);
+    break;
+  }
 }
 
 static pi_result SetKernelParamsAndLaunch(
@@ -2164,7 +2164,7 @@ static pi_result SetKernelParamsAndLaunch(
     RT::PiKernel Kernel, NDRDescT &NDRDesc, std::vector<RT::PiEvent> &RawEvents,
     RT::PiEvent *OutEvent, const KernelArgMask *EliminatedArgMask,
     const std::function<void *(Requirement *Req)> &getMemAllocationFunc) {
-  const detail::plugin &Plugin = Queue->getPlugin();
+  const PluginPtr &Plugin = Queue->getPlugin();
 
   auto setFunc = [&Plugin, Kernel, &DeviceImageImpl, &getMemAllocationFunc,
                   &Queue](detail::ArgDesc &Arg, size_t NextTrueIndex) {
@@ -2188,7 +2188,7 @@ static pi_result SetKernelParamsAndLaunch(
   if (HasLocalSize)
     LocalSize = &NDRDesc.LocalSize[0];
   else {
-    Plugin.call<PiApiKind::piKernelGetGroupInfo>(
+    Plugin->call<PiApiKind::piKernelGetGroupInfo>(
         Kernel, Queue->getDeviceImplPtr()->getHandleRef(),
         PI_KERNEL_GROUP_INFO_COMPILE_WORK_GROUP_SIZE, sizeof(RequiredWGSize),
         RequiredWGSize, /* param_value_size_ret = */ nullptr);
@@ -2200,7 +2200,7 @@ static pi_result SetKernelParamsAndLaunch(
       LocalSize = RequiredWGSize;
   }
 
-  pi_result Error = Plugin.call_nocheck<PiApiKind::piEnqueueKernelLaunch>(
+  pi_result Error = Plugin->call_nocheck<PiApiKind::piEnqueueKernelLaunch>(
       Queue->getHandleRef(), Kernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
       &NDRDesc.GlobalSize[0], LocalSize, RawEvents.size(),
       RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
@@ -2241,7 +2241,7 @@ pi_int32 enqueueImpCommandBufferKernel(
     RT::PiExtSyncPoint *OutSyncPoint,
     const std::function<void *(Requirement *Req)> &getMemAllocationFunc) {
   auto ContextImpl = sycl::detail::getSyclObjImpl(Ctx);
-  const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
+  const sycl::detail::PluginPtr &Plugin = ContextImpl->getPlugin();
   pi_kernel PiKernel = nullptr;
   std::mutex *KernelMutex = nullptr;
   pi_program PiProgram = nullptr;
@@ -2283,7 +2283,7 @@ pi_int32 enqueueImpCommandBufferKernel(
   if (HasLocalSize)
     LocalSize = &NDRDesc.LocalSize[0];
   else {
-    Plugin.call<sycl::detail::PiApiKind::piKernelGetGroupInfo>(
+    Plugin->call<sycl::detail::PiApiKind::piKernelGetGroupInfo>(
         PiKernel, DeviceImpl->getHandleRef(),
         PI_KERNEL_GROUP_INFO_COMPILE_WORK_GROUP_SIZE, sizeof(RequiredWGSize),
         RequiredWGSize,
@@ -2296,7 +2296,7 @@ pi_int32 enqueueImpCommandBufferKernel(
       LocalSize = RequiredWGSize;
   }
 
-  pi_result Res = Plugin.call_nocheck<
+  pi_result Res = Plugin->call_nocheck<
       sycl::detail::PiApiKind::piextCommandBufferNDRangeKernel>(
       CommandBuffer, PiKernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
       &NDRDesc.GlobalSize[0], LocalSize, SyncPoints.size(),
@@ -2408,8 +2408,8 @@ pi_int32 enqueueImpKernel(
     // provided.
     if (KernelCacheConfig == PI_EXT_KERNEL_EXEC_INFO_CACHE_LARGE_SLM ||
         KernelCacheConfig == PI_EXT_KERNEL_EXEC_INFO_CACHE_LARGE_DATA) {
-      const detail::plugin &Plugin = Queue->getPlugin();
-      Plugin.call<PiApiKind::piKernelSetExecInfo>(
+      const PluginPtr &Plugin = Queue->getPlugin();
+      Plugin->call<PiApiKind::piKernelSetExecInfo>(
           Kernel, PI_EXT_KERNEL_EXEC_INFO_CACHE_CONFIG,
           sizeof(RT::PiKernelCacheConfig), &KernelCacheConfig);
     }
@@ -2457,22 +2457,23 @@ pi_int32 enqueueReadWriteHostPipe(const QueueImplPtr &Queue,
   assert(Program && "Program for this hostpipe is not compiled.");
 
   // Get plugin for calling opencl functions
-  const detail::plugin &Plugin = Queue->getPlugin();
+  const PluginPtr &Plugin = Queue->getPlugin();
 
   pi_queue pi_q = Queue->getHandleRef();
   pi_result Error;
   if (read) {
     Error =
-        Plugin.call_nocheck<sycl::detail::PiApiKind::piextEnqueueReadHostPipe>(
+        Plugin->call_nocheck<sycl::detail::PiApiKind::piextEnqueueReadHostPipe>(
             pi_q, Program, PipeName.c_str(), blocking, ptr, size,
             RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0],
             OutEvent);
   } else {
     Error =
-        Plugin.call_nocheck<sycl::detail::PiApiKind::piextEnqueueWriteHostPipe>(
-            pi_q, Program, PipeName.c_str(), blocking, ptr, size,
-            RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0],
-            OutEvent);
+        Plugin
+            ->call_nocheck<sycl::detail::PiApiKind::piextEnqueueWriteHostPipe>(
+                pi_q, Program, PipeName.c_str(), blocking, ptr, size,
+                RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0],
+                OutEvent);
   }
   return Error;
 }
@@ -2486,6 +2487,7 @@ pi_int32 ExecCGCommand::enqueueImpCommandBuffer() {
                         MCommandGroup->MRequirements.size() == 0)
                            ? nullptr
                            : &MEvent->getHandleRef();
+  RT::PiExtSyncPoint OutSyncPoint;
   switch (MCommandGroup->getType()) {
   case CG::CGTYPE::Kernel: {
     CGExecKernel *ExecKernel = (CGExecKernel *)MCommandGroup.get();
@@ -2505,12 +2507,38 @@ pi_int32 ExecCGCommand::enqueueImpCommandBuffer() {
         Event = &MEvent->getHandleRef();
       }
     }
-    RT::PiExtSyncPoint OutSyncPoint;
     auto result = enqueueImpCommandBufferKernel(
         MQueue->get_context(), MQueue->getDeviceImplPtr(), MCommandBuffer,
         *ExecKernel, MSyncPointDeps, &OutSyncPoint, getMemAllocationFunc);
     MEvent->setSyncPoint(OutSyncPoint);
     return result;
+  }
+  case CG::CGTYPE::CopyUSM: {
+    CGCopyUSM *Copy = (CGCopyUSM *)MCommandGroup.get();
+    MemoryManager::ext_oneapi_copy_usm_cmd_buffer(
+        MQueue->getContextImplPtr(), Copy->getSrc(), MCommandBuffer,
+        Copy->getLength(), Copy->getDst(), MSyncPointDeps, &OutSyncPoint);
+    MEvent->setSyncPoint(OutSyncPoint);
+    return PI_SUCCESS;
+  }
+  case CG::CGTYPE::CopyAccToAcc: {
+    CGCopy *Copy = (CGCopy *)MCommandGroup.get();
+    Requirement *ReqSrc = (Requirement *)(Copy->getSrc());
+    Requirement *ReqDst = (Requirement *)(Copy->getDst());
+
+    AllocaCommandBase *AllocaCmdSrc = getAllocaForReq(ReqSrc);
+    AllocaCommandBase *AllocaCmdDst = getAllocaForReq(ReqDst);
+
+    MemoryManager::ext_oneapi_copy_cmd_buffer(
+        MQueue->getContextImplPtr(), MCommandBuffer,
+        AllocaCmdSrc->getSYCLMemObj(), AllocaCmdSrc->getMemAllocation(),
+        ReqSrc->MDims, ReqSrc->MMemoryRange, ReqSrc->MAccessRange,
+        ReqSrc->MOffset, ReqSrc->MElemSize, AllocaCmdDst->getMemAllocation(),
+        ReqDst->MDims, ReqDst->MMemoryRange, ReqDst->MAccessRange,
+        ReqDst->MOffset, ReqDst->MElemSize, std::move(MSyncPointDeps),
+        &OutSyncPoint);
+    MEvent->setSyncPoint(OutSyncPoint);
+    return PI_SUCCESS;
   }
   default:
     throw runtime_error("CG type not implemented for command buffers.",
@@ -2642,8 +2670,8 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
 
       if (!RawEvents.empty()) {
         // Assuming that the events are for devices to the same Plugin.
-        const detail::plugin &Plugin = EventImpls[0]->getPlugin();
-        Plugin.call<PiApiKind::piEventsWait>(RawEvents.size(), &RawEvents[0]);
+        const PluginPtr &Plugin = EventImpls[0]->getPlugin();
+        Plugin->call<PiApiKind::piEventsWait>(RawEvents.size(), &RawEvents[0]);
       }
       DispatchNativeKernel((void *)ArgsBlob.data());
 
@@ -2667,8 +2695,8 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
       MemLocs.push_back(NextArg);
       NextArg++;
     }
-    const detail::plugin &Plugin = MQueue->getPlugin();
-    pi_result Error = Plugin.call_nocheck<PiApiKind::piEnqueueNativeKernel>(
+    const PluginPtr &Plugin = MQueue->getPlugin();
+    pi_result Error = Plugin->call_nocheck<PiApiKind::piEnqueueNativeKernel>(
         MQueue->getHandleRef(), DispatchNativeKernel, (void *)ArgsBlob.data(),
         ArgsBlob.size() * sizeof(ArgsBlob[0]), Buffers.size(), Buffers.data(),
         const_cast<const void **>(MemLocs.data()), RawEvents.size(),
@@ -2701,8 +2729,8 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
         }
       if (!RawEvents.empty()) {
         // Assuming that the events are for devices to the same Plugin.
-        const detail::plugin &Plugin = EventImpls[0]->getPlugin();
-        Plugin.call<PiApiKind::piEventsWait>(RawEvents.size(), &RawEvents[0]);
+        const PluginPtr &Plugin = EventImpls[0]->getPlugin();
+        Plugin->call<PiApiKind::piEventsWait>(RawEvents.size(), &RawEvents[0]);
       }
 
       if (MQueue->is_host()) {
@@ -2712,7 +2740,7 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
         assert(MQueue->getDeviceImplPtr()->getBackend() ==
                backend::ext_intel_esimd_emulator);
 
-        MQueue->getPlugin().call<PiApiKind::piEnqueueKernelLaunch>(
+        MQueue->getPlugin()->call<PiApiKind::piEnqueueKernelLaunch>(
             nullptr,
             reinterpret_cast<pi_kernel>(ExecKernel->MHostKernel->getPtr()),
             NDRDesc.Dims, &NDRDesc.GlobalOffset[0], &NDRDesc.GlobalSize[0],
@@ -2799,14 +2827,14 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
     return PI_SUCCESS;
   }
   case CG::CGTYPE::CodeplayInteropTask: {
-    const detail::plugin &Plugin = MQueue->getPlugin();
+    const PluginPtr &Plugin = MQueue->getPlugin();
     CGInteropTask *ExecInterop = (CGInteropTask *)MCommandGroup.get();
     // Wait for dependencies to complete before dispatching work on the host
     // TODO: Use a callback to dispatch the interop task instead of waiting
     // for
     //  the event
     if (!RawEvents.empty()) {
-      Plugin.call<PiApiKind::piEventsWait>(RawEvents.size(), &RawEvents[0]);
+      Plugin->call<PiApiKind::piEventsWait>(RawEvents.size(), &RawEvents[0]);
     }
     std::vector<interop_handler::ReqToMem> ReqMemObjs;
     // Extract the Mem Objects for all Requirements, to ensure they are
@@ -2823,8 +2851,8 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
     std::sort(std::begin(ReqMemObjs), std::end(ReqMemObjs));
     interop_handler InteropHandler(std::move(ReqMemObjs), MQueue);
     ExecInterop->MInteropTask->call(InteropHandler);
-    Plugin.call<PiApiKind::piEnqueueEventsWait>(MQueue->getHandleRef(), 0,
-                                                nullptr, Event);
+    Plugin->call<PiApiKind::piEnqueueEventsWait>(MQueue->getHandleRef(), 0,
+                                                 nullptr, Event);
 
     return PI_SUCCESS;
   }
@@ -2892,8 +2920,8 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
       // NOP for host device.
       return PI_SUCCESS;
     }
-    const detail::plugin &Plugin = MQueue->getPlugin();
-    Plugin.call<PiApiKind::piEnqueueEventsWaitWithBarrier>(
+    const PluginPtr &Plugin = MQueue->getPlugin();
+    Plugin->call<PiApiKind::piEnqueueEventsWaitWithBarrier>(
         MQueue->getHandleRef(), 0, nullptr, Event);
 
     return PI_SUCCESS;
@@ -2907,8 +2935,8 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
       // If Events is empty, then the barrier has no effect.
       return PI_SUCCESS;
     }
-    const detail::plugin &Plugin = MQueue->getPlugin();
-    Plugin.call<PiApiKind::piEnqueueEventsWaitWithBarrier>(
+    const PluginPtr &Plugin = MQueue->getPlugin();
+    Plugin->call<PiApiKind::piEnqueueEventsWaitWithBarrier>(
         MQueue->getHandleRef(), PiEvents.size(), &PiEvents[0], Event);
 
     return PI_SUCCESS;
@@ -2951,7 +2979,7 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
     CGExecCommandBuffer *CmdBufferCG =
         static_cast<CGExecCommandBuffer *>(MCommandGroup.get());
     return MQueue->getPlugin()
-        .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
+        ->call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
             CmdBufferCG->MCommandBuffer, MQueue->getHandleRef(),
             RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0],
             Event);

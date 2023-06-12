@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include <detail/graph_impl.hpp>
+#include <detail/handler_impl.hpp>
 #include <detail/kernel_arg_mask.hpp>
-#include <detail/handler_impl.hpp> 
 #include <detail/program_manager/program_manager.hpp>
 #include <detail/queue_impl.hpp>
 #include <detail/scheduler/commands.hpp>
@@ -48,24 +48,24 @@ void connect_to_exit_nodes(
   }
 }
 
-/// Recursive check if a graph node or its successors contains a given kernel
-/// argument.
-/// @param[in] Arg The kernel argument to check for.
+/// Recursive check if a graph node or its successors contains a given
+/// requirement.
+/// @param[in] Req The requirement to check for.
 /// @param[in] CurrentNode The current graph node being checked.
 /// @param[in,out] Deps The unique list of dependencies which have been
-/// identified for this arg.
+/// identified for this requirement.
 /// @return True if a dependency was added in this node or any of its
 /// successors.
-bool check_for_arg(const sycl::detail::ArgDesc &Arg,
-                   const std::shared_ptr<node_impl> &CurrentNode,
-                   std::set<std::shared_ptr<node_impl>> &Deps) {
+bool check_for_requirement(sycl::detail::AccessorImplHost *Req,
+                           const std::shared_ptr<node_impl> &CurrentNode,
+                           std::set<std::shared_ptr<node_impl>> &Deps) {
   bool SuccessorAddedDep = false;
   for (auto &Successor : CurrentNode->MSuccessors) {
-    SuccessorAddedDep |= check_for_arg(Arg, Successor, Deps);
+    SuccessorAddedDep |= check_for_requirement(Req, Successor, Deps);
   }
 
   if (!CurrentNode->is_empty() && Deps.find(CurrentNode) == Deps.end() &&
-      CurrentNode->has_arg(Arg) && !SuccessorAddedDep) {
+      CurrentNode->has_requirement(Req) && !SuccessorAddedDep) {
     Deps.insert(CurrentNode);
     return true;
   }
@@ -96,16 +96,6 @@ std::shared_ptr<node_impl> graph_impl::add_subgraph_nodes(
   return this->add(Outputs);
 }
 
-sycl::event
-exec_graph_impl::exec(const std::shared_ptr<sycl::detail::queue_impl> &Queue) {
-  sycl::event RetEvent = enqueue(Queue);
-  // TODO: Remove this queue wait. Currently waiting on the event returned from
-  // graph execution does not work.
-  Queue->wait();
-
-  return RetEvent;
-}
-
 std::list<std::shared_ptr<node_impl>> graph_impl::compute_schedule() {
   exec_order_recompute();
   std::list<std::shared_ptr<node_impl>> Sched;
@@ -131,8 +121,8 @@ graph_impl::add(const std::vector<std::shared_ptr<node_impl>> &Dep) {
   if (!Dep.empty()) {
     for (auto N : Dep) {
       N->register_successor(NodeImpl, N); // register successor
-      this->remove_root(NodeImpl);     // remove receiver from root node
-                                       // list
+      this->remove_root(NodeImpl);        // remove receiver from root node
+                                          // list
     }
   } else {
     this->add_root(NodeImpl);
@@ -156,7 +146,29 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
   if (Handler.MSubgraphNode) {
     return Handler.MSubgraphNode;
   }
+  if (Handler.MCGType == sycl::detail::CG::None) {
+      return this->add(Dep);
+  }
   return this->add(Handler.MCGType, std::move(Handler.MGraphNodeCG), Dep);
+}
+
+std::shared_ptr<node_impl>
+graph_impl::add(const std::vector<sycl::detail::EventImplPtr> Events) {
+
+  std::vector<std::shared_ptr<node_impl>> Deps;
+
+  // Add any nodes specified by event dependencies into the dependency list
+  for (auto Dep : Events) {
+    if (auto NodeImpl = MEventsMap.find(Dep); NodeImpl != MEventsMap.end()) {
+      Deps.push_back(NodeImpl->second);
+    } else {
+      throw sycl::exception(sycl::make_error_code(errc::invalid),
+                            "Event dependency from handler::depends_on does "
+                            "not correspond to a node within the graph");
+    }
+  }
+
+  return this->add(Deps);
 }
 
 std::shared_ptr<node_impl>
@@ -165,44 +177,40 @@ graph_impl::add(sycl::detail::CG::CGTYPE CGType,
                 const std::vector<std::shared_ptr<node_impl>> &Dep) {
   // Copy deps so we can modify them
   auto Deps = Dep;
-  if (CGType == sycl::detail::CG::Kernel) {
-    // A unique set of dependencies obtained by checking kernel arguments
-    // for accessors
-    std::set<std::shared_ptr<node_impl>> UniqueDeps;
-    const auto &Args =
-        static_cast<sycl::detail::CGExecKernel *>(CommandGroup.get())->MArgs;
-    for (auto &Arg : Args) {
-      if (Arg.MType != sycl::detail::kernel_param_kind_t::kind_accessor) {
-        continue;
-      }
-      // Look through the graph for nodes which share this argument
-      for (auto NodePtr : MRoots) {
-        check_for_arg(Arg, NodePtr, UniqueDeps);
-      }
-    }
 
-    // Add any deps determined from accessor arguments into the dependency list
-    Deps.insert(Deps.end(), UniqueDeps.begin(), UniqueDeps.end());
+  // A unique set of dependencies obtained by checking requirements and events
+  std::set<std::shared_ptr<node_impl>> UniqueDeps;
+  const auto &Requirements = CommandGroup->MRequirements;
+  for (auto &Req : Requirements) {
+    // Look through the graph for nodes which share this requirement
+    for (auto NodePtr : MRoots) {
+      check_for_requirement(Req, NodePtr, UniqueDeps);
+    }
   }
 
   // Add any nodes specified by event dependencies into the dependency list
   for (auto Dep : CommandGroup->MEvents) {
     if (auto NodeImpl = MEventsMap.find(Dep); NodeImpl != MEventsMap.end()) {
-      Deps.push_back(NodeImpl->second);
+      if (UniqueDeps.find(NodeImpl->second) == UniqueDeps.end()) {
+        UniqueDeps.insert(NodeImpl->second);
+      }
     } else {
       throw sycl::exception(errc::invalid,
                             "Event dependency from handler::depends_on does "
                             "not correspond to a node within the graph");
     }
   }
+  // Add any deps determined from requirements and events into the dependency
+  // list
+  Deps.insert(Deps.end(), UniqueDeps.begin(), UniqueDeps.end());
 
   const std::shared_ptr<node_impl> &NodeImpl =
       std::make_shared<node_impl>(CGType, std::move(CommandGroup));
   if (!Deps.empty()) {
     for (auto N : Deps) {
       N->register_successor(NodeImpl, N); // register successor
-      this->remove_root(NodeImpl);     // remove receiver from root node
-                                       // list
+      this->remove_root(NodeImpl);        // remove receiver from root node
+                                          // list
     }
   } else {
     this->add_root(NodeImpl);
@@ -292,10 +300,10 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
   RT::PiExtCommandBuffer OutCommandBuffer;
   RT::PiExtCommandBufferDesc Desc{};
   auto ContextImpl = sycl::detail::getSyclObjImpl(MContext);
-  const sycl::detail::plugin &Plugin = ContextImpl->getPlugin();
+  const sycl::detail::PluginPtr &Plugin = ContextImpl->getPlugin();
   auto DeviceImpl = sycl::detail::getSyclObjImpl(D);
   pi_result Res =
-      Plugin.call_nocheck<sycl::detail::PiApiKind::piextCommandBufferCreate>(
+      Plugin->call_nocheck<sycl::detail::PiApiKind::piextCommandBufferCreate>(
           ContextImpl->getHandleRef(), DeviceImpl->getHandleRef(), &Desc,
           &OutCommandBuffer);
   if (Res != pi_result::PI_SUCCESS) {
@@ -329,7 +337,7 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
   }
 
   Res =
-      Plugin.call_nocheck<sycl::detail::PiApiKind::piextCommandBufferFinalize>(
+      Plugin->call_nocheck<sycl::detail::PiApiKind::piextCommandBufferFinalize>(
           OutCommandBuffer);
   if (Res != pi_result::PI_SUCCESS) {
     throw sycl::exception(errc::invalid,
@@ -340,13 +348,11 @@ void exec_graph_impl::create_pi_command_buffers(sycl::device D) {
 exec_graph_impl::~exec_graph_impl() {
   MSchedule.clear();
   for (auto Iter : MPiCommandBuffers) {
-    const sycl::detail::plugin &Plugin =
+    const sycl::detail::PluginPtr &Plugin =
         sycl::detail::getSyclObjImpl(MContext)->getPlugin();
     if (auto CmdBuf = Iter.second; CmdBuf) {
-      pi_result Res =
-          Plugin
-              .call_nocheck<sycl::detail::PiApiKind::piextCommandBufferRelease>(
-                  CmdBuf);
+      pi_result Res = Plugin->call_nocheck<
+          sycl::detail::PiApiKind::piextCommandBufferRelease>(CmdBuf);
       (void)Res;
       assert(Res == pi_result::PI_SUCCESS);
     }
@@ -375,7 +381,8 @@ sycl::event exec_graph_impl::enqueue(
     if (MRequirements.empty()) {
       pi_result Res =
           Queue->getPlugin()
-              .call_nocheck<sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
+              ->call_nocheck<
+                  sycl::detail::PiApiKind::piextEnqueueCommandBuffer>(
                   CommandBuffer, Queue->getHandleRef(), RawEvents.size(),
                   RawEvents.empty() ? nullptr : &RawEvents[0], OutEvent);
       if (Res != pi_result::PI_SUCCESS) {
@@ -570,11 +577,11 @@ void command_graph<graph_state::executable>::finalize_impl() {
   for (auto Device : impl->get_context().get_devices()) {
     pi_bool CmdBufSupport;
 
-    const sycl::detail::plugin &Plugin =
+    const sycl::detail::PluginPtr &Plugin =
         sycl::detail::getSyclObjImpl(Context)->getPlugin();
 
     auto DeviceImpl = sycl::detail::getSyclObjImpl(Device);
-    Plugin.call<sycl::detail::PiApiKind::piDeviceGetInfo>(
+    Plugin->call<sycl::detail::PiApiKind::piDeviceGetInfo>(
         DeviceImpl->getHandleRef(),
         PI_EXT_ONEAPI_DEVICE_INFO_COMMAND_BUFFER_SUPPORT, sizeof(pi_bool),
         &CmdBufSupport, nullptr);

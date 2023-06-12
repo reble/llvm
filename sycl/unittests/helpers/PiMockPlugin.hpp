@@ -355,12 +355,6 @@ inline pi_result mock_piextQueueCreate(pi_context context, pi_device device,
   *queue = createDummyHandle<pi_queue>();
   return PI_SUCCESS;
 }
-inline pi_result mock_piextQueueCreate2(pi_context context, pi_device device,
-                                        pi_queue_properties *properties,
-                                        pi_queue *queue) {
-  *queue = createDummyHandle<pi_queue>();
-  return PI_SUCCESS;
-}
 
 inline pi_result mock_piQueueGetInfo(pi_queue command_queue,
                                      pi_queue_info param_name,
@@ -397,28 +391,14 @@ inline pi_result mock_piQueueFlush(pi_queue command_queue) {
   return PI_SUCCESS;
 }
 
-inline pi_result
-mock_piextQueueGetNativeHandle(pi_queue queue, pi_native_handle *nativeHandle) {
-  *nativeHandle = reinterpret_cast<pi_native_handle>(queue);
-  return PI_SUCCESS;
-}
-
-inline pi_result mock_piextQueueGetNativeHandle2(pi_queue queue,
-                                                 pi_native_handle *nativeHandle,
-                                                 int32_t *nativeHandleDesc) {
+inline pi_result mock_piextQueueGetNativeHandle(pi_queue queue,
+                                                pi_native_handle *nativeHandle,
+                                                int32_t *nativeHandleDesc) {
   *nativeHandle = reinterpret_cast<pi_native_handle>(queue);
   return PI_SUCCESS;
 }
 
 inline pi_result mock_piextQueueCreateWithNativeHandle(
-    pi_native_handle nativeHandle, pi_context context, pi_device device,
-    bool pluginOwnsNativeHandle, pi_queue *queue) {
-  *queue = reinterpret_cast<pi_queue>(nativeHandle);
-  retainDummyHandle(*queue);
-  return PI_SUCCESS;
-}
-
-inline pi_result mock_piextQueueCreateWithNativeHandle2(
     pi_native_handle nativeHandle, int32_t nativeHandleDesc, pi_context context,
     pi_device device, bool pluginOwnsNativeHandle,
     pi_queue_properties *Properties, pi_queue *queue) {
@@ -1188,10 +1168,38 @@ inline pi_result mock_piextCommandBufferNDRangeKernel(
   return PI_SUCCESS;
 }
 
+inline pi_result mock_piextCommandBufferMemcpyUSM(
+    pi_ext_command_buffer command_buffer, void *dst_ptr, const void *src_ptr,
+    size_t size, pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point) {
+  return PI_SUCCESS;
+}
+
 inline pi_result mock_piextEnqueueCommandBuffer(
     pi_ext_command_buffer command_buffer, pi_queue queue,
     pi_uint32 num_events_in_wait_list, const pi_event *event_wait_list,
     pi_event *event) {
+  return PI_SUCCESS;
+}
+
+inline pi_result mock_piextCommandBufferMemBufferCopy(
+    pi_ext_command_buffer command_buffer, pi_mem src_buffer, pi_mem dst_buffer,
+    size_t src_offset, size_t dst_offset, size_t size,
+    pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point) {
+  return PI_SUCCESS;
+}
+
+inline pi_result mock_piextCommandBufferMemBufferCopyRect(
+    pi_ext_command_buffer command_buffer, pi_mem src_buffer, pi_mem dst_buffer,
+    pi_buff_rect_offset src_origin, pi_buff_rect_offset dst_origin,
+    pi_buff_rect_region region, size_t src_row_pitch, size_t src_slice_pitch,
+    size_t dst_row_pitch, size_t dst_slice_pitch,
+    pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point) {
   return PI_SUCCESS;
 }
 

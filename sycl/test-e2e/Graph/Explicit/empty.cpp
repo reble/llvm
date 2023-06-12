@@ -1,6 +1,6 @@
 // REQUIRES: level_zero, gpu
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// RUN: %{build} -o %t.out
+// RUN: %{run} %t.out
 
 // Tests the explicit API interface for adding empty nodes, and that
 // no_cycle_check is accepted as a command_graph construction property.
@@ -30,6 +30,8 @@ int main() {
 
   auto Empty = Graph.add({exp_ext::property::node::depends_on(Init)});
   auto Empty2 = Graph.add({exp_ext::property::node::depends_on(Empty)});
+  auto Empty3 = Graph.add([&](handler &) {},
+                          {exp_ext::property::node::depends_on(Empty2)});
 
   Graph.add(
       [&](handler &CGH) {
