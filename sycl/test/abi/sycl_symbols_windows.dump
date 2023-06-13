@@ -830,8 +830,8 @@
 ?addOrReplaceAccessorProperties@buffer_plain@detail@_V1@sycl@@IEAAXAEBVproperty_list@34@@Z
 ?addReduction@handler@_V1@sycl@@AEAAXAEBV?$shared_ptr@$$CBX@std@@@Z
 ?addStream@handler@_V1@sycl@@AEAAXAEBV?$shared_ptr@Vstream_impl@detail@_V1@sycl@@@std@@@Z
-?add_impl@?$command_graph@$0A@@experimental@oneapi@ext@_V1@sycl@@AEAA?AVnode@23456@AEBV?$vector@Vnode@experimental@oneapi@ext@_V1@sycl@@V?$allocator@Vnode@experimental@oneapi@ext@_V1@sycl@@@std@@@std@@@Z
-?add_impl@?$command_graph@$0A@@experimental@oneapi@ext@_V1@sycl@@AEAA?AVnode@23456@V?$function@$$A6AXAEAVhandler@_V1@sycl@@@Z@std@@AEBV?$vector@Vnode@experimental@oneapi@ext@_V1@sycl@@V?$allocator@Vnode@experimental@oneapi@ext@_V1@sycl@@@std@@@9@@Z
+?addImpl@?$command_graph@$0A@@experimental@oneapi@ext@_V1@sycl@@AEAA?AVnode@23456@AEBV?$vector@Vnode@experimental@oneapi@ext@_V1@sycl@@V?$allocator@Vnode@experimental@oneapi@ext@_V1@sycl@@@std@@@std@@@Z
+?addImpl@?$command_graph@$0A@@experimental@oneapi@ext@_V1@sycl@@AEAA?AVnode@23456@V?$function@$$A6AXAEAVhandler@_V1@sycl@@@Z@std@@AEBV?$vector@Vnode@experimental@oneapi@ext@_V1@sycl@@V?$allocator@Vnode@experimental@oneapi@ext@_V1@sycl@@@std@@@9@@Z
 ?advise_usm@MemoryManager@detail@_V1@sycl@@SAXPEBXV?$shared_ptr@Vqueue_impl@detail@_V1@sycl@@@std@@_KW4_pi_mem_advice@@V?$vector@PEAU_pi_event@@V?$allocator@PEAU_pi_event@@@std@@@6@PEAPEAU_pi_event@@@Z
 ?alignedAlloc@OSUtil@detail@_V1@sycl@@SAPEAX_K0@Z
 ?alignedFree@OSUtil@detail@_V1@sycl@@SAXPEAX@Z
@@ -960,7 +960,7 @@
 ?fill_usm@MemoryManager@detail@_V1@sycl@@SAXPEAXV?$shared_ptr@Vqueue_impl@detail@_V1@sycl@@@std@@_KHV?$vector@PEAU_pi_event@@V?$allocator@PEAU_pi_event@@@std@@@6@PEAPEAU_pi_event@@@Z
 ?finalize@?$command_graph@$0A@@experimental@oneapi@ext@_V1@sycl@@QEBA?AV?$command_graph@$00@23456@AEBVproperty_list@56@@Z
 ?finalize@handler@_V1@sycl@@AEAA?AVevent@23@XZ
-?finalize_impl@?$command_graph@$00@experimental@oneapi@ext@_V1@sycl@@AEAAXXZ
+?finalizeImpl@?$command_graph@$00@experimental@oneapi@ext@_V1@sycl@@AEAAXXZ
 ?find_device_intersection@detail@_V1@sycl@@YA?AV?$vector@Vdevice@_V1@sycl@@V?$allocator@Vdevice@_V1@sycl@@@std@@@std@@AEBV?$vector@V?$kernel_bundle@$00@_V1@sycl@@V?$allocator@V?$kernel_bundle@$00@_V1@sycl@@@std@@@5@@Z
 ?flush@stream_impl@detail@_V1@sycl@@QEAAXAEBV?$shared_ptr@Vevent_impl@detail@_V1@sycl@@@std@@@Z
 ?flush@stream_impl@detail@_V1@sycl@@QEAAXXZ
