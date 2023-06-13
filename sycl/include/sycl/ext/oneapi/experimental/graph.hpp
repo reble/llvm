@@ -207,7 +207,7 @@ private:
   /// @param Ctx Context to use for graph.
   command_graph(const std::shared_ptr<detail::graph_impl> &Graph,
                 const sycl::context &Ctx);
-  
+
   template <class Obj>
   friend decltype(Obj::impl)
   sycl::detail::getSyclObjImpl(const Obj &SyclObject);
@@ -217,6 +217,8 @@ private:
 
   int MTag;
   std::shared_ptr<detail::exec_graph_impl> impl;
+
+  friend class command_graph<graph_state::modifiable>;
 };
 
 /// Additional CTAD deduction guide.
