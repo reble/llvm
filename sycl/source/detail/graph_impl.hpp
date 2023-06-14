@@ -20,6 +20,8 @@
 #include <functional>
 #include <list>
 #include <set>
+#include <optional>
+#include <map>
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
@@ -75,22 +77,29 @@ public:
             std::unique_ptr<sycl::detail::CG> &&CommandGroup)
       : MCGType(CGType), MCommandGroup(std::move(CommandGroup)) {}
 
-  /// Recursively add nodes to execution stack.
-  /// @param NodeImpl Node to schedule.
-  /// @param Schedule Execution ordering to add node to.
-  void topology_sort(std::shared_ptr<node_impl> NodeImpl,
-                     std::list<std::shared_ptr<node_impl>> &Schedule) {
-    for (auto Next : MSuccessors) {
-      // Check if we've already scheduled this node
-      if (std::find(Schedule.begin(), Schedule.end(), Next) == Schedule.end())
-        Next->topology_sort(Next, Schedule);
-    }
-    // We don't need to schedule empty nodes as they are only used when
-    // calculating dependencies
-    if (!NodeImpl->is_empty())
-      Schedule.push_front(NodeImpl);
-  }
+private:
+  /// Depth of this node in a containing graph.
+  ///
+  /// The first call to graph.exec_order_recompute computes & caches the value.
+  /// It will likely become stale whenever the containing graph is changed and
+  /// a single value will be inadequate if this node is added to multiple graphs.
+  /// Caching is dangerous but recomputing takes O(graph_size) worst-case time.
+  std::optional<int> MDepth;
 
+public:
+  /// Gets the depth of this node in its containing graph.
+  /// @return the depth of this node in its containing graph.
+  int get_depth() {
+    if (!MDepth.has_value()) {
+      int MaxDepthFound = -1;
+      for (auto &P : MPredecessors) {
+        MaxDepthFound = std::max(MaxDepthFound, P.lock()->get_depth());
+      }
+      MDepth = MaxDepthFound + 1;
+    }
+    return MDepth.value();
+  };
+  
   /// Checks if this node has a given requirement.
   /// @param Requirement Requirement to lookup.
   /// @return True if \p Requirement is present in node, false otherwise.
@@ -180,7 +189,7 @@ private:
   }
 };
 
-/// Class representing implementation details of command_graph<modifiable>.
+/// Class representing implementation details of modifiable command_graph.
 class graph_impl {
 public:
   /// Constructor.
@@ -190,6 +199,39 @@ public:
       : MContext(SyclContext), MDevice(SyclDevice), MRecordingQueues(),
         MEventsMap(), MInorderQueueMap() {}
 
+private:
+  /// A sorted multimap capturing a breadth-first execution/submission order.
+  ///
+  /// The SortKey is the depth in the graph for the node_impl in the value.
+  /// Depth is the length of the longest dependence chain to any root node.
+  std::multimap<int, std::shared_ptr<node_impl>> MExecOrder;
+
+  /// Depth-first recursion from V to build the execution order.
+  /// @param V Starting node for depth-first recursion.
+  void exec_order_recompute(node_impl &V) {
+    // depth-first recursion to access all nodes that succeed this node
+    for (auto &S : V.MSuccessors) {
+      exec_order_recompute(*S.get());
+    }
+    // insert this into execution order based on its depth in the graph
+    MExecOrder.insert(std::pair(V.get_depth(), &V));
+  };
+
+  /// Recomputes the submission/execution order for this whole graph.
+  void exec_order_recompute() {
+    MExecOrder.clear();
+    // for all root nodes ...
+    for (auto &Root : MRoots) {
+      // ... recurse towards all exit nodes
+      exec_order_recompute(*Root);
+    }
+  };
+
+public:
+  /// Recomputes the submission/execution order then schedules all nodes.
+  /// @return A list of shared pointers to nodes in linear scheduling order.
+  std::list<std::shared_ptr<node_impl>> compute_schedule();
+  
   /// Insert node into list of root nodes.
   /// @param Root Node to add to list of root nodes.
   void add_root(const std::shared_ptr<node_impl> &Root);
@@ -343,16 +385,14 @@ public:
   /// @param GraphImpl Modifiable graph implementation to create with.
   exec_graph_impl(sycl::context Context,
                   const std::shared_ptr<graph_impl> &GraphImpl)
-      : MSchedule(), MGraphImpl(GraphImpl), MPiCommandBuffers(),
+      : MSchedule(GraphImpl->compute_schedule()),
+        MPiCommandBuffers(),
         MPiSyncPoints(), MContext(Context) {}
 
   /// Destructor.
   ///
   /// Releases any PI command-buffers the object has created.
   ~exec_graph_impl();
-
-  /// Add nodes to MSchedule.
-  void schedule();
 
   /// Called by handler::ext_oneapi_command_graph() to schedule graph for
   /// execution.
@@ -408,9 +448,6 @@ private:
 
   /// Execution schedule of nodes in the graph.
   std::list<std::shared_ptr<node_impl>> MSchedule;
-  /// Pointer to the modifiable graph impl associated with this executable
-  /// graph.
-  std::shared_ptr<graph_impl> MGraphImpl;
   /// Map of devices to command buffers.
   std::unordered_map<sycl::device, RT::PiExtCommandBuffer> MPiCommandBuffers;
   /// Map of nodes in the exec graph to the sync point representing their

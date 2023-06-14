@@ -73,14 +73,6 @@ bool check_for_requirement(sycl::detail::AccessorImplHost *Req,
 }
 } // anonymous namespace
 
-void exec_graph_impl::schedule() {
-  if (MSchedule.empty()) {
-    for (auto Node : MGraphImpl->MRoots) {
-      Node->topology_sort(Node, MSchedule);
-    }
-  }
-}
-
 std::shared_ptr<node_impl> graph_impl::add_subgraph_nodes(
     const std::list<std::shared_ptr<node_impl>> &NodeList) {
   // Find all input and output nodes from the node list
@@ -103,6 +95,15 @@ std::shared_ptr<node_impl> graph_impl::add_subgraph_nodes(
 
   return this->add(Outputs);
 }
+
+std::list<std::shared_ptr<node_impl>> graph_impl::compute_schedule() {
+  exec_order_recompute();
+  std::list<std::shared_ptr<node_impl>> Sched;
+  for (auto &Next : MExecOrder) {
+    Sched.push_back(Next.second);
+  }
+  return Sched;
+};
 
 void graph_impl::add_root(const std::shared_ptr<node_impl> &Root) {
   MRoots.insert(Root);
@@ -571,7 +572,6 @@ command_graph<graph_state::executable>::command_graph(
 
 void command_graph<graph_state::executable>::finalize_impl() {
   // Create PI command-buffers for each device in the finalized context
-  impl->schedule();
 
   auto Context = impl->get_context();
   for (auto Device : impl->get_context().get_devices()) {
