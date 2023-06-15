@@ -106,7 +106,7 @@ ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
   }
 
   // Release events added to the command_buffer
-  if (GetNextSyncPoint() > 0) {
+  if (SyncPoints.size()) {
     for (auto &sync : SyncPoints) {
       auto &Event = sync.second;
       CleanupCompletedEvent(Event, false);
