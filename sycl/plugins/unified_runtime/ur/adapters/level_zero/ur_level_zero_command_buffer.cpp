@@ -588,20 +588,6 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
     ur_exp_command_buffer_handle_t hCommandBuffer, ur_queue_handle_t hQueue,
     uint32_t numEventsInWaitList, const ur_event_handle_t *phEventWaitList,
     ur_event_handle_t *phEvent) {
-
-  // Submit dependent open command lists for execution, if any
-  for (uint32_t I = 0; I < numEventsInWaitList; I++) {
-    ur_event_handle_t_ *Event =
-        ur_cast<ur_event_handle_t_ *>(phEventWaitList[I]);
-    auto UrQueue = Event->UrQueue;
-    if (UrQueue) {
-      // Lock automatically releases when this goes out of scope.
-      std::scoped_lock<ur_shared_mutex> lock(UrQueue->Mutex);
-
-      UR_CALL(UrQueue->executeAllOpenCommandLists());
-    }
-  }
-
   UR_ASSERT(hCommandBuffer, UR_RESULT_ERROR_INVALID_COMMAND_BUFFER_EXP);
 
   std::scoped_lock<ur_shared_mutex> lock(hQueue->Mutex);
