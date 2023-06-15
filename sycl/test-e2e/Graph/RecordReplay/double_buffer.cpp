@@ -1,6 +1,7 @@
 // REQUIRES: level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
+// RUN: env ZE_DEBUG=4 %{run} %t.out
 
 // Expected fail as executable graph update not yet implemented
 // XFAIL: *
@@ -8,6 +9,8 @@
 // Tests whole graph update by creating a double buffering scenario, where a
 // single graph is repeatedly executed then updated to swap between two sets of
 // USM pointers.
+// The second run is to check that there are no leaks reported with the embedded
+// ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
 

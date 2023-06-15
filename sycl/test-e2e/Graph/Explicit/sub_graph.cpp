@@ -1,9 +1,12 @@
 // REQUIRES: level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
+// RUN: env ZE_DEBUG=4 %{run} %t.out
 
 // This test creates a graph, finalizes it, then submits that as a subgraph of
 // another graph using the explicit API, and executes that second graph.
+// The second run is to check that there are no leaks reported with the embedded
+// ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
 

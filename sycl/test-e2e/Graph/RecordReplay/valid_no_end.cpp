@@ -1,9 +1,12 @@
 // REQUIRES: level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
+// RUN: env ZE_DEBUG=4 %{run} %t.out
 
 // Tests obtaining a finalized, executable graph from a graph which is
 // currently being recorded to without end_recording() being called.
+// The second run is to check that there are no leaks reported with the embedded
+// ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
 

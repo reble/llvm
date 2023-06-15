@@ -1,12 +1,15 @@
 // REQUIRES: level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
+// RUN: env ZE_DEBUG=4 %{run} %t.out
 
 // Expected fail as reduction support is not complete.
 // XFAIL: *
 
 // Modified version of the dotp example which submits which contains a sycl
 // reduction as well as a sub-graph.
+// The second run is to check that there are no leaks reported with the embedded
+// ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
 

@@ -1,12 +1,15 @@
 // REQUIRES: level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
+// RUN: env ZE_DEBUG=4 %{run} %t.out
 
 // Expected fail as whole graph update not implemented yet
 // XFAIL: *
 
 // Tests executable graph update by creating two graphs with USM ptrs and
 // attempting to update one from the other.
+// The second run is to check that there are no leaks reported with the embedded
+// ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
 

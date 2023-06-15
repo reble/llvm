@@ -75,23 +75,51 @@ ur_exp_command_buffer_handle_t_::ur_exp_command_buffer_handle_t_(
     ZeStruct<ze_command_list_desc_t> ZeDesc,
     const ur_exp_command_buffer_desc_t *Desc)
     : Context(hContext), Device(hDevice), ZeCommandList(CommandList),
-      ZeCommandListDesc(ZeDesc), QueueProperties() {
+      ZeCommandListDesc(ZeDesc), QueueProperties(), SyncPoints(),
+      NextSyncPoint(0), CommandListMap() {
   hContext->RefCount.increment();
   // TODO: Do we actually need the queue properties? Removed from the UR feature
   // for now.
 }
 
+// The ur_exp_command_buffer_handle_t_ destructor release all the memory objects
+// allocated for command_buffer managment
 ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
+  // Release the memory allocated to the Contexr stored in the command_buffer
+  if (Context->RefCount.decrementAndTest())
+    ZE_CALL_NOCHECK(zeContextDestroy, (Context->ZeContext));
+
+  // Release the memory allocated to the CommandList stored in the
+  // command_buffer
   if (ZeCommandList) {
     ZE_CALL_NOCHECK(zeCommandListDestroy, (ZeCommandList));
   }
+
+  // Release additional signal and wait events used by command_buffer
   if (SignalEvent) {
-    SignalEvent->RefCount.decrementAndTest();
+    CleanupCompletedEvent(SignalEvent, false);
+    urEventReleaseInternal(SignalEvent);
   }
   if (WaitEvent) {
-    WaitEvent->RefCount.decrementAndTest();
+    CleanupCompletedEvent(WaitEvent, false);
+    urEventReleaseInternal(WaitEvent);
   }
-  Context->RefCount.decrementAndTest();
+
+  // Release events added to the command_buffer
+  if (GetNextSyncPoint() > 0) {
+    for (auto &sync : SyncPoints) {
+      auto &Event = sync.second;
+      CleanupCompletedEvent(Event, false);
+      urEventReleaseInternal(Event);
+    }
+  }
+
+  // Release Fences allocated to command_buffer
+  for (auto it = CommandListMap.begin(); it != CommandListMap.end(); ++it) {
+    if (it->second.ZeFence != nullptr) {
+      ZE_CALL_NOCHECK(zeFenceDestroy, (it->second.ZeFence));
+    }
+  }
 }
 
 /// Helper function for calculating work dimensions for kernels
@@ -236,7 +264,8 @@ static ur_result_t enqueueCommandBufferMemCopyHelper(
                                             SyncPointWaitList, ZeEventList);
 
   ur_event_handle_t LaunchEvent;
-  Res = EventCreate(hCommandBuffer->Context, nullptr, true, &LaunchEvent);
+  Res = EventCreateWithExplicitType(hCommandBuffer->Context, nullptr, true,
+                                    UR_COMMAND_MEM_BUFFER_COPY, &LaunchEvent);
   if (Res)
     return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -302,7 +331,9 @@ static ur_result_t enqueueCommandBufferMemCopyRectHelper(
                                             SyncPointWaitList, ZeEventList);
 
   ur_event_handle_t LaunchEvent;
-  Res = EventCreate(hCommandBuffer->Context, nullptr, true, &LaunchEvent);
+  Res = EventCreateWithExplicitType(hCommandBuffer->Context, nullptr, true,
+                                    UR_COMMAND_MEM_BUFFER_COPY_RECT,
+                                    &LaunchEvent);
   if (Res)
     return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -454,7 +485,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
     return Res;
   }
   ur_event_handle_t LaunchEvent;
-  Res = EventCreate(hCommandBuffer->Context, nullptr, true, &LaunchEvent);
+  Res = EventCreateWithExplicitType(hCommandBuffer->Context, nullptr, true,
+                                    UR_COMMAND_KERNEL_LAUNCH, &LaunchEvent);
   if (Res)
     return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -576,7 +608,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
   // required for executeCommandList though.
   ZeStruct<ze_command_queue_desc_t> ZeQueueDesc;
   ZeQueueDesc.ordinal = QueueGroupOrdinal;
-  std::tie(CommandListPtr, std::ignore) = hCommandBuffer->CommandListMap.insert(
+  CommandListPtr = hCommandBuffer->CommandListMap.insert(
       std::pair<ze_command_list_handle_t, pi_command_list_info_t>(
           hCommandBuffer->ZeCommandList,
           {ZeFence, false, false, ZeCommandQueue, ZeQueueDesc}));
@@ -598,6 +630,13 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
     if (auto Res = hQueue->Context->getAvailableCommandList(
             hQueue, WaitCommandList, false, false))
       return Res;
+
+    // Update the WaitList of the Wait Event
+    // Events are appended to the WaitList is the WaitList is not empty
+    if (hCommandBuffer->WaitEvent->WaitList.isEmpty())
+      hCommandBuffer->WaitEvent->WaitList = TmpWaitList;
+    else
+      hCommandBuffer->WaitEvent->WaitList.fusion(TmpWaitList);
 
     ZE2UR_CALL(zeCommandListAppendBarrier,
                (WaitCommandList->first, hCommandBuffer->WaitEvent->ZeEvent,

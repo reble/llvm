@@ -1,12 +1,15 @@
 // REQUIRES: level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
+// RUN: env ZE_DEBUG=4 %{run} %t.out
 
 // XFAIL: *
 // Subgraph doesn't work properly in second parent graph
 
 // Tests adding an executable graph object as a sub-graph of two different
 // parent graphs.
+// The second run is to check that there are no leaks reported with the embedded
+// ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
 

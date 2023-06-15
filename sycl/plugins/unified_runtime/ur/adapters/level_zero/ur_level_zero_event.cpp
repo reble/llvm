@@ -1001,6 +1001,75 @@ ur_result_t EventCreate(ur_context_handle_t Context, ur_queue_handle_t Queue,
   return UR_RESULT_SUCCESS;
 }
 
+// Helper function for creating a PI event with a specific EventType
+// The "Queue" argument specifies the PI queue where a command is submitted.
+// The "HostVisible" argument specifies if event needs to be allocated from
+// a host-visible pool.
+// The "EventType" argument specifies the event type that will be
+// associated to the created event.
+//
+ur_result_t EventCreateWithExplicitType(ur_context_handle_t Context,
+                                        ur_queue_handle_t Queue,
+                                        bool HostVisible,
+                                        ur_command_t EventType,
+                                        ur_event_handle_t *RetEvent) {
+  bool ProfilingEnabled =
+      !Queue || (Queue->Properties & UR_QUEUE_FLAG_PROFILING_ENABLE) != 0;
+
+  if (auto CachedEvent =
+          Context->getEventFromContextCache(HostVisible, ProfilingEnabled)) {
+    *RetEvent = CachedEvent;
+    // We set the required EventType into the Event recovered from ContextCache
+    (*RetEvent)->CommandType = EventType;
+    return UR_RESULT_SUCCESS;
+  }
+
+  ze_event_handle_t ZeEvent;
+  ze_event_pool_handle_t ZeEventPool = {};
+
+  size_t Index = 0;
+
+  if (auto Res = Context->getFreeSlotInExistingOrNewPool(
+          ZeEventPool, Index, HostVisible, ProfilingEnabled))
+    return Res;
+
+  ZeStruct<ze_event_desc_t> ZeEventDesc;
+  ZeEventDesc.index = Index;
+  ZeEventDesc.wait = 0;
+
+  if (HostVisible) {
+    ZeEventDesc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
+  } else {
+    //
+    // Set the scope to "device" for every event. This is sufficient for
+    // global device access and peer device access. If needed to be seen on
+    // the host we are doing special handling, see EventsScope options.
+    //
+    // TODO: see if "sub-device" (ZE_EVENT_SCOPE_FLAG_SUBDEVICE) can better be
+    //       used in some circumstances.
+    //
+    ZeEventDesc.signal = 0;
+  }
+
+  ZE2UR_CALL(zeEventCreate, (ZeEventPool, &ZeEventDesc, &ZeEvent));
+
+  try {
+    *RetEvent = new ur_event_handle_t_(
+        ZeEvent, ZeEventPool, reinterpret_cast<ur_context_handle_t>(Context),
+        EventType, true);
+  } catch (const std::bad_alloc &) {
+    return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
+  } catch (...) {
+    return UR_RESULT_ERROR_UNKNOWN;
+  }
+
+  if (HostVisible)
+    (*RetEvent)->HostVisibleEvent =
+        reinterpret_cast<ur_event_handle_t>(*RetEvent);
+
+  return UR_RESULT_SUCCESS;
+}
+
 ur_result_t ur_event_handle_t_::reset() {
   UrQueue = nullptr;
   CleanedUp = false;
