@@ -879,11 +879,10 @@ graphs during an update are:
   in the graph. It is these kernels arguments in `graph` that constitute the
   inputs & outputs to update to.
 
-* The code that is executed in host-task or device kernel nodes may be
-  different between graphs. However, the update will only reflect the new code
-  in `graph` host-tasks nodes, as it doesn't need device-side interaction. Any
-  changes to executable code in `graph` kernel nodes will be ignored by the
-  update.
+* The code that is executed in host-task nodes may be different between graphs,
+  and the update will reflect the code from `graph` host-tasks nodes. However,
+  any changes to executable code between kernel nodes is not counted as
+  topologically identical, and is an exception with error code `invalid`.
 
 The effects of the update will be visible on the next submission of the
 executable graph without the need for additional user synchronization.
