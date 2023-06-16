@@ -632,7 +632,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
       return Res;
 
     // Update the WaitList of the Wait Event
-    // Events are appended to the WaitList is the WaitList is not empty
+    // Events are appended to the WaitList if the WaitList is not empty
     if (hCommandBuffer->WaitEvent->WaitList.isEmpty())
       hCommandBuffer->WaitEvent->WaitList = TmpWaitList;
     else
