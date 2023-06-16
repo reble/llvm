@@ -871,6 +871,20 @@ same command, targeting the same device. There is the additional limitation that
 to update an executable graph, every node in the graph must be either a kernel
 command or a host-task.
 
+The only characteristics that can differ between two topologically identical
+graphs during an update are:
+
+* The arguments to kernel nodes may be different between graphs. For example,
+  the graph may capture different values for the USM pointers or accessors used
+  in the graph. It is these kernels arguments in `graph` that constitute the
+  inputs & outputs to update to.
+
+* The code that is executed in host-task or device kernel nodes may be
+  different between graphs. However, the update will only reflect the new code
+  in `graph` host-tasks nodes, as it doesn't need device-side interaction. Any
+  changes to executable code in `graph` kernel nodes will be ignored by the
+  update.
+
 The effects of the update will be visible on the next submission of the
 executable graph without the need for additional user synchronization.
 
