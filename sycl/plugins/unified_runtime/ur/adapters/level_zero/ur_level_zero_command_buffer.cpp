@@ -85,7 +85,7 @@ ur_exp_command_buffer_handle_t_::ur_exp_command_buffer_handle_t_(
 // The ur_exp_command_buffer_handle_t_ destructor release all the memory objects
 // allocated for command_buffer managment
 ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
-  // Release the memory allocated to the Contexr stored in the command_buffer
+  // Release the memory allocated to the Context stored in the command_buffer
   if (Context->RefCount.decrementAndTest())
     ZE_CALL_NOCHECK(zeContextDestroy, (Context->ZeContext));
 
