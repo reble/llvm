@@ -117,7 +117,7 @@ struct _ur_ze_event_list_t {
   // Note that new containers are allocated to contains the additional elements.
   // Elements are moved to the new containers.
   // other list can not be used after the call to this function.
-  ur_result_t insert(_ur_ze_event_list_t &other);
+  ur_result_t insert(_ur_ze_event_list_t &Other);
 
   bool isEmpty() const { return (this->ZeEventList == nullptr); }
 };
