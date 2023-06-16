@@ -1,7 +1,10 @@
 // REQUIRES: level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
-// RUN: env ZE_DEBUG=4 %{run} %t.out
+// RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
+//
+// CHECK-NOT: LEAK
+
 
 // Tests that buffer accessors exhibit the correct behaviour when:
 // * A node is added to the graph between two queue submissions which

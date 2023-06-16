@@ -85,10 +85,9 @@ ur_exp_command_buffer_handle_t_::ur_exp_command_buffer_handle_t_(
 // The ur_exp_command_buffer_handle_t_ destructor release all the memory objects
 // allocated for command_buffer managment
 ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
-  // Release the memory allocated to the Context stored in the command_buffer
-  if (Context->RefCount.decrementAndTest())
-    ZE_CALL_NOCHECK(zeContextDestroy, (Context->ZeContext));
-
+  // Release the memory allocated to the Contexr stored in the command_buffer
+  urContextRelease(Context);
+  
   // Release the memory allocated to the CommandList stored in the
   // command_buffer
   if (ZeCommandList) {
@@ -106,9 +105,9 @@ ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
   }
 
   // Release events added to the command_buffer
-  if (SyncPoints.size()) {
-    for (auto &sync : SyncPoints) {
-      auto &Event = sync.second;
+  if (GetNextSyncPoint() > 0) {
+    for (auto &Sync : SyncPoints) {
+      auto &Event = Sync.second;
       CleanupCompletedEvent(Event, false);
       urEventReleaseInternal(Event);
     }
@@ -264,8 +263,8 @@ static ur_result_t enqueueCommandBufferMemCopyHelper(
                                             SyncPointWaitList, ZeEventList);
 
   ur_event_handle_t LaunchEvent;
-  Res = EventCreateWithExplicitType(hCommandBuffer->Context, nullptr, true,
-                                    UR_COMMAND_MEM_BUFFER_COPY, &LaunchEvent);
+  Res = EventCreate(hCommandBuffer->Context, nullptr, true, &LaunchEvent);
+  LaunchEvent->CommandType = UR_COMMAND_MEM_BUFFER_COPY;
   if (Res)
     return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -331,9 +330,9 @@ static ur_result_t enqueueCommandBufferMemCopyRectHelper(
                                             SyncPointWaitList, ZeEventList);
 
   ur_event_handle_t LaunchEvent;
-  Res = EventCreateWithExplicitType(hCommandBuffer->Context, nullptr, true,
-                                    UR_COMMAND_MEM_BUFFER_COPY_RECT,
-                                    &LaunchEvent);
+  Res = EventCreate(hCommandBuffer->Context, nullptr, true, &LaunchEvent);
+  LaunchEvent->CommandType = UR_COMMAND_MEM_BUFFER_COPY_RECT;
+
   if (Res)
     return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -485,8 +484,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
     return Res;
   }
   ur_event_handle_t LaunchEvent;
-  Res = EventCreateWithExplicitType(hCommandBuffer->Context, nullptr, true,
-                                    UR_COMMAND_KERNEL_LAUNCH, &LaunchEvent);
+  Res = EventCreate(hCommandBuffer->Context, nullptr, true, &LaunchEvent);
+  LaunchEvent->CommandType = UR_COMMAND_KERNEL_LAUNCH;
   if (Res)
     return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -636,11 +635,12 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
     if (hCommandBuffer->WaitEvent->WaitList.isEmpty())
       hCommandBuffer->WaitEvent->WaitList = TmpWaitList;
     else
-      hCommandBuffer->WaitEvent->WaitList.fusion(TmpWaitList);
+      hCommandBuffer->WaitEvent->WaitList.insert(TmpWaitList);
 
     ZE2UR_CALL(zeCommandListAppendBarrier,
                (WaitCommandList->first, hCommandBuffer->WaitEvent->ZeEvent,
-                numEventsInWaitList, TmpWaitList.ZeEventList));
+                numEventsInWaitList,
+                hCommandBuffer->WaitEvent->WaitList.ZeEventList));
   } else {
     if (auto Res = hQueue->Context->getAvailableCommandList(
             hQueue, WaitCommandList, false, false))

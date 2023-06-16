@@ -3,7 +3,9 @@
 
 // RUN: %clangxx -pthread -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %{run} %t.out
-// RUN: env ZE_DEBUG=4 %{run} %t.out
+// RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
+//
+// CHECK-NOT: LEAK
 
 // Test recording commands to a queue in a threaded situation. We don't
 // submit the graph to verify the results as ordering of graph nodes isn't

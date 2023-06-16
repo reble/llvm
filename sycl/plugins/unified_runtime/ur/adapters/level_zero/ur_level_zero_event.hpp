@@ -29,11 +29,6 @@ extern "C" {
 ur_result_t urEventReleaseInternal(ur_event_handle_t Event);
 ur_result_t EventCreate(ur_context_handle_t Context, ur_queue_handle_t Queue,
                         bool HostVisible, ur_event_handle_t *RetEvent);
-ur_result_t EventCreateWithExplicitType(ur_context_handle_t Context,
-                                        ur_queue_handle_t Queue,
-                                        bool HostVisible,
-                                        ur_command_t EventType,
-                                        ur_event_handle_t *RetEvent);
 } // extern "C"
 
 // This is an experimental option that allows to disable caching of events in
@@ -120,41 +115,11 @@ struct _ur_ze_event_list_t {
   // This function allows to merge two _ur_ze_event_lists
   // The ur_ze_event_list "other" is added to the caller list.
   // Note that new containers are allocated to contains the additional elements.
-  void fusion(const _ur_ze_event_list_t &other) {
-    if (this != &other) {
-      // save of the previous object values
-      uint32_t preLength = this->Length;
-      ze_event_handle_t *preZeEventList = this->ZeEventList;
-      ur_event_handle_t *preUrEventList = this->UrEventList;
+  // Elements are moved to the new containers.
+  // other list can not be used after the call to this function.
+  ur_result_t insert(_ur_ze_event_list_t &other);
 
-      // allocate new memory
-      uint32_t Length = preLength + other.Length;
-      this->ZeEventList = new ze_event_handle_t[Length];
-      ;
-      this->UrEventList = new ur_event_handle_t[Length];
-
-      // copy elements
-      uint32_t TmpListLength = 0;
-      uint32_t I;
-      for (I = 0; I < preLength; I++) {
-        this->ZeEventList[TmpListLength] = preZeEventList[I];
-        this->UrEventList[TmpListLength] = preUrEventList[I];
-        TmpListLength += 1;
-      }
-      for (I = 0; I < other.Length; I++) {
-        this->ZeEventList[TmpListLength] = other.ZeEventList[I];
-        this->UrEventList[TmpListLength] = other.UrEventList[I];
-        TmpListLength += 1;
-      }
-      this->Length = TmpListLength;
-
-      // Free previous allocated memory
-      delete[] preZeEventList;
-      delete[] preUrEventList;
-    }
-  }
-
-  bool isEmpty() { return (this->ZeEventList == nullptr); }
+  bool isEmpty() const { return (this->ZeEventList == nullptr); }
 };
 
 void printZeEventList(const _ur_ze_event_list_t &PiZeEventList);

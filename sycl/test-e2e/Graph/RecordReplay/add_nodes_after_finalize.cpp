@@ -1,7 +1,9 @@
 // REQUIRES: level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
-// RUN: env ZE_DEBUG=4 %{run} %t.out
+// RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
+//
+// CHECK-NOT: LEAK
 
 // This test creates a graph, finalizes it, then continues to add new nodes to
 // the graph with the record & replay API before finalizing and executing the

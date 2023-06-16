@@ -3,7 +3,9 @@
 
 // RUN: %clangxx -pthread -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %{run} %t.out
-// RUN: env ZE_DEBUG=4 %{run} %t.out
+// RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
+//
+// CHECK-NOT: LEAK
 
 // Test finalizing and submitting a graph in a threaded situation.
 // The second run is to check that there are no leaks reported with the embedded
