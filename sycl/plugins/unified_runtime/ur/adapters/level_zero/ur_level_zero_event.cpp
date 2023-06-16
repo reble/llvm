@@ -1181,11 +1181,6 @@ ur_result_t _ur_ze_event_list_t::createAndRetainUrZeEventList(
   return UR_RESULT_SUCCESS;
 }
 
-// This function allows to merge two _ur_ze_event_lists
-// The ur_ze_event_list "other" is added to the caller list.
-// Note that new containers are allocated to contains the additional elements.
-// Elements are moved to the new containers.
-// "other" list can not be used after the call to this function.
 ur_result_t _ur_ze_event_list_t::insert(_ur_ze_event_list_t &Other) {
   if (this != &Other) {
     // save of the previous object values
@@ -1200,13 +1195,12 @@ ur_result_t _ur_ze_event_list_t::insert(_ur_ze_event_list_t &Other) {
 
     // copy elements
     uint32_t TmpListLength = 0;
-    uint32_t I;
-    for (I = 0; I < PreLength; I++) {
+    for (uint32_t I = 0; I < PreLength; I++) {
       this->ZeEventList[TmpListLength] = std::move(PreZeEventList[I]);
       this->UrEventList[TmpListLength] = std::move(PreUrEventList[I]);
       TmpListLength += 1;
     }
-    for (I = 0; I < Other.Length; I++) {
+    for (uint32_t I = 0; I < Other.Length; I++) {
       this->ZeEventList[TmpListLength] = std::move(Other.ZeEventList[I]);
       this->UrEventList[TmpListLength] = std::move(Other.UrEventList[I]);
       TmpListLength += 1;
