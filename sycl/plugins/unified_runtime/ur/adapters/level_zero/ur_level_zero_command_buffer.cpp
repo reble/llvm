@@ -637,7 +637,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
 
     ZE2UR_CALL(zeCommandListAppendBarrier,
                (WaitCommandList->first, hCommandBuffer->WaitEvent->ZeEvent,
-                numEventsInWaitList,
+                hCommandBuffer->WaitEvent->WaitList.Length,
                 hCommandBuffer->WaitEvent->WaitList.ZeEventList));
   } else {
     if (auto Res = hQueue->Context->getAvailableCommandList(
