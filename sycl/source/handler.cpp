@@ -389,20 +389,6 @@ event handler::finalize() {
       GraphImpl = QueueGraph;
     }
 
-    if (GraphImpl) {
-      auto EventImpl = std::make_shared<detail::event_impl>();
-
-      // Extract relevant data from the handler and pass to graph to create a
-      // new node representing this command group.
-      std::shared_ptr<ext::oneapi::experimental::detail::node_impl> NodeImpl =
-          GraphImpl->add(CGData.MEvents);
-
-      // Associate an event with this new node and return the event.
-      GraphImpl->add_event_for_node(EventImpl, NodeImpl);
-
-      return detail::createSyclObjFromImpl<event>(EventImpl);
-    }
-
     detail::EventImplPtr Event = std::make_shared<sycl::detail::event_impl>();
     MLastEvent = detail::createSyclObjFromImpl<event>(Event);
     return MLastEvent;
