@@ -54,7 +54,7 @@ int main() {
 #ifdef _MSC_VER
   check<handler, 560, 8>();
 #else
-  check<handler, 568, 8>();
+  check<handler, 624, 8>();
 #endif
   check<image<1>, 16, 8>();
   check<kernel, 16, 8>();
