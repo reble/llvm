@@ -105,3 +105,9 @@ sycl/test-e2e/KernelFusion @victor-eds @Naghasan @sommerlukas
 
 # Matrix tests
 sycl/test-e2e/Matrix @dkhaldi @YuriPlyakhin @yubingex007-a11y
+
+# SYCL-Graphs extensions
+sycl/include/sycl/ext/oneapi/experimental/graph.hpp @reble @julianmi @EwanC @Bensuo @mfrancepillois
+sycl/source/detail/graph_impl.cpp @reble @julianmi @EwanC @Bensuo @mfrancepillois
+sycl/source/detail/graph_impl.hpp @reble @julianmi @EwanC @Bensuo @mfrancepillois
+sycl/unittests/Extensions/CommandGraph.cpp @reble @julianmi @EwanC @Bensuo @mfrancepillois
