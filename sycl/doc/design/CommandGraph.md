@@ -60,7 +60,7 @@ represents. When a user adds a node to a graph using the explicit
 finalization the CG object from the handler is moved to the node.
 
 For creating a node in the graph using queue recording mode. When the
-`sycl::handler` from a queue submissions is finalized, if the queue the
+`sycl::handler` from a queue submission is finalized, if the queue the
 handler was created from is in the recording mode, then the command-group from
 finalization is added to the graph associated with the queue as a new node.
 
@@ -91,12 +91,12 @@ There is no extra support for Graph-specific USM allocations in the current
 proposal. Memory operations will be supported subsequently by the current
 implementation starting with `memcpy`.
 
-Buffers and accessors are supported in a command-graph. Following restrictions
+Buffers and accessors are supported in a command-graph. The following restrictions
 are required to adapt buffers and their lifetime to a lazy work execution model:
 
-- Lifetime of a buffer with host data will be extended by copying the underlying
+- The lifetime of a buffer with host data will be extended by copying the underlying
 data.
-- Host accessor on buffer that are used by a command-graph are prohibited.
+- Host accessors on buffers that are currently used by a command-graph are prohibited.
 - Copy-back behavior on destruction of a buffer is prohibited.
 
 ## Backend Implementation
@@ -156,7 +156,7 @@ after *CB*.
 ```mermaid
 flowchart TB
     subgraph L0 Command-list created on urCommandBufferEnqueueExp to execution before CB
-    id1[Barrier on EL than signals CB WaitEvent when completed]
+    id1[Barrier on EL that signals CB WaitEvent when completed]
     end
     subgraph L0 Command-list created on urCommandBufferEnqueueExp to execution after CB
     id2[Barrier on CB SignalEvent that signals RE when completed]
