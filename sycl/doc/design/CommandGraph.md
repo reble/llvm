@@ -57,26 +57,48 @@ share a common infrastructure.
 
 ## Nodes & Edges
 
-Nodes are represented by an internal `detail::node_impl` class which
-stores a `sycl::detail::CG` object for the command-group that the node
-represents. When a user adds a node to a graph using the explicit
-`command_graph<modifiable>::add()` API passing a CGF, in the implementation a
-`sycl::handler` object is created which finalizes the CGF, and after
-finalization the CG object from the handler is moved to the node.
+A node in a graph is a SYCL [command-group](https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#command-group)
+(CG) that is defined by a [command-group function](https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#command-group-function-object)
+(CGF).
+
+Internally, a node is represented by the `detail::node_impl` class, and a command-group
+by the `sycl::detail::CG` class. An instance of `detail::node_impl` stores a
+`sycl::detail::CG` object for the command-group that the node represents.
+
+A [command-group handler](https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#handler)
+lets the user define the operations that are to be performed in the command-group,
+e.g kernel execution, memory copy, host-task. In DPC++ an internal "finalization"
+operation is done inside the `sycl::handler` implementation, which constructs a
+CG object of a specific type. During normal operation, `handler::finalize()`
+then passes the CG object to the scheduler, and a `sycl::event` object
+representing the command-group is returned.
+
+However during graph construction, inside `hander::finalize()` we prevent the
+CG object from being submitted for execution as normal, and store CG in the
+graph as a new node instead.
+
+When a user adds a node to a graph using the explicit
+`command_graph<modifiable>::add()` API passing a CGF, in our graph runtime
+implementation a `sycl::handler` object is constructed with a graph parameter
+telling it to not submit the CG object to the scheduler on finalization.
+This handler finalizes the CGF, and after finalization the CG object from the
+handler is moved to the node.
 
 For creating a node in the graph using queue recording mode. When the
 `sycl::handler` from a queue submission is finalized, if the queue the
-handler was created from is in the recording mode, then the command-group from
-finalization is added to the graph associated with the queue as a new node.
+handler was created from is in the recording mode, then the handler knows
+not to submit the CG object to the scheduler. Instead, the CG object is
+added to the graph associated with the queue as a new node.
 
 Edges are stored in each node as lists of predecessor and successor nodes.
 
-## Sorting
+## Execution Order
 
 The current way graph nodes are linearized into execution order is using a
-reversed depth-first algorithm. Alternative algorithms, such as breadth-first,
-are possible and may give better performance on certain workloads/hardware. We
-are looking into giving the user control of this implementation detail.
+reversed depth-first sorting algorithm. Alternative algorithms, such as
+breadth-first, are possible and may give better performance on certain
+workloads/hardware. We are looking into giving the user control of this
+implementation detail.
 
 ## Scheduler Integration
 
@@ -88,7 +110,8 @@ command-buffer for the executable graph needs to be enqueued by the scheduler.
 When individual graph nodes have requirements from SYCL accessors, the
 underlying `sycl::detail::CG` object stored in the node is copied and passed to
 the scheduler for adding to the UR command-buffer, otherwise the node can
-be appended directly as a command in the UR command-buffer.
+be appended directly as a command in the UR command-buffer. This is in-keeping
+with the existing behaviour of the handler with normal queue submissions.
 
 ## Memory handling: Buffer and Accessor
 
@@ -108,6 +131,9 @@ data.
 
 Implementation of [UR command-buffers](#UR-command-buffer-experimental-feature)
 for each of the supported SYCL 2020 backends.
+
+This is currently only Level Zero but more sub-sections will be added here as
+we implement other backends.
 
 ### Level Zero
 
@@ -153,10 +179,12 @@ flowchart TB
 ```
 
 For a call to `urCommandBufferEnqueueExp` with an `event_list` *EL*,
-command-buffer *CB*, and return event *RE* our implementation has to create and
-submit two new command-lists for the above approach to work. One before
+command-buffer *CB*, and return event *RE* our implementation has to submit two
+new command-lists for the above approach to work. One before
 the command-list with extra commands associated with *CB*, and the other
-after *CB*.
+after *CB*. These two new command-lists are retrieved from the UR queue, which
+will likely reuse existing command-lists and only create a new one in the worst
+case.
 
 ```mermaid
 flowchart TB
