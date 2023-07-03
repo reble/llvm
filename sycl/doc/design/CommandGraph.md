@@ -195,3 +195,23 @@ flowchart TB
     id2[Barrier on CB SignalEvent that signals RE when completed]
     end
 ```
+
+#### Drawbacks
+
+There are two drawbacks of this approach to implementing UR command-buffers for
+Level Zero:
+
+1. We use 3x the command-list resources, if there are many UR command-buffers in
+   flight, this may exhaust L0 driver resources. A trivial graph requires 3 L0
+   command-lists and if we implement partitioning a graph into multiple UR
+   command-buffers, then each partition will be 3 L0 command-lists.
+
+2. Each L0 command-list is submitted individually with a
+   `ur_queue_handle_t_::executeCommandList` call which introduces serialization
+   in the submission pipeline that is heavier than having a barrier or a
+   `waitForEvents` on the same command-list. Resulting in additional latency when
+   executing a UR command-buffer.
+
+We are consulting with L0 API owners about these problems and how the L0 API
+could be modified to achieve a 1:1 mapping of UR command-buffer to L0
+command-list.
