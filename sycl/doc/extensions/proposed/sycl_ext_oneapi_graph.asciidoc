@@ -851,6 +851,8 @@ Exceptions:
 
 |===
 
+:sycl-kernel-function: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#sycl-kernel-function
+
 Table {counter: tableNumber}. Member functions of the `command_graph` class (executable graph update).
 [cols="2a,a"]
 |===
@@ -863,7 +865,6 @@ void
 update(const command_graph<graph_state::modifiable>& graph);
 ----
 
-:sycl-kernel-function: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#sycl-kernel-function
 
 |Updates the executable graph node inputs & outputs from a topologically
 identical modifiable graph. A topologically identical graph is one with the
@@ -882,7 +883,7 @@ inputs & outputs to update to.
 Differences in the following characteristics between two graphs during an
 update results in undefined behaviour:
 
-* Modifying the native C++ callable of a host_task node.
+* Modifying the native C++ callable of a `host_task` node.
 * Modifying the {sycl-kernel-function}[kernel function] of a kernel node.
 
 The effects of the update will be visible on the next submission of the
