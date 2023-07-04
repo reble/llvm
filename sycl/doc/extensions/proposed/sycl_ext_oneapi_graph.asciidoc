@@ -881,9 +881,9 @@ in the graph. It is these kernels arguments in `graph` that constitute the
 inputs & outputs to update to.
 
 Differences in the following characteristics between two graphs during an
-update results in undefined behaviour:
+update results in undefined behavior:
 
-* Modifying the native C++ callable of a `host_task` node.
+* Modifying the native C++ callable of a `host-task` node.
 * Modifying the {sycl-kernel-function}[kernel function] of a kernel node.
 
 The effects of the update will be visible on the next submission of the
