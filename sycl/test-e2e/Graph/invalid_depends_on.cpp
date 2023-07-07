@@ -29,40 +29,51 @@ int main() {
 
   // Test that depends_on in explicit and record and replay throws from an event
   // outside any graph.
+
+  std::error_code ErrorCode = make_error_code(sycl::errc::success);
   try {
     auto GraphEvent = Queue.submit([&](handler &CGH) {
       CGH.depends_on(NormalEvent);
       CGH.single_task<class TestKernel3>([=]() {});
     });
   } catch (const sycl::exception &e) {
-    assert(e.code() == sycl::errc::invalid);
+    ErrorCode = e.code();
   }
+  assert(ErrorCode == sycl::errc::invalid);
+
+  ErrorCode = make_error_code(sycl::errc::success);
   try {
     Graph.add([&](handler &CGH) {
       CGH.depends_on(NormalEvent);
       CGH.single_task<class TestKernel4>([=]() {});
     });
   } catch (const sycl::exception &e) {
-    assert(e.code() == sycl::errc::invalid);
+    ErrorCode = e.code();
   }
+  assert(ErrorCode == sycl::errc::invalid);
 
   // Test that depends_on throws from an event from another graph.
+  ErrorCode = make_error_code(sycl::errc::success);
   try {
     auto GraphEvent = Queue.submit([&](handler &CGH) {
       CGH.depends_on(OtherGraphEvent);
       CGH.single_task<class TestKernel5>([=]() {});
     });
   } catch (const sycl::exception &e) {
-    assert(e.code() == sycl::errc::invalid);
+    ErrorCode = e.code();
   }
+  assert(ErrorCode == sycl::errc::invalid);
+
+  ErrorCode = make_error_code(sycl::errc::success);
   try {
     Graph.add([&](handler &CGH) {
       CGH.depends_on(OtherGraphEvent);
       CGH.single_task<class TestKernel6>([=]() {});
     });
   } catch (const sycl::exception &e) {
-    assert(e.code() == sycl::errc::invalid);
+    ErrorCode = e.code();
   }
+  assert(ErrorCode == sycl::errc::invalid);
 
   return 0;
 }

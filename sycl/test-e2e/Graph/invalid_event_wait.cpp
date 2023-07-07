@@ -19,11 +19,13 @@ int main() {
 
   Graph.end_recording(Queue);
 
+  std::error_code ErrorCode = make_error_code(sycl::errc::success);
   try {
     GraphEvent.wait();
   } catch (const sycl::exception &e) {
-    assert(e.code() == sycl::errc::invalid);
+    ErrorCode = e.code();
   }
+  assert(ErrorCode == sycl::errc::invalid);
 
   return 0;
 }

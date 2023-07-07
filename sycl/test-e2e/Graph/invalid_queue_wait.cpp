@@ -13,11 +13,14 @@ int main() {
                                                  Queue.get_device()};
   Graph.begin_recording(Queue);
 
+  std::error_code ErrorCode = make_error_code(sycl::errc::success);
+
   try {
     Queue.wait();
   } catch (const sycl::exception &e) {
-    assert(e.code() == sycl::errc::invalid);
+    ErrorCode = e.code();
   }
+  assert(ErrorCode == sycl::errc::invalid);
 
   return 0;
 }
