@@ -19,7 +19,7 @@
 
 == Notice
 
-Copyright (c) 2022 Intel Corporation.  All rights reserved.
+Copyright (c) 2022-2023 Intel Corporation.  All rights reserved.
 
 NOTE: Khronos(R) is a registered trademark and SYCL(TM) and SPIR(TM) are
 trademarks of The Khronos Group Inc. OpenCL(TM) is a trademark of Apple Inc.
@@ -874,7 +874,7 @@ same command, targeting the same device. There is the additional limitation that
 to update an executable graph, every node in the graph must be either a kernel
 command or a host task.
 
-The only characteristics that can differ between two topologically identical
+The only characteristic that can differ between two topologically identical
 graphs during an update are the arguments to kernel nodes. For example,
 the graph may capture different values for the USM pointers or accessors used
 in the graph. It is these kernels arguments in `graph` that constitute the
