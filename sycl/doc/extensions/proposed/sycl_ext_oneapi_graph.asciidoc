@@ -40,6 +40,7 @@ John Pennycook, Intel +
 Guo Yejun, Intel +
 Dan Holmes, Intel +
 Greg Lueck, Intel +
+Steffen Larsen, Intel +
 Ewan Crawford, Codeplay +
 Ben Tracy, Codeplay +
 Duncan McBain, Codeplay +
