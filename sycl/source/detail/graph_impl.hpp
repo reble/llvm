@@ -358,10 +358,10 @@ public:
   sycl::event enqueue(const std::shared_ptr<sycl::detail::queue_impl> &Queue,
                       sycl::detail::CG::StorageInitHelper CGData);
 
-  /// Turns the internal graph representation into UR command-buffers for a
+  /// Turns the internal graph representation into command-buffers for a
   /// device.
   /// @param Device Device to create backend command-buffers for.
-  void createURCommandBuffers(sycl::device Device);
+  void createCommandBuffers(sycl::device Device);
 
   /// Query for the context tied to this graph.
   /// @return Context associated with graph.
