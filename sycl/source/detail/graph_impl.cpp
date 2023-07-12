@@ -294,7 +294,7 @@ sycl::detail::pi::PiExtSyncPoint exec_graph_impl::enqueueNode(
 
   return Event->getSyncPoint();
 }
-void exec_graph_impl::createURCommandBuffers(sycl::device Device) {
+void exec_graph_impl::createCommandBuffers(sycl::device Device) {
   // TODO we only have a single command-buffer per graph here, but
   // this will need to be multiple command-buffers for non-trivial graphs
   sycl::detail::pi::PiExtCommandBuffer OutCommandBuffer;
@@ -598,7 +598,7 @@ void executable_command_graph::finalizeImpl() {
 #endif
 
     if (CmdBufSupport) {
-      impl->createURCommandBuffers(Device);
+      impl->createCommandBuffers(Device);
     }
   }
 }
