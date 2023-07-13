@@ -592,3 +592,65 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyLast) {
   ASSERT_EQ(*ScheduleIt, PtrNode2);
   ASSERT_EQ(InOrderQueue.get_context(), GraphExecImpl->getContext());
 }
+
+TEST_F(CommandGraphTest, MakeEdgeErrors) {
+  // Set up some nodes in the graph
+  auto NodeA = Graph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+  auto NodeB = Graph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+
+  // Test error on calling make_edge when a queue is recording to the graph
+  Graph.begin_recording(Queue);
+  ASSERT_THROW(
+      {
+        try {
+          Graph.make_edge(NodeA, NodeB);
+        } catch (const sycl::exception &e) {
+          ASSERT_EQ(e.code(), make_error_code(sycl::errc::invalid));
+          throw;
+        }
+      },
+      sycl::exception);
+
+  Graph.end_recording(Queue);
+
+  // Test error on Src and Dest being the same
+  ASSERT_THROW(
+      {
+        try {
+          Graph.make_edge(NodeA, NodeA);
+        } catch (const sycl::exception &e) {
+          ASSERT_EQ(e.code(), make_error_code(sycl::errc::invalid));
+          throw;
+        }
+      },
+      sycl::exception);
+
+  // Test Src or Dest not being found in the graph
+  experimental::command_graph<experimental::graph_state::modifiable> GraphOther{
+      Queue.get_context(), Queue.get_device()};
+  auto NodeOther = GraphOther.add(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+
+  ASSERT_THROW(
+      {
+        try {
+          Graph.make_edge(NodeA, NodeOther);
+        } catch (const sycl::exception &e) {
+          ASSERT_EQ(e.code(), make_error_code(sycl::errc::invalid));
+          throw;
+        }
+      },
+      sycl::exception);
+  ASSERT_THROW(
+      {
+        try {
+          Graph.make_edge(NodeOther, NodeB);
+        } catch (const sycl::exception &e) {
+          ASSERT_EQ(e.code(), make_error_code(sycl::errc::invalid));
+          throw;
+        }
+      },
+      sycl::exception);
+}

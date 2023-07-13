@@ -17,6 +17,7 @@
 #include <detail/kernel_impl.hpp>
 
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <list>
 #include <set>
@@ -42,6 +43,9 @@ public:
   sycl::detail::CG::CGTYPE MCGType = sycl::detail::CG::None;
   /// Command group object which stores all args etc needed to enqueue the node
   std::unique_ptr<sycl::detail::CG> MCommandGroup;
+
+  /// Used for tracking visited status during cycle checks.
+  bool MVisited = false;
 
   /// Add successor to the node.
   /// @param Node Node to add as a successor.
@@ -331,9 +335,14 @@ public:
   /// Constructor.
   /// @param SyclContext Context to use for graph.
   /// @param SyclDevice Device to create nodes with.
-  graph_impl(const sycl::context &SyclContext, const sycl::device &SyclDevice)
+  graph_impl(const sycl::context &SyclContext, const sycl::device &SyclDevice,
+             const sycl::property_list &PropList = {})
       : MContext(SyclContext), MDevice(SyclDevice), MRecordingQueues(),
-        MEventsMap(), MInorderQueueMap() {}
+        MEventsMap(), MInorderQueueMap() {
+    if (PropList.has_property<property::graph::no_cycle_check>()) {
+      MSkipCycleChecks = true;
+    }
+  }
 
   /// Insert node into list of root nodes.
   /// @param Root Node to add to list of root nodes.
@@ -557,8 +566,32 @@ public:
 
     return true;
   }
+  /// Make an edge between two nodes in the graph. Performs some mandatory
+  /// error checks as well as an optional check for cycles introduced by making
+  /// this edge.
+  /// @param Src The source of the new edge.
+  /// @param Dest The destination of the new edge.
+  void makeEdge(std::shared_ptr<node_impl> Src,
+                std::shared_ptr<node_impl> Dest);
 
 private:
+  /// Iterate over the graph depth-first and run \p NodeFunc on each node.
+  /// @param NodeFunc A function which receives as input a node in the graph to
+  /// perform operations on as well as the stack of nodes encountered in the
+  /// current path. The return value of this function determines whether an
+  /// early exit is triggered, if true the depth-first search will end
+  /// immediately and no further nodes will be visited.
+  void
+  searchDepthFirst(std::function<bool(std::shared_ptr<node_impl> &,
+                                      std::deque<std::shared_ptr<node_impl>> &)>
+                       NodeFunc);
+
+  /// Check the graph for cycles by performing a depth-first search of the
+  /// graph. If a node is visited more than once in a given path through the
+  /// graph, a cycle is present and the search ends immediately.
+  /// @return True if a cycle is detected, false if not.
+  bool checkForCycles();
+
   /// Context associated with this graph.
   sycl::context MContext;
   /// Device associated with this graph. All graph nodes will execute on this
@@ -576,6 +609,9 @@ private:
   std::map<std::weak_ptr<sycl::detail::queue_impl>, std::shared_ptr<node_impl>,
            std::owner_less<std::weak_ptr<sycl::detail::queue_impl>>>
       MInorderQueueMap;
+  /// Controls whether we skip the cycle checks in makeEdge, set by the presence
+  /// of the no_cycle_check property on construction.
+  bool MSkipCycleChecks = false;
 };
 
 /// Class representing the implementation of command_graph<executable>.
