@@ -67,7 +67,7 @@ by the `sycl::detail::CG` class. An instance of `detail::node_impl` stores a
 
 A [command-group handler](https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#handler)
 lets the user define the operations that are to be performed in the command-group,
-e.g kernel execution, memory copy, host-task. In DPC++ an internal "finalization"
+e.g. kernel execution, memory copy, host-task. In DPC++ an internal "finalization"
 operation is done inside the `sycl::handler` implementation, which constructs a
 CG object of a specific type. During normal operation, `handler::finalize()`
 then passes the CG object to the scheduler, and a `sycl::event` object
@@ -212,6 +212,5 @@ Level Zero:
    `waitForEvents` on the same command-list. Resulting in additional latency when
    executing a UR command-buffer.
 
-We are consulting with L0 API owners about these problems and how the L0 API
-could be modified to achieve a 1:1 mapping of UR command-buffer to L0
-command-list.
+Future work will include exploring L0 API extensions to improve the mapping of
+UR command-buffer to L0 command-list.
