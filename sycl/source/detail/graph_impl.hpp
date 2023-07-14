@@ -55,6 +55,10 @@ public:
   /// use a raw \p this pointer, so the extra \Prev parameter is passed.
   void registerSuccessor(const std::shared_ptr<node_impl> &Node,
                          const std::shared_ptr<node_impl> &Prev) {
+    if (std::find(MSuccessors.begin(), MSuccessors.end(), Node) !=
+        MSuccessors.end()) {
+      return;
+    }
     MSuccessors.push_back(Node);
     Node->registerPredecessor(Prev);
   }
@@ -62,6 +66,12 @@ public:
   /// Add predecessor to the node.
   /// @param Node Node to add as a predecessor.
   void registerPredecessor(const std::shared_ptr<node_impl> &Node) {
+    if (std::find_if(MPredecessors.begin(), MPredecessors.end(),
+                     [&Node](const std::weak_ptr<node_impl> &Ptr) {
+                       return Ptr.lock() == Node;
+                     }) != MPredecessors.end()) {
+      return;
+    }
     MPredecessors.push_back(Node);
   }
 
