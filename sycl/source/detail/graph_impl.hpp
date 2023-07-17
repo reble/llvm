@@ -345,6 +345,7 @@ public:
   /// Constructor.
   /// @param SyclContext Context to use for graph.
   /// @param SyclDevice Device to create nodes with.
+  /// @param PropList Optional list of properties.
   graph_impl(const sycl::context &SyclContext, const sycl::device &SyclDevice,
              const sycl::property_list &PropList = {})
       : MContext(SyclContext), MDevice(SyclDevice), MRecordingQueues(),

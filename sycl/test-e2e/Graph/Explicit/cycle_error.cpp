@@ -6,7 +6,7 @@
 // property::graph::no_cycle_check is not passed to the graph constructor and
 // will not throw when it is.
 
-#include "graph_common.hpp"
+#include "../graph_common.hpp"
 
 void CreateGraphWithCyclesTest(bool DisableCycleChecks) {
 

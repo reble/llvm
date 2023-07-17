@@ -73,6 +73,40 @@ bool checkForRequirement(sycl::detail::AccessorImplHost *Req,
   }
   return SuccessorAddedDep;
 }
+
+/// Visits a node on the graph and it's successors recursively in a depth-first
+/// approach.
+/// @param[in] Node The current node being visited.
+/// @param[in,out] VisitedNodes A set of unique nodes which have already been
+/// visited.
+/// @param[in] NodeStack Stack of nodes which are currently being visited on the
+/// current path through the graph.
+/// @param[in] NodeFunc The function object to be run on each node. A return
+/// value of true indicates the search should be ended immediately and the
+/// function will return.
+/// @return True if the search should end immediately, false if not.
+bool visitNodeDepthFirst(
+    std::shared_ptr<node_impl> Node,
+    std::set<std::shared_ptr<node_impl>> &VisitedNodes,
+    std::deque<std::shared_ptr<node_impl>> &NodeStack,
+    std::function<bool(std::shared_ptr<node_impl> &,
+                       std::deque<std::shared_ptr<node_impl>> &)>
+        NodeFunc) {
+  auto EarlyReturn = NodeFunc(Node, NodeStack);
+  if (EarlyReturn) {
+    return true;
+  }
+  NodeStack.push_back(Node);
+  Node->MVisited = true;
+  VisitedNodes.emplace(Node);
+  for (auto &Successor : Node->MSuccessors) {
+    if (visitNodeDepthFirst(Successor, VisitedNodes, NodeStack, NodeFunc)) {
+      return true;
+    }
+  }
+  NodeStack.pop_back();
+  return false;
+}
 } // anonymous namespace
 
 void exec_graph_impl::schedule() {
@@ -228,39 +262,6 @@ bool graph_impl::clearQueues() {
   return AnyQueuesCleared;
 }
 
-/// Visits a node on the graph and it's successors recursively in a depth-first
-/// approach.
-/// @param Node The current node being visited.
-/// @param VisitedNodes A set of unique nodes which have already been visited.
-/// @param NodeStack Stack of nodes which are currently being visited on the
-/// current path through the graph.
-/// @param NodeFunc The function object to be run on each node. A return value
-/// of true indicates the search should be ended immediately and the function
-/// will return.
-/// @return True if the search should end immediately, false if not.
-bool visitNodeDepthFirst(
-    std::shared_ptr<node_impl> Node,
-    std::set<std::shared_ptr<node_impl>> &VisitedNodes,
-    std::deque<std::shared_ptr<node_impl>> &NodeStack,
-    std::function<bool(std::shared_ptr<node_impl> &,
-                       std::deque<std::shared_ptr<node_impl>> &)>
-        NodeFunc) {
-  auto EarlyReturn = NodeFunc(Node, NodeStack);
-  if (EarlyReturn) {
-    return true;
-  }
-  NodeStack.push_back(Node);
-  Node->MVisited = true;
-  VisitedNodes.emplace(Node);
-  for (auto &Successor : Node->MSuccessors) {
-    if (visitNodeDepthFirst(Successor, VisitedNodes, NodeStack, NodeFunc)) {
-      return true;
-    }
-  }
-  NodeStack.pop_back();
-  return false;
-}
-
 void graph_impl::searchDepthFirst(
     std::function<bool(std::shared_ptr<node_impl> &,
                        std::deque<std::shared_ptr<node_impl>> &)>
@@ -337,8 +338,7 @@ void graph_impl::makeEdge(std::shared_ptr<node_impl> Src,
   }
 
   // We need to add the edges first before checking for cycles
-  Src->registerSuccessor(Dest,
-                         Src); // register successor
+  Src->registerSuccessor(Dest, Src);
 
   if (!MSkipCycleChecks) {
     bool CycleFound = checkForCycles();
