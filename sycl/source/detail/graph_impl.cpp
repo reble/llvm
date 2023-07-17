@@ -266,6 +266,9 @@ void graph_impl::searchDepthFirst(
     std::function<bool(std::shared_ptr<node_impl> &,
                        std::deque<std::shared_ptr<node_impl>> &)>
         NodeFunc) {
+  // Track nodes visited during the search which can be used by NodeFunc in
+  // depth first search queries. Currently unusued but is an
+  // integral part of depth first searches.
   std::set<std::shared_ptr<node_impl>> VisitedNodes;
 
   for (auto &Root : MRoots) {
