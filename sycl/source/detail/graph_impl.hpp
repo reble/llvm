@@ -220,9 +220,6 @@ public:
     case sycl::detail::CG::CGTYPE::AdviseUSM:
       Stream << "CGAdviseUSM \\n";
       break;
-    case sycl::detail::CG::CGTYPE::CodeplayInteropTask:
-      Stream << "CGInteropTask \\n";
-      break;
     case sycl::detail::CG::CGTYPE::CodeplayHostTask:
       Stream << "CGHostTask \\n";
       break;

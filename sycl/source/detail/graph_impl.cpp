@@ -343,7 +343,10 @@ void graph_impl::makeEdge(std::shared_ptr<node_impl> Src,
   // We need to add the edges first before checking for cycles
   Src->registerSuccessor(Dest, Src);
 
-  if (!MSkipCycleChecks) {
+  // We can skip cycle checks if either Dest has no successors (cycle not
+  // possible) or cycle checks have been disabled with the no_cycle_check
+  // property;
+  if (Dest->MSuccessors.empty() || !MSkipCycleChecks) {
     bool CycleFound = checkForCycles();
 
     if (CycleFound) {
