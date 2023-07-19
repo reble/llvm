@@ -1,7 +1,7 @@
 # Command-Graph Extension
 
 This document describes the implementation design of the
-[SYCL Graph Extension](https://github.com/intel/llvm/pull/5626).
+[SYCL Graph Extension](../extensions/proposed/sycl_ext_oneapi_graph.asciidoc).
 
 A related presentation can be found
 [here](https://www.youtube.com/watch?v=aOTAmyr04rM).
