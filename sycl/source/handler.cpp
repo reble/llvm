@@ -367,10 +367,8 @@ event handler::finalize() {
     // If we have a subgraph node we don't want to actually execute this command
     // graph submission.
     if (!MSubgraphNode) {
-      MExecGraph->MMutex.lock();
       event GraphCompletionEvent =
           MExecGraph->enqueue(MQueue, std::move(CGData));
-      MExecGraph->MMutex.unlock();
       MLastEvent = GraphCompletionEvent;
       return MLastEvent;
     }
@@ -417,7 +415,8 @@ event handler::finalize() {
 
     // GraphImpl is read and written in this scope so we lock this graph
     // with full priviledges.
-    GraphImpl->MMutex.lock();
+    ext::oneapi::experimental::detail::graph_impl::WriteLock Lock(
+        GraphImpl->MMutex);
 
     // Create a new node in the graph representing this command-group
     if (MQueue->isInOrder()) {
@@ -444,7 +443,6 @@ event handler::finalize() {
 
     EventImpl->setCommandGraph(GraphImpl);
 
-    GraphImpl->MMutex.unlock();
     return detail::createSyclObjFromImpl<event>(EventImpl);
   }
 
@@ -1055,7 +1053,8 @@ void handler::ext_oneapi_graph(
   MCGType = detail::CG::ExecCommandBuffer;
   auto GraphImpl = detail::getSyclObjImpl(Graph);
   // GraphImpl is only read in this scope so we lock this graph for read only
-  GraphImpl->MMutex.lock_shared();
+  ext::oneapi::experimental::detail::graph_impl::ReadLock Lock(
+      GraphImpl->MMutex);
 
   std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> ParentGraph;
   if (MQueue) {
@@ -1064,14 +1063,17 @@ void handler::ext_oneapi_graph(
     ParentGraph = MGraph;
   }
 
+  ext::oneapi::experimental::detail::graph_impl::WriteLock ParentLock;
   // If a parent graph is set that means we are adding or recording a subgraph
   if (ParentGraph) {
     // ParentGraph is read and written in this scope so we lock this graph
     // with full priviledges.
     // We only lock for Record&Replay API because the graph has already been
     // lock if this function was called from teh explicit API function add
-    if (MQueue)
-      ParentGraph->MMutex.lock();
+    if (MQueue) {
+      ParentLock = ext::oneapi::experimental::detail::graph_impl::WriteLock(
+          ParentGraph->MMutex);
+    }
     // Store the node representing the subgraph in the handler so that we can
     // return it to the user later.
     MSubgraphNode = ParentGraph->addSubgraphNodes(GraphImpl->getSchedule());
@@ -1085,13 +1087,10 @@ void handler::ext_oneapi_graph(
     auto SubgraphEvent = std::make_shared<event_impl>();
     SubgraphEvent->setCommandGraph(ParentGraph);
     ParentGraph->addEventForNode(SubgraphEvent, MSubgraphNode);
-    if (MQueue)
-      ParentGraph->MMutex.unlock();
   } else {
     // Set the exec graph for execution during finalize.
     MExecGraph = GraphImpl;
   }
-  GraphImpl->MMutex.unlock_shared();
 }
 
 std::shared_ptr<ext::oneapi::experimental::detail::graph_impl>

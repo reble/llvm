@@ -9,6 +9,7 @@
 #include "sycl/ext/oneapi/experimental/graph.hpp"
 #include <sycl/sycl.hpp>
 
+#include "../thread_safety/ThreadUtils.h"
 #include "detail/graph_impl.hpp"
 
 #include <detail/config.hpp>
@@ -290,8 +291,61 @@ void addMemcpy2D(experimental::detail::modifiable_command_graph &G, queue &Q,
   }
   ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
 }
+  
+bool depthSearchSuccessorCheck(
+    std::shared_ptr<sycl::ext::oneapi::experimental::detail::node_impl> Node) {
+  if (Node->MSuccessors.size() > 1)
+    return false;
 
-} // namespace
+  for (const auto &Succ : Node->MSuccessors) {
+    return Succ->depthSearchCount();
+  }
+  return true;
+}
+
+void runKernels(queue Q) {
+  auto NodeA = Q.submit(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+  auto NodeB = Q.submit([&](sycl::handler &cgh) {
+    cgh.depends_on(NodeA);
+    cgh.single_task<class TestKernel>([]() {});
+  });
+  auto NodeC = Q.submit([&](sycl::handler &cgh) {
+    cgh.depends_on(NodeA);
+    cgh.single_task<class TestKernel>([]() {});
+  });
+  auto NodeD = Q.submit([&](sycl::handler &cgh) {
+    cgh.depends_on({NodeB, NodeC});
+    cgh.single_task<class TestKernel>([]() {});
+  });
+}
+
+void runKernelsInOrder(queue Q) {
+  auto NodeA = Q.submit(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+  auto NodeB = Q.submit(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+  auto NodeC = Q.submit(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+  auto NodeD = Q.submit(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+}
+
+void addKernels(
+    experimental::command_graph<experimental::graph_state::modifiable> G) {
+  auto NodeA = G.add(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+  auto NodeB = G.add(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); },
+      {experimental::property::node::depends_on(NodeA)});
+  auto NodeC = G.add(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); },
+      {experimental::property::node::depends_on(NodeA)});
+  auto NodeD = G.add(
+      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); },
+      {experimental::property::node::depends_on(NodeB, NodeC)});
+}
+} // anonymous namespace
 
 class CommandGraphTest : public ::testing::Test {
 public:
@@ -1059,4 +1113,176 @@ TEST_F(CommandGraphTest, Memcpy2DExceptionCheck) {
 
   sycl::free(USMMemSrc, Queue);
   sycl::free(USMMemDst, Queue);
+}
+
+TEST_F(CommandGraphTest, MultiThreadsBeginEndRecording) {
+  const unsigned NumThreads = std::thread::hardware_concurrency();
+
+  Barrier SyncPoint{NumThreads};
+
+  auto RecordGraph = [&]() {
+    queue MyQueue{Queue.get_context(), Queue.get_device()};
+
+    SyncPoint.wait();
+
+    Graph.begin_recording(MyQueue);
+    runKernels(MyQueue);
+    Graph.end_recording(MyQueue);
+  };
+
+  std::vector<std::thread> Threads;
+  Threads.reserve(NumThreads);
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads.emplace_back(RecordGraph);
+  }
+
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads[i].join();
+  }
+
+  // Reference computation
+  queue QueueRef;
+  experimental::command_graph<experimental::graph_state::modifiable> GraphRef{
+      Queue.get_context(), Queue.get_device()};
+
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    queue MyQueue;
+    GraphRef.begin_recording(MyQueue);
+    runKernels(MyQueue);
+    GraphRef.end_recording(MyQueue);
+  }
+
+  auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
+  auto GraphRefImpl = sycl::detail::getSyclObjImpl(GraphRef);
+  ASSERT_EQ(GraphImpl->hasSimilarStructure(GraphRefImpl), true);
+}
+
+TEST_F(CommandGraphTest, MultiThreadsExplicitAddNodes) {
+  const unsigned NumThreads = std::thread::hardware_concurrency();
+
+  Barrier SyncPoint{NumThreads};
+
+  auto RecordGraph = [&]() {
+    queue MyQueue{Queue.get_context(), Queue.get_device()};
+
+    SyncPoint.wait();
+    addKernels(Graph);
+  };
+
+  std::vector<std::thread> Threads;
+  Threads.reserve(NumThreads);
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads.emplace_back(RecordGraph);
+  }
+
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads[i].join();
+  }
+
+  // Reference computation
+  queue QueueRef;
+  experimental::command_graph<experimental::graph_state::modifiable> GraphRef{
+      Queue.get_context(), Queue.get_device()};
+
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    addKernels(GraphRef);
+  }
+
+  auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
+  auto GraphRefImpl = sycl::detail::getSyclObjImpl(GraphRef);
+  ASSERT_EQ(GraphImpl->hasSimilarStructure(GraphRefImpl), true);
+}
+
+TEST_F(CommandGraphTest, MultiThreadsRecordAddNodes) {
+  const unsigned NumThreads = std::thread::hardware_concurrency();
+
+  Barrier SyncPoint{NumThreads};
+
+  Graph.begin_recording(Queue);
+  auto RecordGraph = [&]() {
+    SyncPoint.wait();
+    runKernels(Queue);
+  };
+
+  std::vector<std::thread> Threads;
+  Threads.reserve(NumThreads);
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads.emplace_back(RecordGraph);
+  }
+
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads[i].join();
+  }
+
+  // We stop recording the Queue when all threads have finished their processing
+  Graph.end_recording(Queue);
+
+  // Reference computation
+  queue QueueRef;
+  experimental::command_graph<experimental::graph_state::modifiable> GraphRef{
+      Queue.get_context(), Queue.get_device()};
+
+  GraphRef.begin_recording(QueueRef);
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    runKernels(QueueRef);
+  }
+  GraphRef.end_recording(QueueRef);
+
+  auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
+  auto GraphRefImpl = sycl::detail::getSyclObjImpl(GraphRef);
+  ASSERT_EQ(GraphImpl->hasSimilarStructure(GraphRefImpl), true);
+}
+
+TEST_F(CommandGraphTest, MultiThreadsRecordAddNodesInOrderQueue) {
+  sycl::property_list Properties{sycl::property::queue::in_order()};
+  queue InOrderQueue{Dev, Properties};
+  const unsigned NumThreads = std::thread::hardware_concurrency();
+
+  experimental::command_graph<experimental::graph_state::modifiable>
+      InOrderGraph{InOrderQueue.get_context(), InOrderQueue.get_device()};
+
+  Barrier SyncPoint{NumThreads};
+
+  InOrderGraph.begin_recording(InOrderQueue);
+  auto RecordGraph = [&]() {
+    SyncPoint.wait();
+    runKernelsInOrder(InOrderQueue);
+  };
+
+  std::vector<std::thread> Threads;
+  Threads.reserve(NumThreads);
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads.emplace_back(RecordGraph);
+  }
+
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    Threads[i].join();
+  }
+
+  // We stop recording the Queue when all threads have finished their processing
+  InOrderGraph.end_recording(InOrderQueue);
+
+  // Reference computation
+  queue InOrderQueueRef{Dev, Properties};
+  experimental::command_graph<experimental::graph_state::modifiable>
+      InOrderGraphRef{InOrderQueueRef.get_context(),
+                      InOrderQueueRef.get_device()};
+
+  InOrderGraphRef.begin_recording(InOrderQueueRef);
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    runKernelsInOrder(InOrderQueueRef);
+  }
+  InOrderGraphRef.end_recording(InOrderQueueRef);
+
+  auto GraphImpl = sycl::detail::getSyclObjImpl(InOrderGraph);
+  auto GraphRefImpl = sycl::detail::getSyclObjImpl(InOrderGraphRef);
+  ASSERT_EQ(GraphImpl->getNumberOfNodes(), GraphRefImpl->getNumberOfNodes());
+
+  // In-order graph must have only a single root
+  ASSERT_EQ(GraphImpl->MRoots.size(), 1lu);
+
+  // Check structure graph
+  for (auto Node : GraphImpl->MRoots) {
+    ASSERT_EQ(depthSearchSuccessorCheck(Node), true);
+  }
 }

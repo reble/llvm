@@ -45,6 +45,9 @@ public:
   /// Command group object which stores all args etc needed to enqueue the node
   std::unique_ptr<sycl::detail::CG> MCommandGroup;
 
+  /// Used for tracking visited status during cycle checks.
+  bool MVisited = false;
+
   /// Add successor to the node.
   /// @param Node Node to add as a successor.
   /// @param Prev Predecessor to \p node being added as successor.
@@ -347,6 +350,9 @@ private:
 /// Implementation details of command_graph<modifiable>.
 class graph_impl {
 public:
+  using ReadLock = std::shared_lock<std::shared_mutex>;
+  using WriteLock = std::unique_lock<std::shared_mutex>;
+
   /// Protects all the fields that can be changed by class' methods.
   mutable std::shared_mutex MMutex;
 
@@ -436,15 +442,13 @@ public:
   /// @return Event associated with node.
   std::shared_ptr<sycl::detail::event_impl>
   getEventForNode(std::shared_ptr<node_impl> NodeImpl) const {
-    MMutex.lock_shared();
+    ReadLock Lock(MMutex);
     if (auto EventImpl = std::find_if(
             MEventsMap.begin(), MEventsMap.end(),
             [NodeImpl](auto &it) { return it.second == NodeImpl; });
         EventImpl != MEventsMap.end()) {
-      MMutex.unlock_shared();
       return EventImpl->first;
     }
-    MMutex.unlock_shared();
     throw sycl::exception(
         sycl::make_error_code(errc::invalid),
         "No event has been recorded for the specified graph node");
@@ -650,6 +654,12 @@ private:
 /// Class representing the implementation of command_graph<executable>.
 class exec_graph_impl {
 public:
+  using ReadLock = std::shared_lock<std::shared_mutex>;
+  using WriteLock = std::unique_lock<std::shared_mutex>;
+
+  /// Protects all the fields that can be changed by class' methods.
+  mutable std::shared_mutex MMutex;
+
   /// Constructor.
   /// @param Context Context to create graph with.
   /// @param GraphImpl Modifiable graph implementation to create with.
@@ -716,9 +726,6 @@ public:
     }
     return false;
   }
-
-  /// Protects all the fields that can be changed by class' methods.
-  mutable std::shared_mutex MMutex;
 
 private:
   /// Create a command-group for the node and add it to command-buffer by going

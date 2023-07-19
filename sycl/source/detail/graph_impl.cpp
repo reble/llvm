@@ -38,8 +38,6 @@ namespace {
 void connectToExitNodes(
     std::shared_ptr<node_impl> CurrentNode,
     const std::vector<std::shared_ptr<node_impl>> &NewInputs) {
-  // we need to lock the node mutex to ensure that NewInputs are actually
-  // registered as a successor to an exit node.
   if (CurrentNode->MSuccessors.size() > 0) {
     for (auto Successor : CurrentNode->MSuccessors) {
       connectToExitNodes(Successor, NewInputs);
@@ -153,6 +151,7 @@ void graph_impl::removeRoot(const std::shared_ptr<node_impl> &Root) {
 std::shared_ptr<node_impl>
 graph_impl::add(const std::vector<std::shared_ptr<node_impl>> &Dep) {
   const std::shared_ptr<node_impl> &NodeImpl = std::make_shared<node_impl>();
+
   // TODO: Encapsulate in separate function to avoid duplication
   if (!Dep.empty()) {
     for (auto N : Dep) {
@@ -221,7 +220,6 @@ graph_impl::add(sycl::detail::CG::CGTYPE CGType,
       checkForRequirement(Req, NodePtr, UniqueDeps);
     }
   }
-
   // Add any nodes specified by event dependencies into the dependency list
   for (auto Dep : CommandGroup->getEvents()) {
     if (auto NodeImpl = MEventsMap.find(Dep); NodeImpl != MEventsMap.end()) {
@@ -475,7 +473,8 @@ void exec_graph_impl::createCommandBuffers(sycl::device Device) {
 }
 
 exec_graph_impl::~exec_graph_impl() {
-  MMutex.lock();
+  WriteLock Lock(MMutex);
+
   // clear all recording queue if not done before (no call to end_recording)
   MGraphImpl->clearQueues();
 
@@ -496,12 +495,13 @@ exec_graph_impl::~exec_graph_impl() {
       assert(Res == pi_result::PI_SUCCESS);
     }
   }
-  MMutex.unlock();
 }
 
 sycl::event
 exec_graph_impl::enqueue(const std::shared_ptr<sycl::detail::queue_impl> &Queue,
                          sycl::detail::CG::StorageInitHelper CGData) {
+  WriteLock Lock(MMutex);
+
   auto CreateNewEvent([&]() {
     auto NewEvent = std::make_shared<sycl::detail::event_impl>(Queue);
     NewEvent->setContextImpl(Queue->getContextImplPtr());
@@ -615,9 +615,8 @@ node modifiable_command_graph::addImpl(const std::vector<node> &Deps) {
     DepImpls.push_back(sycl::detail::getSyclObjImpl(D));
   }
 
-  impl->MMutex.lock();
+  graph_impl::WriteLock Lock(impl->MMutex);
   std::shared_ptr<detail::node_impl> NodeImpl = impl->add(DepImpls);
-  impl->MMutex.unlock();
   return sycl::detail::createSyclObjFromImpl<node>(NodeImpl);
 }
 
@@ -629,10 +628,9 @@ node modifiable_command_graph::addImpl(std::function<void(handler &)> CGF,
     DepImpls.push_back(sycl::detail::getSyclObjImpl(D));
   }
 
-  impl->MMutex.lock();
+  graph_impl::WriteLock Lock(impl->MMutex);
   std::shared_ptr<detail::node_impl> NodeImpl =
       impl->add(impl, CGF, {}, DepImpls);
-  impl->MMutex.unlock();
   return sycl::detail::createSyclObjFromImpl<node>(NodeImpl);
 }
 
@@ -642,9 +640,8 @@ void modifiable_command_graph::make_edge(node &Src, node &Dest) {
   std::shared_ptr<detail::node_impl> ReceiverImpl =
       sycl::detail::getSyclObjImpl(Dest);
 
-  impl->MMutex.lock();
+  graph_impl::WriteLock Lock(impl->MMutex);
   impl->makeEdge(SenderImpl, ReceiverImpl);
-  impl->MMutex.unlock();
 }
 
 command_graph<graph_state::executable>
@@ -675,9 +672,8 @@ bool modifiable_command_graph::begin_recording(queue &RecordingQueue) {
 
   if (QueueImpl->getCommandGraph() == nullptr) {
     QueueImpl->setCommandGraph(impl);
-    impl->MMutex.lock();
+    graph_impl::WriteLock Lock(impl->MMutex);
     impl->addQueue(QueueImpl);
-    impl->MMutex.unlock();
     return true;
   }
   if (QueueImpl->getCommandGraph() != impl) {
@@ -699,9 +695,8 @@ bool modifiable_command_graph::begin_recording(
 }
 
 bool modifiable_command_graph::end_recording() {
-  impl->MMutex.lock();
+  graph_impl::WriteLock Lock(impl->MMutex);
   bool ret = impl->clearQueues();
-  impl->MMutex.unlock();
   return ret;
 }
 
@@ -709,9 +704,8 @@ bool modifiable_command_graph::end_recording(queue &RecordingQueue) {
   auto QueueImpl = sycl::detail::getSyclObjImpl(RecordingQueue);
   if (QueueImpl->getCommandGraph() == impl) {
     QueueImpl->setCommandGraph(nullptr);
-    impl->MMutex.lock();
+    graph_impl::WriteLock Lock(impl->MMutex);
     impl->removeQueue(QueueImpl);
-    impl->MMutex.unlock();
     return true;
   }
   if (QueueImpl->getCommandGraph() != nullptr) {
@@ -737,13 +731,10 @@ executable_command_graph::executable_command_graph(
     const std::shared_ptr<detail::graph_impl> &Graph, const sycl::context &Ctx)
     : MTag(rand()),
       impl(std::make_shared<detail::exec_graph_impl>(Ctx, Graph)) {
-  // Graph and GraphExec is read and written in this scoe so we lock
+  // Graph is read and written in this scope so we lock
   // this graph with full priviledges.
-  Graph->MMutex.lock();
-  impl->MMutex.lock();
+  graph_impl::WriteLock Lock(Graph->MMutex);
   finalizeImpl(); // Create backend representation for executable graph
-  impl->MMutex.unlock();
-  Graph->MMutex.unlock();
 }
 
 void executable_command_graph::finalizeImpl() {
