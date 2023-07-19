@@ -1,7 +1,5 @@
-// REQUIRES: level_zero, gpu, TEMPORARY_DISABLED
-// Disabled as thread safety not yet implemented
-
-// RUN: %clangxx -pthread -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+// REQUIRES: level_zero, gpu
+// RUN: %{build_pthread_inc} -o %t.out
 // RUN: %{run} %t.out
 // RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
 //
@@ -14,6 +12,8 @@
 // ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
+#include <detail/graph_impl.hpp>
+
 #include <thread>
 
 int main() {
@@ -39,8 +39,11 @@ int main() {
   Queue.copy(DataC.data(), PtrC, Size);
   Queue.wait_and_throw();
 
+  Barrier SyncPoint{NumThreads};
+
   Graph.begin_recording(Queue);
   auto recordGraph = [&]() {
+    SyncPoint.wait();
     // Record commands to graph
     run_kernels_usm(Queue, Size, PtrA, PtrB, PtrC);
   };

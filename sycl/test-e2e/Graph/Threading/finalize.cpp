@@ -1,7 +1,5 @@
-// REQUIRES: level_zero, gpu, TEMPORARY_DISABLED
-// Disabled as thread safety not yet implemented
-
-// RUN: %clangxx -pthread -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+// REQUIRES: level_zero, gpu
+// RUN: %{build_pthread_inc} -o %t.out
 // RUN: %{run} %t.out
 // RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
 //
@@ -12,6 +10,7 @@
 // ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
+#include <detail/graph_impl.hpp>
 
 #include <thread>
 
@@ -46,7 +45,12 @@ int main() {
   run_kernels_usm(Queue, Size, PtrA, PtrB, PtrC);
   Graph.end_recording();
 
-  auto FinalizeGraph = [&]() {
+  Barrier SyncPoint{NumThreads};
+
+  std::map<int, exp_ext::command_graph<exp_ext::graph_state::executable>>
+      GraphsExecMap;
+  auto FinalizeGraph = [&](int ThreadNum) {
+    SyncPoint.wait();
     auto GraphExec = Graph.finalize();
     Queue.submit([&](sycl::handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
   };

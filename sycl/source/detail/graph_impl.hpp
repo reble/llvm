@@ -21,6 +21,7 @@
 #include <functional>
 #include <list>
 #include <set>
+#include <shared_mutex>
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
@@ -43,9 +44,6 @@ public:
   sycl::detail::CG::CGTYPE MCGType = sycl::detail::CG::None;
   /// Command group object which stores all args etc needed to enqueue the node
   std::unique_ptr<sycl::detail::CG> MCommandGroup;
-
-  /// Used for tracking visited status during cycle checks.
-  bool MVisited = false;
 
   /// Add successor to the node.
   /// @param Node Node to add as a successor.
@@ -326,6 +324,16 @@ public:
     return true;
   }
 
+  /// Recusively computes the number of successor nodes
+  /// @return number of successor nodes
+  size_t depthSearchCount() {
+    size_t NumberOfNodes = 1;
+    for (const auto &Succ : MSuccessors) {
+      NumberOfNodes += Succ->depthSearchCount();
+    }
+    return NumberOfNodes;
+  }
+
 private:
   /// Creates a copy of the node's CG by casting to it's actual type, then using
   /// that to copy construct and create a new unique ptr from that copy.
@@ -339,6 +347,9 @@ private:
 /// Implementation details of command_graph<modifiable>.
 class graph_impl {
 public:
+  /// Protects all the fields that can be changed by class' methods.
+  mutable std::shared_mutex MMutex;
+
   /// Constructor.
   /// @param SyclContext Context to use for graph.
   /// @param SyclDevice Device to create nodes with.
@@ -351,10 +362,6 @@ public:
       MSkipCycleChecks = true;
     }
   }
-
-  /// Insert node into list of root nodes.
-  /// @param Root Node to add to list of root nodes.
-  void addRoot(const std::shared_ptr<node_impl> &Root);
 
   /// Remove node from list of root nodes.
   /// @param Root Node to remove from list of root nodes.
@@ -429,13 +436,15 @@ public:
   /// @return Event associated with node.
   std::shared_ptr<sycl::detail::event_impl>
   getEventForNode(std::shared_ptr<node_impl> NodeImpl) const {
+    MMutex.lock_shared();
     if (auto EventImpl = std::find_if(
             MEventsMap.begin(), MEventsMap.end(),
             [NodeImpl](auto &it) { return it.second == NodeImpl; });
         EventImpl != MEventsMap.end()) {
+      MMutex.unlock_shared();
       return EventImpl->first;
     }
-
+    MMutex.unlock_shared();
     throw sycl::exception(
         sycl::make_error_code(errc::invalid),
         "No event has been recorded for the specified graph node");
@@ -632,6 +641,10 @@ private:
   /// Controls whether we skip the cycle checks in makeEdge, set by the presence
   /// of the no_cycle_check property on construction.
   bool MSkipCycleChecks = false;
+
+  /// Insert node into list of root nodes.
+  /// @param Root Node to add to list of root nodes.
+  void addRoot(const std::shared_ptr<node_impl> &Root);
 };
 
 /// Class representing the implementation of command_graph<executable>.
@@ -703,6 +716,9 @@ public:
     }
     return false;
   }
+
+  /// Protects all the fields that can be changed by class' methods.
+  mutable std::shared_mutex MMutex;
 
 private:
   /// Create a command-group for the node and add it to command-buffer by going
