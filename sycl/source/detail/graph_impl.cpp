@@ -642,6 +642,11 @@ modifiable_command_graph::finalize(const sycl::property_list &) const {
 bool modifiable_command_graph::begin_recording(queue &RecordingQueue) {
   auto QueueImpl = sycl::detail::getSyclObjImpl(RecordingQueue);
 
+  if (QueueImpl->is_in_fusion_mode()) {
+    throw sycl::exception(sycl::make_error_code(errc::invalid),
+                          "Queue in fusion mode can NOT be recorded.");
+  }
+
   if (QueueImpl->get_context() != impl->getContext()) {
     throw sycl::exception(sycl::make_error_code(errc::invalid),
                           "begin_recording called for a queue whose context "

@@ -381,6 +381,8 @@ private:
                             "a single kernel or explicit memory operation.");
   }
 
+  void throwIfGraphAssociated();
+
   constexpr static int AccessTargetMask = 0x7ff;
   /// According to section 4.7.6.11. of the SYCL specification, a local accessor
   /// must not be used in a SYCL kernel function that is invoked via single_task
@@ -2086,6 +2088,10 @@ public:
   std::enable_if_t<
       ext::oneapi::experimental::is_property_list<PropertiesT>::value>
   single_task(PropertiesT Props, _KERNELFUNCPARAM(KernelFunc)) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     single_task_lambda_impl<KernelName, KernelType, PropertiesT>(Props,
                                                                  KernelFunc);
   }
@@ -2096,6 +2102,10 @@ public:
       ext::oneapi::experimental::is_property_list<PropertiesT>::value>
   parallel_for(range<1> NumWorkItems, PropertiesT Props,
                _KERNELFUNCPARAM(KernelFunc)) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     parallel_for_lambda_impl<KernelName, KernelType, 1, PropertiesT>(
         NumWorkItems, Props, std::move(KernelFunc));
   }
@@ -2106,6 +2116,10 @@ public:
       ext::oneapi::experimental::is_property_list<PropertiesT>::value>
   parallel_for(range<2> NumWorkItems, PropertiesT Props,
                _KERNELFUNCPARAM(KernelFunc)) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     parallel_for_lambda_impl<KernelName, KernelType, 2, PropertiesT>(
         NumWorkItems, Props, std::move(KernelFunc));
   }
@@ -2116,6 +2130,10 @@ public:
       ext::oneapi::experimental::is_property_list<PropertiesT>::value>
   parallel_for(range<3> NumWorkItems, PropertiesT Props,
                _KERNELFUNCPARAM(KernelFunc)) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     parallel_for_lambda_impl<KernelName, KernelType, 3, PropertiesT>(
         NumWorkItems, Props, std::move(KernelFunc));
   }
@@ -2126,6 +2144,10 @@ public:
       ext::oneapi::experimental::is_property_list<PropertiesT>::value>
   parallel_for(nd_range<Dims> Range, PropertiesT Properties,
                _KERNELFUNCPARAM(KernelFunc)) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     parallel_for_impl<KernelName>(Range, Properties, std::move(KernelFunc));
   }
 
@@ -2138,6 +2160,10 @@ public:
       detail::AreAllButLastReductions<RestT...>::value &&
       ext::oneapi::experimental::is_property_list<PropertiesT>::value>
   parallel_for(range<1> Range, PropertiesT Properties, RestT &&...Rest) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     detail::reduction_parallel_for<KernelName>(*this, Range, Properties,
                                                std::forward<RestT>(Rest)...);
   }
@@ -2149,6 +2175,10 @@ public:
       detail::AreAllButLastReductions<RestT...>::value &&
       ext::oneapi::experimental::is_property_list<PropertiesT>::value>
   parallel_for(range<2> Range, PropertiesT Properties, RestT &&...Rest) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     detail::reduction_parallel_for<KernelName>(*this, Range, Properties,
                                                std::forward<RestT>(Rest)...);
   }
@@ -2160,6 +2190,10 @@ public:
       detail::AreAllButLastReductions<RestT...>::value &&
       ext::oneapi::experimental::is_property_list<PropertiesT>::value>
   parallel_for(range<3> Range, PropertiesT Properties, RestT &&...Rest) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     detail::reduction_parallel_for<KernelName>(*this, Range, Properties,
                                                std::forward<RestT>(Rest)...);
   }
@@ -2214,6 +2248,10 @@ public:
             int Dims, typename PropertiesT>
   void parallel_for_work_group(range<Dims> NumWorkGroups, PropertiesT Props,
                                _KERNELFUNCPARAM(KernelFunc)) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     parallel_for_work_group_lambda_impl<KernelName, KernelType, Dims,
                                         PropertiesT>(NumWorkGroups, Props,
                                                      KernelFunc);
@@ -2224,6 +2262,10 @@ public:
   void parallel_for_work_group(range<Dims> NumWorkGroups,
                                range<Dims> WorkGroupSize, PropertiesT Props,
                                _KERNELFUNCPARAM(KernelFunc)) {
+    if (!std::is_same<
+            PropertiesT,
+            ext::oneapi::experimental::detail::empty_properties_t>::value)
+      throwIfGraphAssociated();
     parallel_for_work_group_lambda_impl<KernelName, KernelType, Dims,
                                         PropertiesT>(
         NumWorkGroups, WorkGroupSize, Props, KernelFunc);
@@ -2531,6 +2573,7 @@ public:
   /// until all commands previously submitted to this queue have entered the
   /// complete state.
   void ext_oneapi_barrier() {
+    throwIfGraphAssociated();
     throwIfActionIsCreated();
     setType(detail::CG::Barrier);
   }
@@ -2616,6 +2659,7 @@ public:
             typename = std::enable_if_t<std::is_same_v<T, unsigned char>>>
   void ext_oneapi_memcpy2d(void *Dest, size_t DestPitch, const void *Src,
                            size_t SrcPitch, size_t Width, size_t Height) {
+    throwIfGraphAssociated();
     throwIfActionIsCreated();
     if (Width > DestPitch)
       throw sycl::exception(sycl::make_error_code(errc::invalid),
@@ -2794,6 +2838,7 @@ public:
   void memcpy(ext::oneapi::experimental::device_global<T, PropertyListT> &Dest,
               const void *Src, size_t NumBytes = sizeof(T),
               size_t DestOffset = 0) {
+    throwIfGraphAssociated();
     if (sizeof(T) < DestOffset + NumBytes)
       throw sycl::exception(make_error_code(errc::invalid),
                             "Copy to device_global is out of bounds.");
@@ -2826,6 +2871,7 @@ public:
   memcpy(void *Dest,
          const ext::oneapi::experimental::device_global<T, PropertyListT> &Src,
          size_t NumBytes = sizeof(T), size_t SrcOffset = 0) {
+    throwIfGraphAssociated();
     if (sizeof(T) < SrcOffset + NumBytes)
       throw sycl::exception(make_error_code(errc::invalid),
                             "Copy from device_global is out of bounds.");
