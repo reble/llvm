@@ -1252,6 +1252,78 @@ no queue state is changed. This design is because the queues are already in
 the state the user desires, so if the function threw an exception in this case,
 the application would likely swallow it and then proceed.
 
+=== Implementation Status [[implementation-status]]
+
+Table {counter: tableNumber}. Implementation status of the graph features.
+[cols="2a,a"]
+|===
+|Features ^| Implemented
+
+| Adding a command-group node with `command_graph::add()` 
+^| &check;                                                         
+| Recording a queue to a graph (`command_graph::begin_recording()` & `command_graph::end_recording()`) to create nodes
+^| &check;   
+| Creating edges from buffer accessor dependencies
+^| &check;
+| Creating edges from `handler::depends_on` dependencies
+^| &check;
+| Creating edges created using `make_edge()`
+^| &check;
+| Creating edges by passing a property list to `command_graph::add()`
+^| &check;
+| Handling empty node
+^| &check;
+| Handling queue `ext_oneapi_get_state()` query
+^| &check;
+| Checking vendor test macro
+^| &check;
+| Ability to add a graph as a node of another graph (sub-graphs)
+^| &check; +
+with the limitations that a subgraph can only be added as a node to any parent graph once, and will not correctly execute by itself after being added as a sub-graph.
+| Using all capabilities of usm in a graph node
+^| &check;
+| Extending lifetime of buffers used in a graph, as defined in <<storage-lifetimes>>                               
+|                                     
+| Buffer taking a copy of underlying host data when buffer is used in a graph, as defined in <<storage-lifetimes>>  
+|
+| Executable graph `update()`
+| 
+| Recording an in-order queue preserves linear dependencies
+^| &check;
+| Using `handler::parallel_for` in a graph node
+^| &check;
+| Using `handler::single_task` in a graph node
+^| &check;
+| Using `handler::memcpy` in a graph node
+^| &check;
+| Using `handler::copy` in a graph node
+^| &check;
+| Using `handler::host_task` in a graph node
+|                  
+| Using `handler::fill` in a graph node
+^| &check; + 
+for usm only, not implemented for buffer accessors
+| Using `handler::memset` in a graph node
+|                                                                                                      
+| Using `handler::prefetch` in a graph node
+|
+| Using `handler::memadvise` in a graph node
+|
+| Using specialization constants in a graph node
+|                       
+| Using reductions in a graph node
+|
+| Using sycl streams in a graph node
+|                                                                             
+| Ensuring Thread safety of new methods
+^| &check;
+| Profiling an event returned from graph submission with `event::get_profiling_info()`
+|                           
+| Querying the state of an event returned from graph submission with `event::get_info<info::event::command_execution_status>()`            
+^| &check;                             
+|===
+
+
 === Interaction With Other Extensions [[extension-interaction]]
 
 This section defines the interaction of `sycl_ext_oneapi_graph` with other
