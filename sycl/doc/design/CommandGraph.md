@@ -10,12 +10,13 @@ A related presentation can be found
 
 An efficient implementation of a lazy command-graph execution and its replay
 requires extensions to the Unified Runtime (UR) layer. Such an extension is
-command-buffers, where a command-buffer object represents a series of operations
-to be enqueued to the backend device and their dependencies. A single
-command-graph can be partitioned into more than one command-buffer by the runtime.
-We distinguish between backends that support command-buffer extensions and
-those that do not. Currently command-buffer extensions are only supported by
-Level Zero. All other backends would fall back to an emulation mode, or not
+the command-buffer experimental feature, where a command-buffer object
+represents a series of operations to be enqueued to the backend device and
+their dependencies. A single command-graph can be partitioned into more
+than one command-buffer by the runtime. The SYCL Graph extension
+distinguishes between backends that support the command-buffer extension
+and those that do not. Currently command-buffer extensions are only supported
+by Level Zero. All other backends would fall back to an emulation mode, or not
 be reported as supported.
 
 The emulation mode targets support of functionality only, without potentially
@@ -73,9 +74,9 @@ CG object of a specific type. During normal operation, `handler::finalize()`
 then passes the CG object to the scheduler, and a `sycl::event` object
 representing the command-group is returned.
 
-However during graph construction, inside `hander::finalize()` we prevent the
-CG object from being submitted for execution as normal, and store CG in the
-graph as a new node instead.
+However during graph construction, inside `hander::finalize()` the CG object is
+not submitted for execution as normal, but stored in the graph as a new node
+instead.
 
 When a user adds a node to a graph using the explicit
 `command_graph<modifiable>::add()` API passing a CGF, in our graph runtime
@@ -97,8 +98,8 @@ Edges are stored in each node as lists of predecessor and successor nodes.
 The current way graph nodes are linearized into execution order is using a
 reversed depth-first sorting algorithm. Alternative algorithms, such as
 breadth-first, are possible and may give better performance on certain
-workloads/hardware. We are looking into giving the user control of this
-implementation detail.
+workloads/hardware. In the future there might be options for allowing the
+user to control this implementation detail.
 
 ## Scheduler Integration
 
@@ -133,7 +134,7 @@ Implementation of [UR command-buffers](#UR-command-buffer-experimental-feature)
 for each of the supported SYCL 2020 backends.
 
 This is currently only Level Zero but more sub-sections will be added here as
-we implement other backends.
+other backends are implemented.
 
 ### Level Zero
 
@@ -146,9 +147,9 @@ However, in the equivalent Level Zero function
 there are no parameters to take a wait-list, and the only sync primitive
 returned is blocking on host.
 
-In order to get the UR command-buffer enqueue semantics we want with Level Zero,
-the adapter implementation adds extra commands to the Level Zero command-list
-representing a UR command-buffer.
+In order to achieve the expected UR command-buffer enqueue semantics with Level
+Zero, the adapter implementation adds extra commands to the Level Zero
+command-list representing a UR command-buffer.
 
 * Prefix - Commands added to the start of the L0 command-list by L0 adapter.
 * Suffix - Commands added to the end of the L0 command-list by L0 adapter.
@@ -201,10 +202,10 @@ flowchart TB
 There are two drawbacks of this approach to implementing UR command-buffers for
 Level Zero:
 
-1. We use 3x the command-list resources, if there are many UR command-buffers in
+1. 3x the command-list resources are used, if there are many UR command-buffers in
    flight, this may exhaust L0 driver resources. A trivial graph requires 3 L0
    command-lists and if we implement partitioning a graph into multiple UR
-   command-buffers, then each partition will be 3 L0 command-lists.
+   command-buffers, then each partition will contain 3 L0 command-lists.
 
 2. Each L0 command-list is submitted individually with a
    `ur_queue_handle_t_::executeCommandList` call which introduces serialization
