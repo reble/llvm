@@ -1,5 +1,5 @@
-// Tests creating a parent graph with the same sub-graph interleaved with
-// other nodes.
+// Tests creating a parent graph with multiple submissions of the same subgraph
+// in it.
 
 #include "../graph_common.hpp"
 
