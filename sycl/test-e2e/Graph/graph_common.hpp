@@ -365,6 +365,39 @@ auto add_node(exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph,
 #endif
 }
 
+/// Adds an empty node to the graph in an API agnostic way. Can be used for
+/// either Explicit or Record and Replay with the choice being dictated by
+/// defining one of GRAPH_E2E_EXPLICIT or GRAPH_E2E_RECORD_REPLAY.
+///
+/// @tparam DepT Type of all the dependencies.
+/// @param Graph Modifiable graph to add commands to.
+/// @param Queue Queue to be used for record and replay.
+/// @param Deps Parameter pack of dependencies, if they are Nodes we pass them
+/// to explicit API add, otherwise they are passed as events to queue::submit()
+/// for the empty node submission.
+/// @return If using the Explicit API this will be the node that was added, if
+/// Record and Replay this will be an event representing the submission.
+template <typename... DepT>
+auto add_empty_node(
+    exp_ext::command_graph<exp_ext::graph_state::modifiable> Graph, queue Queue,
+    DepT... Deps) {
+#if defined(GRAPH_E2E_EXPLICIT)
+  if constexpr ((std::is_same_v<exp_ext::node, DepT> && ...)) {
+    return Graph.add({exp_ext::property::node::depends_on(Deps...)});
+  } else {
+    return Graph.add();
+  }
+#elif defined(GRAPH_E2E_RECORD_REPLAY)
+  Graph.begin_recording(Queue);
+  auto ev = Queue.submit(
+      [&](sycl::handler &CGH) { CGH.depends_on(std::vector<event>{Deps...}); });
+  Graph.end_recording(Queue);
+  return ev;
+#else
+  assert(0 && "Error: Cannot use add_empty_node without selecting an API");
+#endif
+}
+
 // Values for dotp tests
 const float Alpha = 1.0f;
 const float Beta = 2.0f;
