@@ -1,17 +1,5 @@
-// REQUIRES: level_zero, gpu
-// RUN: %{build} -o %t.out
-// RUN: %{run} %t.out
-// Extra run to check for leaks in Level Zero using ZE_DEBUG
-// RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
-//
-// CHECK-NOT: LEAK
-
-// XFAIL: *
-// Subgraph nodes get parent graph precessor nodes when added as a subgraph
-// which affects stand alone execution.
-
-// Tests creating a parent graph with the same sub-graph interleaved with
-// other nodes.
+// Tests creating a parent graph which contains a subgraph while also executing
+// the subgraph by itself.
 
 #include "../graph_common.hpp"
 
@@ -24,61 +12,75 @@ int main() {
   const size_t N = 10;
   float *X = malloc_device<float>(N, Queue);
 
-  auto S1 = SubGraph.add([&](handler &CGH) {
+  auto S1 = add_node(SubGraph, Queue, [&](handler &CGH) {
+    CGH.parallel_for(N, [=](id<1> it) {
+      const size_t i = it[0];
+      X[i] *= 3.14f;
+    });
+  });
+
+  add_node(
+      SubGraph, Queue,
+      [&](handler &CGH) {
+        depends_on_helper(CGH, S1);
+        CGH.parallel_for(N, [=](id<1> it) {
+          const size_t i = it[0];
+          X[i] += 0.5f;
+        });
+      },
+      S1);
+
+  auto ExecSubGraph = SubGraph.finalize();
+
+  auto G1 = add_node(Graph, Queue, [&](handler &CGH) {
     CGH.parallel_for(N, [=](id<1> it) {
       const size_t i = it[0];
       X[i] *= 2.0f;
     });
   });
 
-  SubGraph.add(
+  auto G2 = add_node(
+      Graph, Queue,
       [&](handler &CGH) {
-        CGH.parallel_for(N, [=](id<1> it) {
-          const size_t i = it[0];
-          X[i] += 0.5f;
-        });
+        depends_on_helper(CGH, G1);
+        CGH.ext_oneapi_graph(ExecSubGraph);
       },
-      {exp_ext::property::node::depends_on(S1)});
+      G1);
 
-  auto ExecSubGraph = SubGraph.finalize();
-
-  auto G1 = Graph.add([&](handler &CGH) {
-    CGH.parallel_for(N, [=](id<1> it) {
-      const size_t i = it[0];
-      X[i] = 1.0f;
-    });
-  });
-
-  auto G2 = Graph.add([&](handler &CGH) { CGH.ext_oneapi_graph(ExecSubGraph); },
-                      {exp_ext::property::node::depends_on(G1)});
-
-  Graph.add(
+  add_node(
+      Graph, Queue,
       [&](handler &CGH) {
+        depends_on_helper(CGH, G2);
         CGH.parallel_for(range<1>{N}, [=](id<1> it) {
           const size_t i = it[0];
           X[i] *= -1.0f;
         });
       },
-      {exp_ext::property::node::depends_on(G2)});
+      G2);
 
   auto ExecGraph = Graph.finalize();
 
   auto Event1 = Queue.submit([&](handler &CGH) {
     CGH.parallel_for(N, [=](id<1> it) {
       const size_t i = it[0];
-      X[i] = 3.14f;
+      X[i] = 1.f;
     });
   });
 
   auto Event2 = Queue.submit([&](handler &CGH) {
     CGH.depends_on(Event1);
+    CGH.ext_oneapi_graph(ExecSubGraph);
+  });
+
+  auto Event3 = Queue.submit([&](handler &CGH) {
+    CGH.depends_on(Event2);
     CGH.ext_oneapi_graph(ExecGraph);
   });
 
   std::vector<float> Output(N);
-  Queue.memcpy(Output.data(), X, N * sizeof(float), Event2).wait();
+  Queue.memcpy(Output.data(), X, N * sizeof(float), Event3).wait();
 
-  const float ref = 3.14f * 2.0f + 0.5f;
+  const float ref = ((1.f * 3.14f + 0.5f) * 2.0f * 3.14f + 0.5f) * -1.f;
   for (size_t i = 0; i < N; i++) {
     assert(Output[i] == ref);
   }
