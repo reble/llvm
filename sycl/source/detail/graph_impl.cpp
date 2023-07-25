@@ -696,8 +696,7 @@ bool modifiable_command_graph::begin_recording(
 
 bool modifiable_command_graph::end_recording() {
   graph_impl::WriteLock Lock(impl->MMutex);
-  bool ret = impl->clearQueues();
-  return ret;
+  return impl->clearQueues();
 }
 
 bool modifiable_command_graph::end_recording(queue &RecordingQueue) {
