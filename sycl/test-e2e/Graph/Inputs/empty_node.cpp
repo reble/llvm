@@ -1,14 +1,5 @@
-// REQUIRES: level_zero, gpu
-// RUN: %{build} -o %t.out
-// RUN: %{run} %t.out
-// Extra run to check for leaks in Level Zero using ZE_DEBUG
-// RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
-//
-// CHECK-NOT: LEAK
-
-// Tests the explicit API interface for adding empty nodes
-// and adding dependencies (edges) on those empty nodes, and that
-// no_cycle_check is accepted as a command_graph construction property.
+// Tests the interface for adding empty nodes and creating dependencies on those
+// empty nodes.
 
 #include "../graph_common.hpp"
 
@@ -22,28 +13,35 @@ int main() {
   const size_t N = 10;
   float *Arr = malloc_device<float>(N, Queue);
 
-  auto Start = Graph.add();
+  auto Start = add_empty_node(Graph, Queue);
 
-  auto Init = Graph.add(
+  auto Init = add_node(
+      Graph, Queue,
       [&](handler &CGH) {
+        depends_on_helper(CGH, Start);
         CGH.parallel_for(range<1>{N}, [=](id<1> idx) {
           size_t i = idx;
           Arr[i] = 0;
         });
       },
-      {exp_ext::property::node::depends_on(Start)});
+      Start);
 
-  auto Empty = Graph.add({});
-  auto Empty2 = Graph.add({});
+  auto Empty = add_empty_node(Graph, Queue, Init);
+  auto Empty2 = add_empty_node(Graph, Queue, Empty);
+  auto Empty3 = add_node(
+      Graph, Queue, [&](handler &CGH) { depends_on_helper(CGH, Empty2); },
+      Empty2);
 
-  Graph.add(
+  add_node(
+      Graph, Queue,
       [&](handler &CGH) {
+        depends_on_helper(CGH, Empty2);
         CGH.parallel_for(range<1>{N}, [=](id<1> idx) {
           size_t i = idx;
           Arr[i] = 1;
         });
       },
-      {exp_ext::property::node::depends_on(Init, Empty, Empty2)});
+      Empty2);
 
   auto ExecGraph = Graph.finalize();
 
