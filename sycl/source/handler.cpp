@@ -751,7 +751,7 @@ void handler::verifyUsedKernelBundle(const std::string &KernelName) {
 }
 
 void handler::ext_oneapi_barrier(const std::vector<event> &WaitList) {
-  throwIfGraphAssociated();
+  throwIfGraphAssociated("sycl_ext_oneapi_enqueue_barrier");
   throwIfActionIsCreated();
   MCGType = detail::CG::BarrierWaitlist;
   MEventsWaitWithBarrier.resize(WaitList.size());
@@ -1082,11 +1082,12 @@ handler::getCommandGraph() const {
   return MQueue->getCommandGraph();
 }
 
-void handler::throwIfGraphAssociated() {
+void handler::throwIfGraphAssociated(const std::string ExceptionMsg) {
   if (MGraph || MQueue->getCommandGraph()) {
     throw sycl::exception(sycl::make_error_code(errc::invalid),
-                          "This feature is not yet available "
-                          "along with Sycl-Graph extension.");
+                          "The feature " + ExceptionMsg +
+                              " is not yet available "
+                              "along with Sycl-Graph extension.");
   }
 }
 
