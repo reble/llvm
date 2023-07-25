@@ -49,6 +49,7 @@ int main() {
   add_node(
       Graph, Queue,
       [&](handler &CGH) {
+        depends_on_helper(CGH, NodeA);
         CGH.parallel_for(range<1>(Size),
                          [=](item<1> id) { PtrOut[id] += PtrC[id] + 1; });
       },

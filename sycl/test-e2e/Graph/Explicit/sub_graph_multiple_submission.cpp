@@ -6,6 +6,9 @@
 //
 // CHECK-NOT: LEAK
 
-#define GRAPH_E2E_RECORD_REPLAY
+// XFAIL:*
+// Submit a graph as a subgraph more than once doesn't yet work.
 
-#include "../Inputs/add_nodes_after_finalize.cpp"
+#define GRAPH_E2E_EXPLICIT
+
+#include "../Inputs/sub_graph_multiple_submission.cpp"

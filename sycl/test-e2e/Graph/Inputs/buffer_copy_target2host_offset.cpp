@@ -39,4 +39,6 @@ int main() {
     assert(ReferenceA[i] == DataA[i]);
     assert(ReferenceB[i] == DataB[i]);
   }
+
+  return 0;
 }

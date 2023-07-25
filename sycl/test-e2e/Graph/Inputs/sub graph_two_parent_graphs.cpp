@@ -1,14 +1,3 @@
-// REQUIRES: level_zero, gpu
-// RUN: %{build} -o %t.out
-// RUN: %{run} %t.out
-// Extra run to check for leaks in Level Zero using ZE_DEBUG
-// RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
-//
-// CHECK-NOT: LEAK
-
-// XFAIL: *
-// Subgraph doesn't work properly in second parent graph
-
 // Tests adding an executable graph object as a sub-graph of two different
 // parent graphs.
 
@@ -24,76 +13,80 @@ int main() {
   const size_t N = 10;
   float *X = malloc_device<float>(N, Queue);
 
-  SubGraph.begin_recording(Queue);
-
-  auto S1 = Queue.submit([&](handler &CGH) {
+  auto S1 = add_node(SubGraph, Queue, [&](handler &CGH) {
     CGH.parallel_for(N, [=](id<1> it) {
       const size_t i = it[0];
       X[i] *= 2.0f;
     });
   });
 
-  Queue.submit([&](handler &CGH) {
-    CGH.depends_on(S1);
-    CGH.parallel_for(N, [=](id<1> it) {
-      const size_t i = it[0];
-      X[i] += 0.5f;
-    });
-  });
-
-  SubGraph.end_recording(Queue);
+  add_node(
+      SubGraph, Queue,
+      [&](handler &CGH) {
+        depends_on_helper(CGH, S1);
+        CGH.parallel_for(N, [=](id<1> it) {
+          const size_t i = it[0];
+          X[i] += 0.5f;
+        });
+      },
+      S1);
 
   auto ExecSubGraph = SubGraph.finalize();
 
-  GraphA.begin_recording(Queue);
-
-  auto A1 = Queue.submit([&](handler &CGH) {
+  auto A1 = add_node(GraphA, Queue, [&](handler &CGH) {
     CGH.parallel_for(N, [=](id<1> it) {
       const size_t i = it[0];
       X[i] = 1.0f;
     });
   });
 
-  auto A2 = Queue.submit([&](handler &CGH) {
-    CGH.depends_on(A1);
-    CGH.ext_oneapi_graph(ExecSubGraph);
-  });
+  auto A2 = add_node(
+      GraphA, Queue,
+      [&](handler &CGH) {
+        depends_on_helper(CGH, A1);
+        CGH.ext_oneapi_graph(ExecSubGraph);
+      },
+      A1);
 
-  Queue.submit([&](handler &CGH) {
-    CGH.depends_on(A2);
-    CGH.parallel_for(range<1>{N}, [=](id<1> it) {
-      const size_t i = it[0];
-      X[i] *= -1.0f;
-    });
-  });
-
-  GraphA.end_recording();
+  add_node(
+      GraphA, Queue,
+      [&](handler &CGH) {
+        depends_on_helper(CGH, A2);
+        CGH.parallel_for(range<1>{N}, [=](id<1> it) {
+          const size_t i = it[0];
+          X[i] *= -1.0f;
+        });
+      },
+      A2);
 
   auto ExecGraphA = GraphA.finalize();
 
-  GraphB.begin_recording(Queue);
-
-  auto B1 = Queue.submit([&](handler &CGH) {
+  auto B1 = add_node(GraphB, Queue, [&](handler &CGH) {
     CGH.parallel_for(N, [=](id<1> it) {
       const size_t i = it[0];
       X[i] = static_cast<float>(i);
     });
   });
 
-  auto B2 = Queue.submit([&](handler &CGH) {
-    CGH.depends_on(B1);
-    CGH.ext_oneapi_graph(ExecSubGraph);
-  });
+  auto B2 = add_node(
+      GraphB, Queue,
+      [&](handler &CGH) {
+        depends_on_helper(CGH, B1);
+        CGH.ext_oneapi_graph(ExecSubGraph);
+      },
+      B1);
 
-  Queue.submit([&](handler &CGH) {
-    CGH.depends_on(B2);
-    CGH.parallel_for(range<1>{N}, [=](id<1> it) {
-      const size_t i = it[0];
-      X[i] *= X[i];
-    });
-  });
+  add_node(
+      GraphB, Queue,
+      [&](handler &CGH) {
+        depends_on_helper(CGH, B2);
+        CGH.parallel_for(range<1>{N}, [=](id<1> it) {
+          const size_t i = it[0];
+          X[i] *= X[i];
+        });
+      },
+      B2);
 
-  GraphB.end_recording();
   auto ExecGraphB = GraphB.finalize();
 
   auto EventA1 =

@@ -6,6 +6,6 @@
 //
 // CHECK-NOT: LEAK
 
-#define GRAPH_E2E_RECORD_REPLAY
+#define GRAPH_E2E_EXPLICIT
 
 #include "../Inputs/usm_fill_shared.cpp"

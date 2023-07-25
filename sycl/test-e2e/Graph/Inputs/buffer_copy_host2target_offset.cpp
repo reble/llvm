@@ -39,4 +39,6 @@ int main() {
   for (size_t i = 0; i < Size + Offset; i++) {
     assert(ReferenceA[i] == HostAccA[i]);
   }
+
+  return 0;
 }

@@ -11,3 +11,20 @@
 #define GRAPH_E2E_RECORD_REPLAY
 
 #include "../Inputs/stream.cpp"
+
+// CHECK-DAG: Val: 1
+// CHECK-DAG: Val: 2
+// CHECK-DAG: Val: 3
+// CHECK-DAG: Val: 4
+// CHECK-DAG: Val: 5
+// CHECK-DAG: Val: 6
+// CHECK-DAG: Val: 7
+// CHECK-DAG: Val: 8
+// CHECK-DAG: Val: 9
+// CHECK-DAG: Val: 10
+// CHECK-DAG: Val: 11
+// CHECK-DAG: Val: 12
+// CHECK-DAG: Val: 13
+// CHECK-DAG: Val: 14
+// CHECK-DAG: Val: 15
+// CHECK-DAG: Val: 16

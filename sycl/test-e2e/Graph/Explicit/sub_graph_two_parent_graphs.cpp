@@ -6,6 +6,9 @@
 //
 // CHECK-NOT: LEAK
 
-#define GRAPH_E2E_RECORD_REPLAY
+// XFAIL: *
+// Subgraph doesn't work properly in second parent graph
 
-#include "../Inputs/add_nodes_after_finalize.cpp"
+#define GRAPH_E2E_EXPLICIT
+
+#include "../Inputs/sub_graph_two_parent_graphs.cpp"
