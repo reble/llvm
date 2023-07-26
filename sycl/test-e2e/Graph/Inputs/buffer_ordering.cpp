@@ -10,6 +10,7 @@
 //   create the correct ordering.
 
 #include "../graph_common.hpp"
+
 int main() {
 
   queue Queue{gpu_selector_v};
