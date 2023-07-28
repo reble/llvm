@@ -9,46 +9,81 @@
 #include "command_buffer.hpp"
 #include "common.hpp"
 
+#include <cuda.h>
+
 /// Stub implementations of UR experimental feature command-buffers
 
-UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferCreateExp(
-    ur_context_handle_t hContext, ur_device_handle_t hDevice,
-    const ur_exp_command_buffer_desc_t *pCommandBufferDesc,
-    ur_exp_command_buffer_handle_t *phCommandBuffer) {
-  (void)hContext;
-  (void)hDevice;
-  (void)pCommandBufferDesc;
-  (void)phCommandBuffer;
-  detail::ur::die("Experimental Command-buffer feature is not "
-                  "implemented for CUDA adapter.");
-  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
+ur_exp_command_buffer_handle_t_::ur_exp_command_buffer_handle_t_(
+    ur_context_handle_t Context, ur_device_handle_t Device)
+    : Context(Context), Device(Device), QueueProperties() {
+  urContextRetain(Context);
+  urDeviceRetain(Device);
+}
+
+// The ur_exp_command_buffer_handle_t_ destructor release all the memory objects
+// allocated for command_buffer managment
+ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
+  // Release the memory allocated to the Context stored in the command_buffer
+  urContextRelease(Context);
+
+  // Release the device
+  urDeviceRelease(Device);
+
+  // Release the memory allocated to the CudaGraph
+  cudaGraphDestroy(cudaGraph);
+
+  // Release the memory allocated to the CudaGraph
+  cudaGraphExecDestroy(cudaGraphExec);
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL
-urCommandBufferRetainExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
-  (void)hCommandBuffer;
+urCommandBufferCreateExp(ur_context_handle_t Context, ur_device_handle_t Device,
+                         const ur_exp_command_buffer_desc_t *CommandBufferDesc,
+                         ur_exp_command_buffer_handle_t *CommandBuffer) {
+  (void)CommandBufferDesc;
 
-  detail::ur::die("Experimental Command-buffer feature is not "
-                  "implemented for CUDA adapter.");
-  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
+  try {
+    *CommandBuffer = new ur_exp_command_buffer_handle_t_(Context, Device);
+  } catch (const std::bad_alloc &) {
+    return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
+  } catch (...) {
+    return UR_RESULT_ERROR_UNKNOWN;
+  }
+
+  auto RetCommandBuffer = *CommandBuffer;
+  try {
+    UR_CHECK_ERROR_RUNTIME(cudaGraphCreate(&RetCommandBuffer->cudaGraph, 0));
+  } catch (...) {
+    return UR_RESULT_ERROR_OUT_OF_RESOURCES;
+  }
+
+  return UR_RESULT_SUCCESS;
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL
-urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
-  (void)hCommandBuffer;
-
-  detail::ur::die("Experimental Command-buffer feature is not "
-                  "implemented for CUDA adapter.");
-  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
+urCommandBufferRetainExp(ur_exp_command_buffer_handle_t CommandBuffer) {
+  CommandBuffer->RefCount.increment();
+  return UR_RESULT_SUCCESS;
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL
-urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
-  (void)hCommandBuffer;
+urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t CommandBuffer) {
+  if (!CommandBuffer->RefCount.decrementAndTest())
+    return UR_RESULT_SUCCESS;
 
-  detail::ur::die("Experimental Command-buffer feature is not "
-                  "implemented for CUDA adapter.");
-  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
+  delete CommandBuffer;
+  return UR_RESULT_SUCCESS;
+}
+
+UR_APIEXPORT ur_result_t UR_APICALL
+urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t CommandBuffer) {
+  try {
+    UR_CHECK_ERROR_RUNTIME(cudaGraphInstantiate(&CommandBuffer->cudaGraphExec,
+                                                CommandBuffer->cudaGraph, 0));
+  } catch (...) {
+    return UR_RESULT_ERROR_UNKNOWN;
+  }
+  return UR_RESULT_SUCCESS;
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
