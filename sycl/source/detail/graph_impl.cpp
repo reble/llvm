@@ -644,7 +644,8 @@ bool modifiable_command_graph::begin_recording(queue &RecordingQueue) {
 
   if (QueueImpl->is_in_fusion_mode()) {
     throw sycl::exception(sycl::make_error_code(errc::invalid),
-                          "Queue in fusion mode can NOT be recorded.");
+                          "SYCL queue in kernel in fusion mode "
+                          "can NOT be recorded.");
   }
 
   if (QueueImpl->get_context() != impl->getContext()) {

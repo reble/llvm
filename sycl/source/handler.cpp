@@ -1087,7 +1087,7 @@ void handler::throwIfGraphAssociated(const std::string ExceptionMsg) {
     throw sycl::exception(sycl::make_error_code(errc::invalid),
                           "The feature " + ExceptionMsg +
                               " is not yet available "
-                              "along with Sycl-Graph extension.");
+                              "along with SYCL Graph extension.");
   }
 }
 

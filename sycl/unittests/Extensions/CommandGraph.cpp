@@ -21,8 +21,12 @@ using namespace sycl;
 using namespace sycl::ext::oneapi;
 
 namespace {
+/// Define the three possible path to add node to a SYCL Graph.
+/// Shortcut is a sub-type of Record&Replay using Queue shortcut
+/// instead of standard kernel submitions.
 enum OperationPath { Explicit, RecordReplay, Shortcut };
 
+/// Function types and classes for testing Kernel with properties extension
 enum class Variant { Function, Functor, FunctorAndProperty };
 
 template <Variant KernelVariant, bool IsShortcut, size_t... Is>
@@ -46,6 +50,15 @@ template <size_t... Is> struct KernelFunctorWithWGSizeProp {
   }
 };
 
+/// Tries to add a Parallel_for node with kernel properties to the graph G
+/// It tests that an invalid exception has been thrown
+/// Since sycl_ext_oneapi_kernel_properties extension can not be used
+/// along with SYCL Graph.
+///
+/// @param G Modifiable graph to add commands to.
+/// @param Q Queue to submit nodes to.
+/// @param Props Properties associated to the submitted kernel
+/// @param KernelFunc pointer to the kernel
 template <OperationPath PathKind, Variant KernelVariant, size_t... Is,
           typename PropertiesT, typename KernelType>
 void addKernelWithProperties(
@@ -53,7 +66,7 @@ void addKernelWithProperties(
     queue &Q, PropertiesT Props, KernelType KernelFunc) {
   constexpr size_t Dims = sizeof...(Is);
 
-  // Test Parellel_for
+  // Test Parallel_for
   std::error_code ExceptionCode = make_error_code(sycl::errc::success);
   try {
     if constexpr (PathKind == OperationPath::RecordReplay) {
@@ -81,6 +94,15 @@ void addKernelWithProperties(
   ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
 }
 
+/// Tries to add a Single task node with kernel properties to the graph G
+/// It tests that an invalid exception has been thrown
+/// Since sycl_ext_oneapi_kernel_properties extension can not be used
+/// along with SYCL Graph.
+///
+/// @param G Modifiable graph to add commands to.
+/// @param Q Queue to submit nodes to.
+/// @param Props Properties associated to the submitted kernel
+/// @param KernelFunc pointer to the kernel
 template <OperationPath PathKind, typename PropertiesT, typename KernelType>
 void testSingleTaskProperties(experimental::detail::modifiable_command_graph &G,
                               queue &Q, PropertiesT Props,
@@ -107,6 +129,11 @@ void testSingleTaskProperties(experimental::detail::modifiable_command_graph &G,
   ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
 }
 
+/// This function groups all the different test cases
+/// when adding a Parallel_for node with kernel properties to the graph G
+///
+/// @param G Modifiable graph to add commands to.
+/// @param Q Queue to submit nodes to.
 template <size_t... Is>
 void testParallelForProperties(
     queue &Q, experimental::detail::modifiable_command_graph &G) {
@@ -133,6 +160,10 @@ void testParallelForProperties(
                           Is...>(G, Q, Props, KernelFunctor);
 }
 
+/// Tries to enqueue oneapi barrier to the graph G
+/// It tests that an invalid exception has been thrown
+/// Since sycl_ext_oneapi_enqueue_barrier extension can not be used
+/// along with SYCL Graph.
 template <OperationPath PathKind> void testEnqueueBarrier() {
   sycl::context Context;
   sycl::queue Q1(Context, sycl::default_selector_v);
@@ -206,23 +237,42 @@ template <OperationPath PathKind> void testEnqueueBarrier() {
   Graph3.end_recording();
 }
 
+/// Tries to add a memcpy2D node to the graph G
+/// It tests that an invalid exception has been thrown
+/// Since sycl_ext_oneapi_memcpy2d extension can not be used
+/// along with SYCL Graph.
+///
+/// @param G Modifiable graph to add commands to.
+/// @param Q Queue to submit nodes to.
+/// @param Dest Pointer to the memory destination
+/// @param DestPitch pitch at the destination
+/// @param Src Pointer to the memory source
+/// @param SrcPitch pitch at the source
+/// @param Witdh width of the data to copy
+/// @param Height height of the data to copy
 template <OperationPath PathKind>
-void doMemcpy2D(experimental::detail::modifiable_command_graph &G, queue &Q,
-                void *Dest, size_t DestPitch, const void *Src, size_t SrcPitch,
-                size_t Width, size_t Height) {
-  if constexpr (PathKind == OperationPath::RecordReplay) {
-    Q.submit([&](handler &CGH) {
-      CGH.ext_oneapi_memcpy2d(Dest, DestPitch, Src, SrcPitch, Width, Height);
-    });
+void addMemcpy2D(experimental::detail::modifiable_command_graph &G, queue &Q,
+                 void *Dest, size_t DestPitch, const void *Src, size_t SrcPitch,
+                 size_t Width, size_t Height) {
+  std::error_code ExceptionCode = make_error_code(sycl::errc::success);
+  try {
+    if constexpr (PathKind == OperationPath::RecordReplay) {
+      Q.submit([&](handler &CGH) {
+        CGH.ext_oneapi_memcpy2d(Dest, DestPitch, Src, SrcPitch, Width, Height);
+      });
+    }
+    if constexpr (PathKind == OperationPath::Shortcut) {
+      Q.ext_oneapi_memcpy2d(Dest, DestPitch, Src, SrcPitch, Width, Height);
+    }
+    if constexpr (PathKind == OperationPath::Explicit) {
+      G.add([&](handler &CGH) {
+        CGH.ext_oneapi_memcpy2d(Dest, DestPitch, Src, SrcPitch, Width, Height);
+      });
+    }
+  } catch (exception &Exception) {
+    ExceptionCode = Exception.code();
   }
-  if constexpr (PathKind == OperationPath::Shortcut) {
-    Q.ext_oneapi_memcpy2d(Dest, DestPitch, Src, SrcPitch, Width, Height);
-  }
-  if constexpr (PathKind == OperationPath::Explicit) {
-    G.add([&](handler &CGH) {
-      CGH.ext_oneapi_memcpy2d(Dest, DestPitch, Src, SrcPitch, Width, Height);
-    });
-  }
+  ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
 }
 
 } // namespace
@@ -980,37 +1030,19 @@ TEST_F(CommandGraphTest, Memcpy2DExceptionCheck) {
   T *USMMemSrc = malloc_device<T>(SRC_ELEMS, Queue);
   T *USMMemDst = malloc_device<T>(DST_ELEMS, Queue);
 
-  std::error_code ExceptionCode = make_error_code(sycl::errc::success);
-  try {
-    doMemcpy2D<OperationPath::RecordReplay>(
-        Graph, Queue, USMMemDst, RECT_WIDTH * sizeof(T), USMMemSrc,
-        RECT_WIDTH * sizeof(T), RECT_WIDTH * sizeof(T), RECT_HEIGHT);
-  } catch (exception &Exception) {
-    ExceptionCode = Exception.code();
-  }
-  ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
+  addMemcpy2D<OperationPath::RecordReplay>(
+      Graph, Queue, USMMemDst, RECT_WIDTH * sizeof(T), USMMemSrc,
+      RECT_WIDTH * sizeof(T), RECT_WIDTH * sizeof(T), RECT_HEIGHT);
 
-  ExceptionCode = make_error_code(sycl::errc::success);
-  try {
-    doMemcpy2D<OperationPath::Shortcut>(
-        Graph, Queue, USMMemDst, RECT_WIDTH * sizeof(T), USMMemSrc,
-        RECT_WIDTH * sizeof(T), RECT_WIDTH * sizeof(T), RECT_HEIGHT);
-  } catch (exception &Exception) {
-    ExceptionCode = Exception.code();
-  }
-  ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
+  addMemcpy2D<OperationPath::Shortcut>(
+      Graph, Queue, USMMemDst, RECT_WIDTH * sizeof(T), USMMemSrc,
+      RECT_WIDTH * sizeof(T), RECT_WIDTH * sizeof(T), RECT_HEIGHT);
 
   Graph.end_recording();
 
-  ExceptionCode = make_error_code(sycl::errc::success);
-  try {
-    doMemcpy2D<OperationPath::Explicit>(
-        Graph, Queue, USMMemDst, RECT_WIDTH * sizeof(T), USMMemSrc,
-        RECT_WIDTH * sizeof(T), RECT_WIDTH * sizeof(T), RECT_HEIGHT);
-  } catch (exception &Exception) {
-    ExceptionCode = Exception.code();
-  }
-  ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
+  addMemcpy2D<OperationPath::Explicit>(
+      Graph, Queue, USMMemDst, RECT_WIDTH * sizeof(T), USMMemSrc,
+      RECT_WIDTH * sizeof(T), RECT_WIDTH * sizeof(T), RECT_HEIGHT);
 
   sycl::free(USMMemSrc, Queue);
   sycl::free(USMMemDst, Queue);
