@@ -350,6 +350,17 @@ public:
     if (PropList.has_property<property::graph::no_cycle_check>()) {
       MSkipCycleChecks = true;
     }
+    if (SyclDevice.get_info<
+            ext::oneapi::experimental::info::device::graph_support>() ==
+        info::graph_support_level::unsupported) {
+      std::stringstream ss;
+      ss << SyclDevice.get_backend();
+      std::string backendString = ss.str();
+      throw sycl::exception(
+          sycl::make_error_code(errc::invalid),
+          backendString +
+              " backend is not yet supported by SYCL Graph extension.");
+    }
   }
 
   /// Insert node into list of root nodes.
@@ -582,6 +593,14 @@ public:
   void makeEdge(std::shared_ptr<node_impl> Src,
                 std::shared_ptr<node_impl> Dest);
 
+  /// Force to use an emulated backend
+  /// @param Forced true force to use an emulated backend
+  ///               false enable the use of non-emulatated backend
+  void setEmulationModeForced(bool Forced) { MEmulationModeForced = Forced; }
+  /// get the status of MEmulationModeForced member
+  /// @return true is bakced is forced to emulation
+  bool getEmulationModeForced() { return MEmulationModeForced; }
+
 private:
   /// Iterate over the graph depth-first and run \p NodeFunc on each node.
   /// @param NodeFunc A function which receives as input a node in the graph to
@@ -620,6 +639,9 @@ private:
   /// Controls whether we skip the cycle checks in makeEdge, set by the presence
   /// of the no_cycle_check property on construction.
   bool MSkipCycleChecks = false;
+
+  /// Force to use an emulated backend
+  bool MEmulationModeForced = false;
 };
 
 /// Class representing the implementation of command_graph<executable>.
@@ -691,6 +713,9 @@ public:
     }
     return false;
   }
+
+  /// @return true is emulated backend has been forced
+  bool isEmulationModeForced() { return MGraphImpl->getEmulationModeForced(); }
 
 private:
   /// Create a command-group for the node and add it to command-buffer by going
