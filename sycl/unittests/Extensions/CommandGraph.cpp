@@ -21,6 +21,9 @@
 using namespace sycl;
 using namespace sycl::ext::oneapi;
 
+// anonymous namespace used to avoid code redundancy by defining functions
+// used by multiple times by unitests.
+// Defining anonymous namespace prevents from function naming conflits
 namespace {
 /// Define the three possible path to add node to a SYCL Graph.
 /// Shortcut is a sub-type of Record&Replay using Queue shortcut
@@ -303,6 +306,8 @@ bool depthSearchSuccessorCheck(
   return true;
 }
 
+/// Submits four kernels with diamond dependency to the queue Q
+/// @param Q Queue to submit nodes to.
 void runKernels(queue Q) {
   auto NodeA = Q.submit(
       [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
@@ -320,6 +325,8 @@ void runKernels(queue Q) {
   });
 }
 
+/// Submits four kernels without any additional dependencies the queue Q
+/// @param Q Queue to submit nodes to.
 void runKernelsInOrder(queue Q) {
   auto NodeA = Q.submit(
       [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
@@ -331,6 +338,8 @@ void runKernelsInOrder(queue Q) {
       [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
 }
 
+/// Adds four kernels with diamond dependency to the Graph G
+/// @param G Modifiable graph to add commands to.
 void addKernels(
     experimental::command_graph<experimental::graph_state::modifiable> G) {
   auto NodeA = G.add(
