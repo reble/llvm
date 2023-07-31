@@ -9,7 +9,7 @@
 #include <ur/ur.hpp>
 #include <ur_api.h>
 
-#include <cuda_runtime.h>
+#include <cuda.h>
 
 // Trace an internal PI call; returns in case of an error.
 #define UR_CALL(Call)                                                          \
@@ -88,9 +88,9 @@ struct ur_exp_command_buffer_handle_t_ : public _ur_object {
   // Device associated with this command buffer
   ur_device_handle_t Device;
   // Cuda Graph handle
-  cudaGraph_t cudaGraph;
+  CUgraph cudaGraph;
   // Cuda Graph Exec handle
-  cudaGraphExec_t cudaGraphExec;
+  CUgraphExec cudaGraphExec;
 
   // Queue properties from command-buffer descriptor
   // TODO: Do we need these?

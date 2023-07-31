@@ -23,22 +23,6 @@ else()
   )
 endif()
 
-add_library(cudart SHARED IMPORTED GLOBAL)
-
-if (WIN32)
-  set_target_properties(
-    cudart PROPERTIES 
-      IMPORTED_IMPLIB               ${CUDA_CUDART_LIBRARY}
-      INTERFACE_INCLUDE_DIRECTORIES ${CUDA_INCLUDE_DIRS}
-  )
-else()
-  set_target_properties(
-    cudart PROPERTIES 
-      IMPORTED_LOCATION             ${CUDA_CUDART_LIBRARY}
-      INTERFACE_INCLUDE_DIRECTORIES ${CUDA_INCLUDE_DIRS}
-  )
-endif()
-
 if (SYCL_ENABLE_XPTI_TRACING)                                                   
   # The following two if's can be removed when FindCUDA -> FindCUDAToolkit.
   # CUDA_CUPTI_INCLUDE_DIR -> CUDAToolkit_CUPTI_INCLUDE_DIR
@@ -112,7 +96,6 @@ add_sycl_plugin(cuda
     ${CMAKE_CURRENT_SOURCE_DIR}/../unified_runtime
   LIBRARIES
     cudadrv
-    cudart
     ${XPTI_LIBS}
     UnifiedRuntime-Headers
   HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/features.hpp"

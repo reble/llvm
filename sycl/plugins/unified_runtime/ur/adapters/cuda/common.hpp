@@ -8,7 +8,6 @@
 #pragma once
 
 #include <cuda.h>
-#include <cuda_runtime.h>
 #include <ur/ur.hpp>
 
 ur_result_t mapErrorUR(CUresult Result);
@@ -28,18 +27,6 @@ ur_result_t checkErrorUR(ur_result_t Result, const char *Function, int Line,
 
 #define UR_CHECK_ERROR(Result)                                                 \
   checkErrorUR(Result, __func__, __LINE__, __FILE__)
-
-/// Converts CUDA Runtime error into UR error codes, and outputs error
-/// information to stderr. If PI_CUDA_ABORT env variable is defined, it aborts
-/// directly instead of throwing the error. This is intended for debugging
-/// purposes. \return UR_RESULT_SUCCESS if \param Result was CUDA_SUCCESS.
-/// \throw ur_result_t exception (integer) if input was not success.
-///
-ur_result_t checkErrorRuntimeUR(cudaError_t Result, const char *Function,
-                                int Line, const char *File);
-
-#define UR_CHECK_ERROR_RUNTIME(Result)                                         \
-  checkErrorRuntimeUR(Result, __func__, __LINE__, __FILE__)
 
 std::string getCudaVersionString();
 

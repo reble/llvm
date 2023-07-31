@@ -172,9 +172,8 @@ if ("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
       UnifiedRuntime-Headers
       Threads::Threads
       cudadrv
-      cudart
-      )
-    
+  )
+
   set_target_properties("ur_adapter_cuda" PROPERTIES
     VERSION "0.0.0"
     SOVERSION "0"

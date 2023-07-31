@@ -9,8 +9,6 @@
 #include "command_buffer.hpp"
 #include "common.hpp"
 
-#include <cuda.h>
-
 /// Stub implementations of UR experimental feature command-buffers
 
 ur_exp_command_buffer_handle_t_::ur_exp_command_buffer_handle_t_(
@@ -30,10 +28,10 @@ ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
   urDeviceRelease(Device);
 
   // Release the memory allocated to the CudaGraph
-  cudaGraphDestroy(cudaGraph);
+  cuGraphDestroy(cudaGraph);
 
   // Release the memory allocated to the CudaGraph
-  cudaGraphExecDestroy(cudaGraphExec);
+  cuGraphExecDestroy(cudaGraphExec);
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL
@@ -52,7 +50,7 @@ urCommandBufferCreateExp(ur_context_handle_t Context, ur_device_handle_t Device,
 
   auto RetCommandBuffer = *CommandBuffer;
   try {
-    UR_CHECK_ERROR_RUNTIME(cudaGraphCreate(&RetCommandBuffer->cudaGraph, 0));
+    UR_CHECK_ERROR(cuGraphCreate(&RetCommandBuffer->cudaGraph, 0));
   } catch (...) {
     return UR_RESULT_ERROR_OUT_OF_RESOURCES;
   }
@@ -78,8 +76,8 @@ urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t CommandBuffer) {
 UR_APIEXPORT ur_result_t UR_APICALL
 urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t CommandBuffer) {
   try {
-    UR_CHECK_ERROR_RUNTIME(cudaGraphInstantiate(&CommandBuffer->cudaGraphExec,
-                                                CommandBuffer->cudaGraph, 0));
+    UR_CHECK_ERROR(cuGraphInstantiate(&CommandBuffer->cudaGraphExec,
+                                      CommandBuffer->cudaGraph, 0));
   } catch (...) {
     return UR_RESULT_ERROR_UNKNOWN;
   }
