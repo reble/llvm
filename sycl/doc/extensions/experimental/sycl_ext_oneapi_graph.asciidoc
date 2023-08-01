@@ -1035,44 +1035,13 @@ As a result, users don't need to manually wrap queue recording code in a
 back to the executing state. Instead, an uncaught exception destroying the
 modifiable graph will perform this action, useful in RAII pattern usage.
 
-=== Storage Lifetimes [[storage-lifetimes]]
-
-The lifetime of any buffer recorded as part of a submission
-to a command graph will not automatically be extended in keeping with the common reference
-semantics and buffer synchronization rules in the SYCL specification. It is a User's
-responsiblity to keep a buffer and it's underlying data alive until the buffer is no longer
-required by the graph.
-
-If a buffer created with a host data pointer is recorded as part of a submission to
-a command graph, the lifetime of that host data will also not be extended.
-To illustrate this issue, consider the following example:
-
-[source,c++]
-----
-void foo(queue q /* queue in recording mode */ ) {
-  float data[NUM];
-  buffer buf{data, range{NUM}};
-  q.submit([&](handler &cgh) {
-    accessor acc{buf, cgh, read_only};
-    cgh.single_task([] {
-       // use "acc"
-    });
-  });
-  // "data" goes out of scope
-}
-----
-
-In this example, lifetime of memory might need to be extended because
-it of being used in the recorded graph. As illustrated
-above, that host memory might go out of scope before the recorded graph goes out
-of scope, or before the data has been copied to the device.
-
 === Host Tasks
 
 :host-task: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#subsec:interfaces.hosttasks
 
-A {host-task}[host task] is a native C++ callable, scheduled according to SYCL
-dependency rules. It is not valid to record a host task as part of graph.
+It is not yet supported to have a host task inside a `command_graph`.
+Support will be added subsequently as detailed in the <<host-tasks, host tasks>> 
+part from the <<future-direction, future direction>> section of this specification.
 
 === Queue Behavior In Recording Mode
 
@@ -1420,7 +1389,7 @@ submitted in its entirety for execution via
 
 ----
 
-== Future Direction
+== Future Direction [[future-direction]]
 
 === Memory Allocation Nodes
 
@@ -1541,7 +1510,7 @@ associated with a buffer that was created using a host data pointer will
 outlive any executable graphs created from a modifiable graph which uses
 that buffer.
 
-=== Host Tasks
+=== Host Tasks [[host-tasks]]
 
 A {host-task}[host task] is a native C++ callable, scheduled according to SYCL
 dependency rules. It is valid to record a host task as part of graph, though it
