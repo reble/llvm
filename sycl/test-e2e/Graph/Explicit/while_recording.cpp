@@ -5,9 +5,6 @@
 //
 // CHECK-NOT: LEAK
 
-// Expected Fail as exception not implemented yet
-// XFAIL: *
-
 // Tests attempting to add a node to a command_graph while it is being
 // recorded to by a queue is an error.
 // The second run is to check that there are no leaks reported with the embedded
@@ -31,8 +28,19 @@ int main() {
       Success = true;
     }
   }
+  assert(Success);
+
+  Success = false;
+  try {
+    Graph.add({});
+  } catch (sycl::exception &E) {
+    auto StdErrc = E.code().value();
+    if (StdErrc == static_cast<int>(errc::invalid)) {
+      Success = true;
+    }
+  }
+  assert(Success);
 
   Graph.end_recording();
-  assert(Success);
   return 0;
 }
