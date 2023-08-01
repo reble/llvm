@@ -600,8 +600,8 @@ associated with `syclContext`.
 * Throws synchronously with error code `invalid` if `syclDevice`
   <<device-info-query, reports this extension as unsupported>>.
 
-* Throws synchronously with error code `invalid` if the `syclDevice` backend 
-is not supported.
+* Throws synchronously with error code `invalid` if the backend associated
+with `syclDevice` is not supported.
 
 |===
 
