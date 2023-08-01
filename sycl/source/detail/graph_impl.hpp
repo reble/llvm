@@ -715,7 +715,7 @@ public:
   }
 
   /// @return true is emulated backend has been forced
-  bool isEmulationModeForced() { return MGraphImpl->getEmulationModeForced(); }
+  bool isEmulationModeForced() const { return MGraphImpl->getEmulationModeForced(); }
 
 private:
   /// Create a command-group for the node and add it to command-buffer by going
