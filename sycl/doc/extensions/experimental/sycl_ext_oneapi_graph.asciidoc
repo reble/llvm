@@ -1666,7 +1666,7 @@ The following features are not yet supported:
 . Using `handler::fill` in a graph node implemented for USM only.
 . Using `handler::memset` in a graph node.
 . Using `handler::prefetch` in a graph node.
-. Using handler::memadvise in a graph node.
+. Using `handler::memadvise` in a graph node.
 . Using specialization constants in a graph node.
 . Using reductions in a graph node.
 . Using sycl streams in a graph node.
