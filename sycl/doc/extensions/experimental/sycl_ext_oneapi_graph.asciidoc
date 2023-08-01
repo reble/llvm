@@ -1657,8 +1657,8 @@ block size.
 the finalize call either extending the basic command graph proposal
 or layered as a separate extension proposal.
 
-== Non-implemented features
-The following features are not yet implemented:
+== Non-implemented features and known issues
+The following features are not yet supported:
 
 . Using `handler::fill` in a graph node implemented for USM only.
 . Using `handler::memset` in a graph node.
@@ -1669,6 +1669,7 @@ The following features are not yet implemented:
 . Using sycl streams in a graph node.
 . Thread safety of new methods.
 . Profiling an event returned from graph submission with `event::get_profiling_info()`.
+. Subgraph can only be added as a node to any parent graph once, and will not correctly execute by itself after being added as a sub-graph.
 
 == Revision History
 
@@ -1680,5 +1681,7 @@ The following features are not yet implemented:
 
 |1|2023-03-23|Pablo Reble, Ewan Crawford, Ben Tracy, Julian Miller
 |Initial public working draft
+|2|2023-08-01|Pablo Reble, Ewan Crawford, Ben Tracy, Julian Miller
+|Promote status to experimental
 
 |========================================
