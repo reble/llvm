@@ -583,7 +583,7 @@ public:
                 std::shared_ptr<node_impl> Dest);
 
   /// Throws an invalid exception if this function is called
-  /// while the graph is recording a queue.
+  /// while a queue is recording commands to the graph.
   /// @param ExceptionMsg Message to append to the exception message
   void throwIfGraphRecordingQueue(const std::string ExceptionMsg) {
     if (MRecordingQueues.size()) {
