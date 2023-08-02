@@ -582,7 +582,7 @@ public:
   void makeEdge(std::shared_ptr<node_impl> Src,
                 std::shared_ptr<node_impl> Dest);
 
-  /// Throws an invalid exception if this function called
+  /// Throws an invalid exception if this function is called
   /// while the graph is recording a queue.
   /// @param ExceptionMsg Message to append to the exception message
   void throwIfGraphRecordingQueue(const std::string ExceptionMsg) {
