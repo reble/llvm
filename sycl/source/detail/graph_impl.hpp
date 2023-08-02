@@ -329,7 +329,7 @@ public:
 
   /// Recusively computes the number of successor nodes
   /// @return number of successor nodes
-  size_t depthSearchCount() {
+  size_t depthSearchCount() const {
     size_t NumberOfNodes = 1;
     for (const auto &Succ : MSuccessors) {
       NumberOfNodes += Succ->depthSearchCount();
@@ -612,7 +612,7 @@ public:
   // @return Number of nodes in the Graph
   size_t getNumberOfNodes() const {
     size_t NumberOfNodes = 0;
-    for (std::shared_ptr<node_impl> Node : MRoots) {
+    for (const auto &Node : MRoots) {
       NumberOfNodes += Node->depthSearchCount();
     }
   }

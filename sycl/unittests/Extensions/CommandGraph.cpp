@@ -354,6 +354,7 @@ void addKernels(
       [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); },
       {experimental::property::node::depends_on(NodeB, NodeC)});
 }
+
 } // anonymous namespace
 
 class CommandGraphTest : public ::testing::Test {
@@ -1124,11 +1125,21 @@ TEST_F(CommandGraphTest, Memcpy2DExceptionCheck) {
   sycl::free(USMMemDst, Queue);
 }
 
-TEST_F(CommandGraphTest, MultiThreadsBeginEndRecording) {
-  const unsigned NumThreads = std::thread::hardware_concurrency();
+class MultiThreadGraphTest : public CommandGraphTest {
+public:
+  MultiThreadGraphTest()
+      : CommandGraphTest(), NumThreads(std::thread::hardware_concurrency()),
+        SyncPoint(NumThreads) {
+    Threads.reserve(NumThreads);
+  }
 
-  Barrier SyncPoint{NumThreads};
+protected:
+  const unsigned NumThreads;
+  Barrier SyncPoint;
+  std::vector<std::thread> Threads;
+};
 
+TEST_F(MultiThreadGraphTest, BeginEndRecording) {
   auto RecordGraph = [&]() {
     queue MyQueue{Queue.get_context(), Queue.get_device()};
 
@@ -1139,8 +1150,6 @@ TEST_F(CommandGraphTest, MultiThreadsBeginEndRecording) {
     Graph.end_recording(MyQueue);
   };
 
-  std::vector<std::thread> Threads;
-  Threads.reserve(NumThreads);
   for (unsigned i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(RecordGraph);
   }
@@ -1166,11 +1175,7 @@ TEST_F(CommandGraphTest, MultiThreadsBeginEndRecording) {
   ASSERT_EQ(GraphImpl->hasSimilarStructure(GraphRefImpl), true);
 }
 
-TEST_F(CommandGraphTest, MultiThreadsExplicitAddNodes) {
-  const unsigned NumThreads = std::thread::hardware_concurrency();
-
-  Barrier SyncPoint{NumThreads};
-
+TEST_F(MultiThreadGraphTest, ExplicitAddNodes) {
   auto RecordGraph = [&]() {
     queue MyQueue{Queue.get_context(), Queue.get_device()};
 
@@ -1178,8 +1183,6 @@ TEST_F(CommandGraphTest, MultiThreadsExplicitAddNodes) {
     addKernels(Graph);
   };
 
-  std::vector<std::thread> Threads;
-  Threads.reserve(NumThreads);
   for (unsigned i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(RecordGraph);
   }
@@ -1202,19 +1205,13 @@ TEST_F(CommandGraphTest, MultiThreadsExplicitAddNodes) {
   ASSERT_EQ(GraphImpl->hasSimilarStructure(GraphRefImpl), true);
 }
 
-TEST_F(CommandGraphTest, MultiThreadsRecordAddNodes) {
-  const unsigned NumThreads = std::thread::hardware_concurrency();
-
-  Barrier SyncPoint{NumThreads};
-
+TEST_F(MultiThreadGraphTest, RecordAddNodes) {
   Graph.begin_recording(Queue);
   auto RecordGraph = [&]() {
     SyncPoint.wait();
     runKernels(Queue);
   };
 
-  std::vector<std::thread> Threads;
-  Threads.reserve(NumThreads);
   for (unsigned i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(RecordGraph);
   }
@@ -1242,15 +1239,12 @@ TEST_F(CommandGraphTest, MultiThreadsRecordAddNodes) {
   ASSERT_EQ(GraphImpl->hasSimilarStructure(GraphRefImpl), true);
 }
 
-TEST_F(CommandGraphTest, MultiThreadsRecordAddNodesInOrderQueue) {
+TEST_F(MultiThreadGraphTest, RecordAddNodesInOrderQueue) {
   sycl::property_list Properties{sycl::property::queue::in_order()};
   queue InOrderQueue{Dev, Properties};
-  const unsigned NumThreads = std::thread::hardware_concurrency();
 
   experimental::command_graph<experimental::graph_state::modifiable>
       InOrderGraph{InOrderQueue.get_context(), InOrderQueue.get_device()};
-
-  Barrier SyncPoint{NumThreads};
 
   InOrderGraph.begin_recording(InOrderQueue);
   auto RecordGraph = [&]() {
@@ -1258,8 +1252,6 @@ TEST_F(CommandGraphTest, MultiThreadsRecordAddNodesInOrderQueue) {
     runKernelsInOrder(InOrderQueue);
   };
 
-  std::vector<std::thread> Threads;
-  Threads.reserve(NumThreads);
   for (unsigned i = 0; i < NumThreads; ++i) {
     Threads.emplace_back(RecordGraph);
   }

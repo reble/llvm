@@ -10,7 +10,6 @@
 // ZE_DEBUG=4 testing capability.
 
 #include "../graph_common.hpp"
-#include <detail/graph_impl.hpp>
 
 #include <thread>
 
