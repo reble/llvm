@@ -751,7 +751,7 @@ void handler::verifyUsedKernelBundle(const std::string &KernelName) {
 }
 
 void handler::ext_oneapi_barrier(const std::vector<event> &WaitList) {
-  throwIfGraphAssociated("sycl_ext_oneapi_enqueue_barrier");
+  throwIfGraphAssociated<SyclExtensions::sycl_ext_oneapi_enqueue_barrier>();
   throwIfActionIsCreated();
   MCGType = detail::CG::BarrierWaitlist;
   MEventsWaitWithBarrier.resize(WaitList.size());
@@ -1082,7 +1082,33 @@ handler::getCommandGraph() const {
   return MQueue->getCommandGraph();
 }
 
-void handler::throwIfGraphAssociated(const std::string ExceptionMsg) {
+template void handler::throwIfGraphAssociated<
+    handler::SyclExtensions::sycl_ext_oneapi_kernel_properties>();
+template void handler::throwIfGraphAssociated<
+    handler::SyclExtensions::sycl_ext_oneapi_enqueue_barrier>();
+template void handler::throwIfGraphAssociated<
+    handler::SyclExtensions::sycl_ext_oneapi_memcpy2d>();
+template void handler::throwIfGraphAssociated<
+    handler::SyclExtensions::sycl_ext_oneapi_device_global>();
+
+template <handler::SyclExtensions ExtensionT>
+void handler::throwIfGraphAssociated() {
+  std::string ExceptionMsg = "";
+
+  if constexpr (ExtensionT ==
+                SyclExtensions::sycl_ext_oneapi_kernel_properties) {
+    ExceptionMsg = "sycl_ext_oneapi_kernel_properties";
+  }
+  if constexpr (ExtensionT == SyclExtensions::sycl_ext_oneapi_enqueue_barrier) {
+    ExceptionMsg = "sycl_ext_oneapi_enqueue_barrier";
+  }
+  if constexpr (ExtensionT == SyclExtensions::sycl_ext_oneapi_memcpy2d) {
+    ExceptionMsg = "sycl_ext_oneapi_memcpy2d";
+  }
+  if constexpr (ExtensionT == SyclExtensions::sycl_ext_oneapi_device_global) {
+    ExceptionMsg = "sycl_ext_oneapi_device_global";
+  }
+
   if (MGraph || MQueue->getCommandGraph()) {
     throw sycl::exception(sycl::make_error_code(errc::invalid),
                           "The feature " + ExceptionMsg +

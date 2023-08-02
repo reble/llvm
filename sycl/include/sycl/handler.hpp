@@ -381,7 +381,14 @@ private:
                             "a single kernel or explicit memory operation.");
   }
 
-  void throwIfGraphAssociated(const std::string ExceptionMsg);
+  enum SyclExtensions {
+    sycl_ext_oneapi_kernel_properties,
+    sycl_ext_oneapi_enqueue_barrier,
+    sycl_ext_oneapi_memcpy2d,
+    sycl_ext_oneapi_device_global
+  };
+
+  template <SyclExtensions ExtensionT> void throwIfGraphAssociated();
 
   constexpr static int AccessTargetMask = 0x7ff;
   /// According to section 4.7.6.11. of the SYCL specification, a local accessor
@@ -2543,7 +2550,7 @@ public:
   /// until all commands previously submitted to this queue have entered the
   /// complete state.
   void ext_oneapi_barrier() {
-    throwIfGraphAssociated("sycl_ext_oneapi_enqueue_barrier");
+    throwIfGraphAssociated<SyclExtensions::sycl_ext_oneapi_enqueue_barrier>();
     throwIfActionIsCreated();
     setType(detail::CG::Barrier);
   }
@@ -2629,7 +2636,7 @@ public:
             typename = std::enable_if_t<std::is_same_v<T, unsigned char>>>
   void ext_oneapi_memcpy2d(void *Dest, size_t DestPitch, const void *Src,
                            size_t SrcPitch, size_t Width, size_t Height) {
-    throwIfGraphAssociated("sycl_ext_oneapi_memcpy2d");
+    throwIfGraphAssociated<SyclExtensions::sycl_ext_oneapi_memcpy2d>();
     throwIfActionIsCreated();
     if (Width > DestPitch)
       throw sycl::exception(sycl::make_error_code(errc::invalid),
@@ -2808,7 +2815,7 @@ public:
   void memcpy(ext::oneapi::experimental::device_global<T, PropertyListT> &Dest,
               const void *Src, size_t NumBytes = sizeof(T),
               size_t DestOffset = 0) {
-    throwIfGraphAssociated("sycl_ext_oneapi_device_global");
+    throwIfGraphAssociated<SyclExtensions::sycl_ext_oneapi_device_global>();
     if (sizeof(T) < DestOffset + NumBytes)
       throw sycl::exception(make_error_code(errc::invalid),
                             "Copy to device_global is out of bounds.");
@@ -2841,7 +2848,7 @@ public:
   memcpy(void *Dest,
          const ext::oneapi::experimental::device_global<T, PropertyListT> &Src,
          size_t NumBytes = sizeof(T), size_t SrcOffset = 0) {
-    throwIfGraphAssociated("sycl_ext_oneapi_device_global");
+    throwIfGraphAssociated<SyclExtensions::sycl_ext_oneapi_device_global>();
     if (sizeof(T) < SrcOffset + NumBytes)
       throw sycl::exception(make_error_code(errc::invalid),
                             "Copy from device_global is out of bounds.");
@@ -3228,7 +3235,8 @@ private:
   throwIfGraphAssociatedAndKernelProperties() {
     if (!std::is_same_v<PropertiesT,
                         ext::oneapi::experimental::detail::empty_properties_t>)
-      throwIfGraphAssociated("sycl_ext_oneapi_kernel_properties");
+      throwIfGraphAssociated<
+          SyclExtensions::sycl_ext_oneapi_kernel_properties>();
   }
 
   // Set value of the gpu cache configuration for the kernel.
