@@ -713,7 +713,7 @@ public:
     return false;
   }
 
-  /// @return true is emulated backend has been forced
+  /// @return true if emulated backend has been forced
   bool isEmulationModeForced() const {
     return MGraphImpl->getEmulationModeForced();
   }
