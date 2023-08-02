@@ -12,6 +12,7 @@
 #include <detail/program_manager/program_manager.hpp>
 #include <detail/queue_impl.hpp>
 #include <detail/scheduler/commands.hpp>
+#include <detail/sycl_mem_obj_t.hpp>
 #include <sycl/feature_test.hpp>
 #include <sycl/queue.hpp>
 
@@ -117,6 +118,12 @@ void exec_graph_impl::schedule() {
   }
 }
 
+graph_impl::~graph_impl() {
+  for (auto &MemObj : MMemObjs) {
+    MemObj->markNoLongerBeingUsedInGraph();
+  }
+}
+
 std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
     const std::list<std::shared_ptr<node_impl>> &NodeList) {
   // Find all input and output nodes from the node list
@@ -215,6 +222,12 @@ graph_impl::add(sycl::detail::CG::CGTYPE CGType,
   std::set<std::shared_ptr<node_impl>> UniqueDeps;
   const auto &Requirements = CommandGroup->getRequirements();
   for (auto &Req : Requirements) {
+    // Track and mark the memory objects being used by the graph.
+    auto MemObj = static_cast<sycl::detail::SYCLMemObjT *>(Req->MSYCLMemObj);
+    bool WasInserted = MMemObjs.insert(MemObj).second;
+    if (WasInserted) {
+      MemObj->markBeingUsedInGraph();
+    }
     // Look through the graph for nodes which share this requirement
     for (auto NodePtr : MRoots) {
       checkForRequirement(Req, NodePtr, UniqueDeps);

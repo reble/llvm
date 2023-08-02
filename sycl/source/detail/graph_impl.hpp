@@ -26,6 +26,10 @@
 namespace sycl {
 inline namespace _V1 {
 
+namespace detail {
+class SYCLMemObjT;
+}
+
 namespace ext {
 namespace oneapi {
 namespace experimental {
@@ -375,6 +379,8 @@ public:
     }
   }
 
+  ~graph_impl();
+
   /// Remove node from list of root nodes.
   /// @param Root Node to remove from list of root nodes.
   void removeRoot(const std::shared_ptr<node_impl> &Root);
@@ -626,6 +632,10 @@ private:
   /// @return True if a cycle is detected, false if not.
   bool checkForCycles();
 
+  /// Insert node into list of root nodes.
+  /// @param Root Node to add to list of root nodes.
+  void addRoot(const std::shared_ptr<node_impl> &Root);
+
   /// Context associated with this graph.
   sycl::context MContext;
   /// Device associated with this graph. All graph nodes will execute on this
@@ -646,10 +656,8 @@ private:
   /// Controls whether we skip the cycle checks in makeEdge, set by the presence
   /// of the no_cycle_check property on construction.
   bool MSkipCycleChecks = false;
-
-  /// Insert node into list of root nodes.
-  /// @param Root Node to add to list of root nodes.
-  void addRoot(const std::shared_ptr<node_impl> &Root);
+  /// Unique set of SYCL Memory Objects which are currently in use in the graph.
+  std::set<sycl::detail::SYCLMemObjT *> MMemObjs;
 };
 
 /// Class representing the implementation of command_graph<executable>.
