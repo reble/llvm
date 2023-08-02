@@ -595,6 +595,7 @@ public:
   void makeEdge(std::shared_ptr<node_impl> Src,
                 std::shared_ptr<node_impl> Dest);
 
+
   /// Throws an invalid exception if this function is called
   /// while a queue is recording commands to the graph.
   /// @param ExceptionMsg Message to append to the exception message
@@ -604,6 +605,15 @@ public:
                             ExceptionMsg +
                                 " cannot be called when a queue "
                                 "is currently recording commands to a graph.");
+    }
+  }
+  
+  // Returns the number of nodes in the Graph
+  // @return Number of nodes in the Graph
+  size_t getNumberOfNodes() const {
+    size_t NumberOfNodes = 0;
+    for (std::shared_ptr<node_impl> Node : MRoots) {
+      NumberOfNodes += Node->depthSearchCount();
     }
   }
 
