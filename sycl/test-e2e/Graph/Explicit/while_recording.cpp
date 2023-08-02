@@ -34,10 +34,7 @@ int main() {
   try {
     Graph.add({});
   } catch (sycl::exception &E) {
-    auto StdErrc = E.code().value();
-    if (StdErrc == static_cast<int>(errc::invalid)) {
-      Success = true;
-    }
+    Success = E.code() == static_cast<int>(errc::invalid)
   }
   assert(Success);
 
