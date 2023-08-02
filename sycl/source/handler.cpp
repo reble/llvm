@@ -1069,7 +1069,7 @@ void handler::ext_oneapi_graph(
     // ParentGraph is read and written in this scope so we lock this graph
     // with full priviledges.
     // We only lock for Record&Replay API because the graph has already been
-    // lock if this function was called from teh explicit API function add
+    // lock if this function was called from the explicit API function add
     if (MQueue) {
       ParentLock = ext::oneapi::experimental::detail::graph_impl::WriteLock(
           ParentGraph->MMutex);
