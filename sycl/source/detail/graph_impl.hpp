@@ -358,8 +358,7 @@ public:
       std::string BackendString = Stream.str();
       throw sycl::exception(
           sycl::make_error_code(errc::invalid),
-          BackendString +
-              " backend is not supported by SYCL Graph extension.");
+          BackendString + " backend is not supported by SYCL Graph extension.");
     }
   }
 
@@ -597,7 +596,7 @@ public:
   /// @param Forced true force to use an emulated backend
   ///               false enable the use of non-emulatated backend
   void setEmulationModeForced(bool Forced) { MEmulationModeForced = Forced; }
-  /// get the status of MEmulationModeForced member
+  /// Get the status of MEmulationModeForced member
   /// @return true is bakced is forced to emulation
   bool getEmulationModeForced() { return MEmulationModeForced; }
 
@@ -715,7 +714,9 @@ public:
   }
 
   /// @return true is emulated backend has been forced
-  bool isEmulationModeForced() const { return MGraphImpl->getEmulationModeForced(); }
+  bool isEmulationModeForced() const {
+    return MGraphImpl->getEmulationModeForced();
+  }
 
 private:
   /// Create a command-group for the node and add it to command-buffer by going
