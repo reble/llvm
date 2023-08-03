@@ -2,12 +2,13 @@
 // RUN: %{run} %t.out
 
 // Tests the ability to finalize a empty command graph
-// without submitting the graph.
+// The test checks that invalid exception is thrown
+// when trying to create a graph with an unsupported backend.
 
 #include "graph_common.hpp"
 
 int GetUnsupportedBackend(const sycl::device &Dev) {
-  // Return 1 if the device backend is "cuda" or 0 else.
+  // Return 1 if the device backend is unsupported or 0 else.
   // 0 does not prevent another device to be picked as a second choice
   return Dev.get_info<
              ext::oneapi::experimental::info::device::graph_support>() ==

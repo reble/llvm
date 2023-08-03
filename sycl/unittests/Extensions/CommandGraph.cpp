@@ -20,14 +20,21 @@
 using namespace sycl;
 using namespace sycl::ext::oneapi;
 
+namespace {
+void forceEmulatedBackend(
+    experimental::command_graph<experimental::graph_state::modifiable> Graph) {
+  auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
+  GraphImpl->setEmulationModeForced(true);
+}
+} // anonymous namespace
+
 class CommandGraphTest : public ::testing::Test {
 public:
   CommandGraphTest()
       : Mock{}, Plat{Mock.getPlatform()}, Dev{Plat.get_devices()[0]},
         Queue{Dev}, Graph{Queue.get_context(), Dev} {
     // We need to disable backend for unitests as backends are not loaded
-    auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
-    GraphImpl->setEmulationModeForced(true);
+    forceEmulatedBackend(Graph);
   }
 
 protected:
@@ -287,8 +294,7 @@ TEST_F(CommandGraphTest, SubGraph) {
             1lu);
 
   // We need to disable backend for unitests as backends are not loaded
-  auto MainGraphImpl = sycl::detail::getSyclObjImpl(MainGraph);
-  MainGraphImpl->setEmulationModeForced(true);
+  forceEmulatedBackend(MainGraph);
 
   // Finalize main graph and check schedule
   auto MainGraphExec = MainGraph.finalize();
@@ -334,8 +340,7 @@ TEST_F(CommandGraphTest, RecordSubGraph) {
   MainGraph.end_recording(Queue);
 
   // We need to disable backend for unitests as backends are not loaded
-  auto MainGraphImpl = sycl::detail::getSyclObjImpl(MainGraph);
-  MainGraphImpl->setEmulationModeForced(true);
+  forceEmulatedBackend(MainGraph);
 
   // Finalize main graph and check schedule
   auto MainGraphExec = MainGraph.finalize();
@@ -420,8 +425,7 @@ TEST_F(CommandGraphTest, InOrderQueue) {
   InOrderGraph.end_recording(InOrderQueue);
 
   // We need to disable backend for unitests as backends are not loaded
-  auto InOrderGraphImpl = sycl::detail::getSyclObjImpl(InOrderGraph);
-  InOrderGraphImpl->setEmulationModeForced(true);
+  forceEmulatedBackend(InOrderGraph);
 
   // Finalize main graph and check schedule
   auto GraphExec = InOrderGraph.finalize();
@@ -483,8 +487,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmpty) {
   InOrderGraph.end_recording(InOrderQueue);
 
   // We need to disable backend for unitests as backends are not loaded
-  auto InOrderGraphImpl = sycl::detail::getSyclObjImpl(InOrderGraph);
-  InOrderGraphImpl->setEmulationModeForced(true);
+  forceEmulatedBackend(InOrderGraph);
 
   // Finalize main graph and check schedule
   // Note that empty nodes are not scheduled
@@ -544,8 +547,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyFirst) {
   InOrderGraph.end_recording(InOrderQueue);
 
   // We need to disable backend for unitests as backends are not loaded
-  auto InOrderGraphImpl = sycl::detail::getSyclObjImpl(InOrderGraph);
-  InOrderGraphImpl->setEmulationModeForced(true);
+  forceEmulatedBackend(InOrderGraph);
 
   // Finalize main graph and check schedule
   // Note that empty nodes are not scheduled
@@ -605,8 +607,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyLast) {
   InOrderGraph.end_recording(InOrderQueue);
 
   // We need to disable backend for unitests as backends are not loaded
-  auto InOrderGraphImpl = sycl::detail::getSyclObjImpl(InOrderGraph);
-  InOrderGraphImpl->setEmulationModeForced(true);
+  forceEmulatedBackend(InOrderGraph);
 
   // Finalize main graph and check schedule
   // Note that empty nodes are not scheduled
