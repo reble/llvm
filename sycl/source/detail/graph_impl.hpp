@@ -380,6 +380,10 @@ public:
     if (PropList.has_property<property::graph::assume_data_outlives_buffer>()) {
       MAllowBuffersHostPointers = true;
     }
+    if (PropList
+            .has_property<property::graph::assume_buffer_outlives_graph>()) {
+      MAllowBuffers = true;
+    }
   }
 
   ~graph_impl();
@@ -666,6 +670,10 @@ private:
   /// be used in the graph. Set by the presence of the
   /// assume_data_outlives_buffer property.
   bool MAllowBuffersHostPointers = false;
+
+  /// Controls whether we allow buffers to be used in the graph. Set by the
+  /// presence of the assume_buffer_outlives_graph property.
+  bool MAllowBuffers = false;
 };
 
 /// Class representing the implementation of command_graph<executable>.

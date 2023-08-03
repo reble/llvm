@@ -221,6 +221,13 @@ graph_impl::add(sycl::detail::CG::CGTYPE CGType,
   // A unique set of dependencies obtained by checking requirements and events
   std::set<std::shared_ptr<node_impl>> UniqueDeps;
   const auto &Requirements = CommandGroup->getRequirements();
+  if (!MAllowBuffers && Requirements.size()) {
+    throw sycl::exception(make_error_code(errc::invalid),
+                          "Cannot use buffers in a graph without passing the "
+                          "assume_buffer_outlives_graph property on "
+                          "Graph construction.");
+  }
+
   for (auto &Req : Requirements) {
     // Track and mark the memory objects being used by the graph.
     auto MemObj = static_cast<sycl::detail::SYCLMemObjT *>(Req->MSYCLMemObj);

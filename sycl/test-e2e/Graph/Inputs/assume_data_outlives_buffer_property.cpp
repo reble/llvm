@@ -21,7 +21,8 @@ int main() {
     exp_ext::command_graph Graph{
         Queue.get_context(),
         Queue.get_device(),
-        {exp_ext::property::graph::assume_data_outlives_buffer{}}};
+        {exp_ext::property::graph::assume_buffer_outlives_graph{},
+         exp_ext::property::graph::assume_data_outlives_buffer{}}};
 
     std::error_code ErrorCode = make_error_code(sycl::errc::success);
     // This should not throw because we have passed the property
@@ -50,7 +51,10 @@ int main() {
 
   // Test without the property
   {
-    exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
+    exp_ext::command_graph Graph{
+        Queue.get_context(),
+        Queue.get_device(),
+        {exp_ext::property::graph::assume_buffer_outlives_graph{}}};
 
     std::error_code ErrorCode = make_error_code(sycl::errc::success);
     // This should throw because we haven't used the property
