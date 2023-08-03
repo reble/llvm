@@ -25,7 +25,10 @@ int main() {
     buffer<T> BufferC{DataC.data(), range<1>{DataC.size()}};
     BufferC.set_write_back(false);
     {
-      exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
+      exp_ext::command_graph Graph{
+          Queue.get_context(),
+          Queue.get_device(),
+          {exp_ext::property::graph::assume_data_outlives_buffer{}}};
 
       // Add commands to graph
       add_nodes(Graph, Queue, Size, BufferA, BufferB, BufferC);

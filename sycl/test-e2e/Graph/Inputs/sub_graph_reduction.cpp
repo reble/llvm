@@ -6,8 +6,14 @@
 int main() {
   queue Queue;
 
-  exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
-  exp_ext::command_graph SubGraph{Queue.get_context(), Queue.get_device()};
+  exp_ext::command_graph Graph{
+      Queue.get_context(),
+      Queue.get_device(),
+      {exp_ext::property::graph::assume_data_outlives_buffer{}}};
+  exp_ext::command_graph SubGraph{
+      Queue.get_context(),
+      Queue.get_device(),
+      {exp_ext::property::graph::assume_data_outlives_buffer{}}};
 
   float *Dotp = malloc_device<float>(1, Queue);
 

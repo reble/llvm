@@ -377,6 +377,9 @@ public:
     if (PropList.has_property<property::graph::no_cycle_check>()) {
       MSkipCycleChecks = true;
     }
+    if (PropList.has_property<property::graph::assume_data_outlives_buffer>()) {
+      MAllowBuffersHostPointers = true;
+    }
   }
 
   ~graph_impl();
@@ -658,6 +661,11 @@ private:
   bool MSkipCycleChecks = false;
   /// Unique set of SYCL Memory Objects which are currently in use in the graph.
   std::set<sycl::detail::SYCLMemObjT *> MMemObjs;
+
+  /// Controls whether we allow buffers that are created with host pointers to
+  /// be used in the graph. Set by the presence of the
+  /// assume_data_outlives_buffer property.
+  bool MAllowBuffersHostPointers = false;
 };
 
 /// Class representing the implementation of command_graph<executable>.

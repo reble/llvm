@@ -34,7 +34,10 @@ int main() {
   BufferC.set_write_back(false);
 
   {
-    exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
+    exp_ext::command_graph Graph{
+        Queue.get_context(),
+        Queue.get_device(),
+        {exp_ext::property::graph::assume_data_outlives_buffer{}}};
 
     // Copy from B to A
     auto NodeA = add_node(Graph, Queue, [&](handler &CGH) {

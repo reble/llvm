@@ -21,7 +21,10 @@ int main() {
   BufferA.set_write_back(false);
 
   {
-    exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
+    exp_ext::command_graph Graph{
+        Queue.get_context(),
+        Queue.get_device(),
+        {exp_ext::property::graph::assume_data_outlives_buffer{}}};
 
     auto NodeA = add_node(Graph, Queue, [&](handler &CGH) {
       auto AccA = BufferA.get_access(CGH);
