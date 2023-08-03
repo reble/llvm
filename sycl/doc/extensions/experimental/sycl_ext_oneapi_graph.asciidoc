@@ -530,6 +530,15 @@ puts that `command_graph` into an undefined state. Any further operations
 performed on a `command_graph` in this state will result in undefined
 behavior.
 
+===== Assume-Buffer-Outlives-Graph Property [[assume-buffer-outlives-graph-property]]
+The `property::graph::assume_buffer_outlives_graph` property disables
+restrictions on using buffers in a `command_graph` and can be passed to a
+`command_graph` on construction via the property list parameter. This property
+represents a promise from the user that any buffer which is used in a graph
+will be kept alive on the host for the lifetime of the graph. Destroying that
+buffer during the lifetime of a `command_graph` constructured with this
+property results in undefined behaviour.
+
 ===== Assume-Data-Outlives-Buffer Property [[assume-data-outlives-buffer-property]]
 The `property::graph::assume_data_outlives_buffer` property disables
 restrictions on using buffers which have been created with a host pointer
@@ -1079,6 +1088,23 @@ synchronously with error code `invalid`.
 
 ==== Buffer Limitations
 
+The use of buffers inside a `command_graph` is restricted unless the user
+creates the graph with the <<assume-buffer-outlives-graph, Assume-Buffer-Outlives-Graph>>
+property. Buffer lifetimes are not extended by a `command_graph` in which they
+are used and so the user must ensure that their lifetimes exceed that of the
+`command_graph`. Attempting to use a buffer in a `command_graph` without this
+property will result in a synchronous error being throw with error code
+`invalid`.
+
+There are also restrictions on using a buffer which has been created with a
+host data pointer in commands recorded to a `command_graph`. Because of the
+delayed execution of a `command_graph`, data may not be copied to the device
+immediately when commands using these buffers are submitted to the graph,
+therefore the host data must also outlive the graph to ensure correct behaviour.
+Users can pass the <<assume-data-outlives-buffer, Assume-Data-Outlives-Buffer>>
+property to the graph constructor to provide a promise that this will not occur
+and that it is safe to use this buffer in the graph.
+
 Because of the delayed execution of a recorded graph, it is not possible to support
 captured code which relies on the copy-back on destruction behavior of buffers.
 Typically, applications would rely on this behavior to do work on the host which
@@ -1097,14 +1123,6 @@ storage using either `buffer::set_final_data(nullptr)` or
 commands which are currently being recorded to a command graph. Attempting to
 construct a host accessor to an incompatible buffer will result in a
 synchronous error being thrown with error code `invalid`.
-
-- It is also an error to use a buffer which has been created with a host data
-pointer in a command recorded to a graph. Because of the delayed execution of
-a graph, modifying or deleting this host data during the lifetime of the buffer
-and by extension the graph will lead to undefined behaviour. User's can pass
-the property `property::graph::assume_data_outlives_buffer` to the graph
-constructor to provide a promise that this will not occur and that it is safe
-to use this buffer in the graph. 
 
 ==== Error Handling
 
