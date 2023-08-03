@@ -751,7 +751,8 @@ void handler::verifyUsedKernelBundle(const std::string &KernelName) {
 }
 
 void handler::ext_oneapi_barrier(const std::vector<event> &WaitList) {
-  throwIfGraphAssociated<SyclExtensions::sycl_ext_oneapi_enqueue_barrier>();
+  throwIfGraphAssociated<ext::oneapi::experimental::detail::SyclExtensions::
+                             sycl_ext_oneapi_enqueue_barrier>();
   throwIfActionIsCreated();
   MCGType = detail::CG::BarrierWaitlist;
   MEventsWaitWithBarrier.resize(WaitList.size());
@@ -1083,29 +1084,39 @@ handler::getCommandGraph() const {
 }
 
 template void handler::throwIfGraphAssociated<
-    handler::SyclExtensions::sycl_ext_oneapi_kernel_properties>();
+    ext::oneapi::experimental::detail::SyclExtensions::
+        sycl_ext_oneapi_kernel_properties>();
 template void handler::throwIfGraphAssociated<
-    handler::SyclExtensions::sycl_ext_oneapi_enqueue_barrier>();
+    ext::oneapi::experimental::detail::SyclExtensions::
+        sycl_ext_oneapi_enqueue_barrier>();
+template void
+handler::throwIfGraphAssociated<ext::oneapi::experimental::detail::
+                                    SyclExtensions::sycl_ext_oneapi_memcpy2d>();
 template void handler::throwIfGraphAssociated<
-    handler::SyclExtensions::sycl_ext_oneapi_memcpy2d>();
-template void handler::throwIfGraphAssociated<
-    handler::SyclExtensions::sycl_ext_oneapi_device_global>();
+    ext::oneapi::experimental::detail::SyclExtensions::
+        sycl_ext_oneapi_device_global>();
 
-template <handler::SyclExtensions ExtensionT>
+template <ext::oneapi::experimental::detail::SyclExtensions ExtensionT>
 void handler::throwIfGraphAssociated() {
   std::string ExceptionMsg = "";
 
   if constexpr (ExtensionT ==
-                SyclExtensions::sycl_ext_oneapi_kernel_properties) {
+                ext::oneapi::experimental::detail::SyclExtensions::
+                    sycl_ext_oneapi_kernel_properties) {
     ExceptionMsg = "sycl_ext_oneapi_kernel_properties";
   }
-  if constexpr (ExtensionT == SyclExtensions::sycl_ext_oneapi_enqueue_barrier) {
+  if constexpr (ExtensionT ==
+                ext::oneapi::experimental::detail::SyclExtensions::
+                    sycl_ext_oneapi_enqueue_barrier) {
     ExceptionMsg = "sycl_ext_oneapi_enqueue_barrier";
   }
-  if constexpr (ExtensionT == SyclExtensions::sycl_ext_oneapi_memcpy2d) {
+  if constexpr (ExtensionT == ext::oneapi::experimental::detail::
+                                  SyclExtensions::sycl_ext_oneapi_memcpy2d) {
     ExceptionMsg = "sycl_ext_oneapi_memcpy2d";
   }
-  if constexpr (ExtensionT == SyclExtensions::sycl_ext_oneapi_device_global) {
+  if constexpr (ExtensionT ==
+                ext::oneapi::experimental::detail::SyclExtensions::
+                    sycl_ext_oneapi_device_global) {
     ExceptionMsg = "sycl_ext_oneapi_device_global";
   }
 

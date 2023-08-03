@@ -112,10 +112,12 @@ void testSingleTaskProperties(experimental::detail::modifiable_command_graph &G,
   std::error_code ExceptionCode = make_error_code(sycl::errc::success);
   try {
     if constexpr (PathKind == OperationPath::RecordReplay) {
+      G.begin_recording(Q);
       Q.submit([&](sycl::handler &CGH) {
         CGH.single_task<ReqPositiveA<Variant::Function, false>>(Props,
                                                                 KernelFunc);
       });
+      G.end_recording();
     }
     if constexpr (PathKind == OperationPath::Explicit) {
       G.add([&](sycl::handler &CGH) {
@@ -143,6 +145,8 @@ void testParallelForProperties(
 
   KernelFunctorWithWGSizeProp<Is...> KernelFunctor;
 
+  G.begin_recording(Q);
+
   addKernelWithProperties<OperationPath::RecordReplay, Variant::Function,
                           Is...>(G, Q, Props, KernelFunction);
   addKernelWithProperties<OperationPath::RecordReplay,
@@ -153,6 +157,8 @@ void testParallelForProperties(
       G, Q, Props, KernelFunction);
   addKernelWithProperties<OperationPath::Shortcut, Variant::FunctorAndProperty,
                           Is...>(G, Q, Props, KernelFunctor);
+
+  G.end_recording();
 
   addKernelWithProperties<OperationPath::Explicit, Variant::Function, Is...>(
       G, Q, Props, KernelFunction);
@@ -171,10 +177,12 @@ template <OperationPath PathKind> void testEnqueueBarrier() {
   experimental::command_graph<experimental::graph_state::modifiable> Graph1{
       Q1.get_context(), Q1.get_device()};
 
-  Graph1.begin_recording(Q1);
+  Graph1.add([&](sycl::handler &cgh) {});
+  Graph1.add([&](sycl::handler &cgh) {});
 
-  Q1.submit([&](sycl::handler &cgh) {});
-  Q1.submit([&](sycl::handler &cgh) {});
+  if constexpr (PathKind != OperationPath::Explicit) {
+    Graph1.begin_recording(Q1);
+  }
 
   // call queue::ext_oneapi_submit_barrier()
   std::error_code ExceptionCode = make_error_code(sycl::errc::success);
@@ -194,7 +202,9 @@ template <OperationPath PathKind> void testEnqueueBarrier() {
   }
   ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
 
-  Graph1.end_recording();
+  if constexpr (PathKind != OperationPath::Explicit) {
+    Graph1.end_recording();
+  }
 
   sycl::queue Q2(Context, sycl::default_selector_v);
   sycl::queue Q3(Context, sycl::default_selector_v);
@@ -208,8 +218,12 @@ template <OperationPath PathKind> void testEnqueueBarrier() {
   Graph3.begin_recording(Q3);
 
   auto Event1 = Q2.submit([&](sycl::handler &cgh) {});
-
   auto Event2 = Q3.submit([&](sycl::handler &cgh) {});
+
+  if constexpr (PathKind == OperationPath::Explicit) {
+    Graph2.end_recording();
+    Graph3.end_recording();
+  }
 
   // call handler::barrier(const std::vector<event> &WaitList)
   ExceptionCode = make_error_code(sycl::errc::success);
@@ -233,8 +247,10 @@ template <OperationPath PathKind> void testEnqueueBarrier() {
   }
   ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
 
-  Graph2.end_recording();
-  Graph3.end_recording();
+  if constexpr (PathKind != OperationPath::Explicit) {
+    Graph2.end_recording();
+    Graph3.end_recording();
+  }
 }
 
 /// Tries to add a memcpy2D node to the graph G
@@ -993,7 +1009,6 @@ TEST_F(CommandGraphTest, FusionExtensionExceptionCheck) {
 }
 
 TEST_F(CommandGraphTest, KernelPropertiesExceptionCheck) {
-  Graph.begin_recording(Queue);
 
   // Test Parallel for entry point
   testParallelForProperties<4>(Queue, Graph);
@@ -1013,8 +1028,6 @@ TEST_F(CommandGraphTest, KernelPropertiesExceptionCheck) {
                                                     KernelFunction);
   testSingleTaskProperties<OperationPath::RecordReplay>(Graph, Queue, Props,
                                                         KernelFunction);
-
-  Graph.end_recording();
 }
 
 TEST_F(CommandGraphTest, Memcpy2DExceptionCheck) {

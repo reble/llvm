@@ -23,7 +23,9 @@ template <OperationPath PathKind> void test() {
 
   exp_ext::command_graph Graph{Q.get_context(), Q.get_device()};
 
-  Graph.begin_recording(Q);
+  if constexpr (PathKind != OperationPath::Explicit) {
+    Graph.begin_recording(Q);
+  }
 
   // Copy from device globals before having written anything.
   std::error_code ExceptionCode = make_error_code(sycl::errc::success);
@@ -135,7 +137,9 @@ template <OperationPath PathKind> void test() {
   }
   assert(ExceptionCode == sycl::errc::invalid);
 
-  Graph.end_recording();
+  if constexpr (PathKind != OperationPath::Explicit) {
+    Graph.end_recording();
+  }
 }
 
 int main() {
