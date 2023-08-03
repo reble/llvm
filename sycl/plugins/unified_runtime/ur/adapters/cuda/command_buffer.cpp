@@ -13,7 +13,8 @@
 
 ur_exp_command_buffer_handle_t_::ur_exp_command_buffer_handle_t_(
     ur_context_handle_t Context, ur_device_handle_t Device)
-    : Context(Context), Device(Device), QueueProperties() {
+    : Context(Context),
+      Device(Device), cudaGraph{nullptr}, cudaGraphExec{nullptr}, RefCount{1} {
   urContextRetain(Context);
   urDeviceRetain(Device);
 }
@@ -30,7 +31,7 @@ ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
   // Release the memory allocated to the CudaGraph
   cuGraphDestroy(cudaGraph);
 
-  // Release the memory allocated to the CudaGraph
+  // Release the memory allocated to the CudaGraphExec
   cuGraphExecDestroy(cudaGraphExec);
 }
 
@@ -60,13 +61,13 @@ urCommandBufferCreateExp(ur_context_handle_t Context, ur_device_handle_t Device,
 
 UR_APIEXPORT ur_result_t UR_APICALL
 urCommandBufferRetainExp(ur_exp_command_buffer_handle_t CommandBuffer) {
-  CommandBuffer->RefCount.increment();
+  CommandBuffer->incrementReferenceCount();
   return UR_RESULT_SUCCESS;
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL
 urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t CommandBuffer) {
-  if (!CommandBuffer->RefCount.decrementAndTest())
+  if (!CommandBuffer->decrementAndTestReferenceCount())
     return UR_RESULT_SUCCESS;
 
   delete CommandBuffer;

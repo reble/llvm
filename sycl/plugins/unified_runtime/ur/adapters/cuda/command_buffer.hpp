@@ -23,28 +23,32 @@
       return Result;                                                           \
   }
 
-// This wrapper around std::atomic is created to limit operations with reference
-// counter and to make allowed operations more transparent in terms of
-// thread-safety in the plugin. increment() and load() operations do not need a
-// mutex guard around them since the underlying data is already atomic.
-// decrementAndTest() method is used to guard a code which needs to be
-// executed when object's ref count becomes zero after release. This method also
-// doesn't need a mutex guard because decrement operation is atomic and only one
-// thread can reach ref count equal to zero, i.e. only a single thread can pass
-// through this check.
-struct ReferenceCounter {
-  ReferenceCounter() : RefCount{1} {}
+/// Stub implementation of command-buffers for CUDA
 
-  // Reset the counter to the initial value.
-  void reset() { RefCount = 1; }
+struct ur_exp_command_buffer_handle_t_ {
+
+  ur_exp_command_buffer_handle_t_(ur_context_handle_t Context,
+                                  ur_device_handle_t Device);
+
+  ~ur_exp_command_buffer_handle_t_();
+
+  // UR context associated with this command-buffer
+  ur_context_handle_t Context;
+  // Device associated with this command buffer
+  ur_device_handle_t Device;
+  // Cuda Graph handle
+  CUgraph cudaGraph;
+  // Cuda Graph Exec handle
+  CUgraphExec cudaGraphExec;
+  // Atomic variable counting the number of reference to this command_buffer
+  // using std::atomic prevents data race when incrementing/decrementing.
+  std::atomic_uint32_t RefCount;
 
   // Used when retaining an object.
-  void increment() { RefCount++; }
-
-  // Supposed to be used in pi*GetInfo* methods where ref count value is
-  // requested.
-  uint32_t load() { return RefCount.load(); }
-
+  uint32_t incrementReferenceCount() noexcept { return ++RefCount; }
+  // Used when releasing an object.
+  uint32_t decrementReferenceCount() noexcept { return --RefCount; }
+  uint32_t getReferenceCount() const noexcept { return RefCount; }
   // This method allows to guard a code which needs to be executed when object's
   // ref count becomes zero after release. It is important to notice that only a
   // single thread can pass through this check. This is true because of several
@@ -60,39 +64,5 @@ struct ReferenceCounter {
   // scope after this check. Of course if we access another objects in this code
   // (not the one which is being deleted) then access to these objects must be
   // guarded, for example with a mutex.
-  bool decrementAndTest() { return --RefCount == 0; }
-
-private:
-  std::atomic<uint32_t> RefCount;
-};
-
-// Base class to store common data
-struct _ur_object {
-  _ur_object() : RefCount{} {}
-
-  // Must be atomic to prevent data race when incrementing/decrementing.
-  ReferenceCounter RefCount;
-};
-
-/// Stub implementation of command-buffers for CUDA
-
-struct ur_exp_command_buffer_handle_t_ : public _ur_object {
-
-  ur_exp_command_buffer_handle_t_(ur_context_handle_t Context,
-                                  ur_device_handle_t Device);
-
-  ~ur_exp_command_buffer_handle_t_();
-
-  // UR context associated with this command-buffer
-  ur_context_handle_t Context;
-  // Device associated with this command buffer
-  ur_device_handle_t Device;
-  // Cuda Graph handle
-  CUgraph cudaGraph;
-  // Cuda Graph Exec handle
-  CUgraphExec cudaGraphExec;
-
-  // Queue properties from command-buffer descriptor
-  // TODO: Do we need these?
-  ur_queue_properties_t QueueProperties;
+  bool decrementAndTestReferenceCount() { return --RefCount == 0; }
 };
