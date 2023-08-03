@@ -530,6 +530,16 @@ puts that `command_graph` into an undefined state. Any further operations
 performed on a `command_graph` in this state will result in undefined
 behavior.
 
+===== Assume-Data-Outlives-Buffer Property [[assume-data-outlives-buffer-property]]
+The `property::graph::assume_data_outlives_buffer` property disables
+restrictions on using buffers which have been created with a host pointer
+in a `command_graph` and can be passed to a `command_graph` on construction
+via the property list parameter. This property represents a promise from the
+user that any host data passed to a buffer's constructor will outlive the
+buffer itself, and by extension any graph in which that buffer is used.
+Deleting or otherwise modifying this data during the lifetime of the buffer
+or graph results in undefined behaviour when using this property.
+
 ==== Graph Member Functions
 
 Table {counter: tableNumber}. Constructor of the `command_graph` class.
@@ -646,6 +656,11 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if a queue is recording
   commands to the graph.
+
+* Throws synchronously with error code `invalid` if this command uses a buffer
+  which was created with a host data pointer. See the
+  <<assume-data-outlives-buffer-property, Assume-Data-Outlives-Buffer>>
+  property for more information.
 
 |
 [source,c++]
@@ -1082,6 +1097,14 @@ storage using either `buffer::set_final_data(nullptr)` or
 commands which are currently being recorded to a command graph. Attempting to
 construct a host accessor to an incompatible buffer will result in a
 synchronous error being thrown with error code `invalid`.
+
+- It is also an error to use a buffer which has been created with a host data
+pointer in a command recorded to a graph. Because of the delayed execution of
+a graph, modifying or deleting this host data during the lifetime of the buffer
+and by extension the graph will lead to undefined behaviour. User's can pass
+the property `property::graph::assume_data_outlives_buffer` to the graph
+constructor to provide a promise that this will not occur and that it is safe
+to use this buffer in the graph. 
 
 ==== Error Handling
 
