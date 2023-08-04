@@ -315,6 +315,16 @@ class no_cycle_check {
     no_cycle_check() = default;
 };
 
+class assume_buffer_outlives_graph {
+  public:
+    assume_buffer_outlives_graph() = default;
+};
+
+class assume_data_outlives_buffer {
+  public:
+    assume_data_outlives_buffer() = default;
+};
+
 } // namespace graph
 
 namespace node {
@@ -542,12 +552,12 @@ property results in undefined behaviour.
 ===== Assume-Data-Outlives-Buffer Property [[assume-data-outlives-buffer-property]]
 The `property::graph::assume_data_outlives_buffer` property disables
 restrictions on using buffers which have been created with a host pointer
-in a `command_graph` and can be passed to a `command_graph` on construction
+in a `command_graph`, and can be passed to a `command_graph` on construction
 via the property list parameter. This property represents a promise from the
 user that any host data passed to a buffer's constructor will outlive the
 buffer itself, and by extension any graph in which that buffer is used.
-Deleting or otherwise modifying this data during the lifetime of the buffer
-or graph results in undefined behaviour when using this property.
+Deleting or otherwise modifying this host data during the lifetime of the
+buffer or graph results in undefined behaviour when using this property.
 
 ==== Graph Member Functions
 
@@ -1089,7 +1099,7 @@ synchronously with error code `invalid`.
 ==== Buffer Limitations
 
 The use of buffers inside a `command_graph` is restricted unless the user
-creates the graph with the <<assume-buffer-outlives-graph, Assume-Buffer-Outlives-Graph>>
+creates the graph with the <<assume-buffer-outlives-graph-property, Assume-Buffer-Outlives-Graph>>
 property. Buffer lifetimes are not extended by a `command_graph` in which they
 are used and so the user must ensure that their lifetimes exceed that of the
 `command_graph`. Attempting to use a buffer in a `command_graph` without this
@@ -1101,7 +1111,7 @@ host data pointer in commands recorded to a `command_graph`. Because of the
 delayed execution of a `command_graph`, data may not be copied to the device
 immediately when commands using these buffers are submitted to the graph,
 therefore the host data must also outlive the graph to ensure correct behaviour.
-Users can pass the <<assume-data-outlives-buffer, Assume-Data-Outlives-Buffer>>
+Users can pass the <<assume-data-outlives-buffer-property, Assume-Data-Outlives-Buffer>>
 property to the graph constructor to provide a promise that this will not occur
 and that it is safe to use this buffer in the graph.
 
