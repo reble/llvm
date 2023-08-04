@@ -14,6 +14,30 @@
 
 #include <thread>
 
+bool checkExecGraphSchedule(
+    std::shared_ptr<sycl::ext::oneapi::experimental::detail::exec_graph_impl>
+        GraphA,
+    std::shared_ptr<sycl::ext::oneapi::experimental::detail::exec_graph_impl>
+        GraphB) {
+  auto ScheduleA = GraphA->getSchedule();
+  auto ScheduleB = GraphB->getSchedule();
+  if (ScheduleA.size() != ScheduleB.size())
+    return false;
+
+  std::vector<
+      std::shared_ptr<sycl::ext::oneapi::experimental::detail::node_impl>>
+      VScheduleA{std::begin(ScheduleA), std::end(ScheduleA)};
+  std::vector<
+      std::shared_ptr<sycl::ext::oneapi::experimental::detail::node_impl>>
+      VScheduleB{std::begin(ScheduleB), std::end(ScheduleB)};
+
+  for (size_t i = 0; i < VScheduleA.size(); i++) {
+    if (!VScheduleA[i]->isSimilar(VScheduleB[i]))
+      return false;
+  }
+  return true;
+}
+
 int main() {
   queue Queue;
 
@@ -52,6 +76,10 @@ int main() {
   auto FinalizeGraph = [&](int ThreadNum) {
     SyncPoint.wait();
     auto GraphExec = Graph.finalize();
+    GraphsExecMap.insert(
+        std::map<int,
+                 exp_ext::command_graph<exp_ext::graph_state::executable>>::
+            value_type(ThreadNum, GraphExec));
     Queue.submit([&](sycl::handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
   };
 
@@ -59,7 +87,7 @@ int main() {
   Threads.reserve(NumThreads);
 
   for (unsigned i = 0; i < NumThreads; ++i) {
-    Threads.emplace_back(FinalizeGraph);
+    Threads.emplace_back(FinalizeGraph, i);
   }
 
   for (unsigned i = 0; i < NumThreads; ++i) {
@@ -72,6 +100,37 @@ int main() {
   Queue.copy(PtrB, DataB.data(), Size);
   Queue.copy(PtrC, DataC.data(), Size);
   Queue.wait_and_throw();
+
+  // Ref computation
+  queue QueueRef{Queue.get_context(), Queue.get_device()};
+  exp_ext::command_graph GraphRef{Queue.get_context(), Queue.get_device()};
+
+  T *PtrARef = malloc_device<T>(Size, QueueRef);
+  T *PtrBRef = malloc_device<T>(Size, QueueRef);
+  T *PtrCRef = malloc_device<T>(Size, QueueRef);
+
+  QueueRef.copy(DataA.data(), PtrARef, Size);
+  QueueRef.copy(DataB.data(), PtrBRef, Size);
+  QueueRef.copy(DataC.data(), PtrCRef, Size);
+  QueueRef.wait_and_throw();
+
+  GraphRef.begin_recording(QueueRef);
+  run_kernels_usm(QueueRef, Size, PtrA, PtrB, PtrC);
+  GraphRef.end_recording();
+
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    auto GraphExecRef = GraphRef.finalize();
+    QueueRef.submit(
+        [&](sycl::handler &CGH) { CGH.ext_oneapi_graph(GraphExecRef); });
+    auto GraphExecImpl =
+        sycl::detail::getSyclObjImpl(GraphsExecMap.find(i)->second);
+    auto GraphExecRefImpl = sycl::detail::getSyclObjImpl(GraphExecRef);
+    assert(checkExecGraphSchedule(GraphExecImpl, GraphExecRefImpl));
+  }
+
+  free(PtrARef, QueueRef);
+  free(PtrBRef, QueueRef);
+  free(PtrCRef, QueueRef);
 
   free(PtrA, Queue);
   free(PtrB, Queue);

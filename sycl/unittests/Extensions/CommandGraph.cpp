@@ -294,7 +294,7 @@ void addMemcpy2D(experimental::detail::modifiable_command_graph &G, queue &Q,
   }
   ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
 }
-  
+
 bool depthSearchSuccessorCheck(
     std::shared_ptr<sycl::ext::oneapi::experimental::detail::node_impl> Node) {
   if (Node->MSuccessors.size() > 1)
