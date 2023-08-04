@@ -119,6 +119,7 @@ void exec_graph_impl::schedule() {
 }
 
 graph_impl::~graph_impl() {
+  clearQueues();
   for (auto &MemObj : MMemObjs) {
     MemObj->markNoLongerBeingUsedInGraph();
   }
@@ -280,8 +281,10 @@ graph_impl::add(sycl::detail::CG::CGTYPE CGType,
 bool graph_impl::clearQueues() {
   bool AnyQueuesCleared = false;
   for (auto &Queue : MRecordingQueues) {
-    Queue->setCommandGraph(nullptr);
-    AnyQueuesCleared = true;
+    if (auto ValidQueue = Queue.lock(); ValidQueue) {
+      ValidQueue->setCommandGraph(nullptr);
+      AnyQueuesCleared = true;
+    }
   }
   MRecordingQueues.clear();
 

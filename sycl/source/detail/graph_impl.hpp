@@ -649,7 +649,9 @@ private:
   /// device.
   sycl::device MDevice;
   /// Unique set of queues which are currently recording to this graph.
-  std::set<std::shared_ptr<sycl::detail::queue_impl>> MRecordingQueues;
+  std::set<std::weak_ptr<sycl::detail::queue_impl>,
+           std::owner_less<std::weak_ptr<sycl::detail::queue_impl>>>
+      MRecordingQueues;
   /// Map of events to their associated recorded nodes.
   std::unordered_map<std::shared_ptr<sycl::detail::event_impl>,
                      std::shared_ptr<node_impl>>

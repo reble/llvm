@@ -386,7 +386,11 @@ class CommandGraphTest : public ::testing::Test {
 public:
   CommandGraphTest()
       : Mock{}, Plat{Mock.getPlatform()}, Dev{Plat.get_devices()[0]},
-        Queue{Dev}, Graph{Queue.get_context(), Dev} {}
+        Queue{Dev},
+        Graph{Queue.get_context(),
+              Dev,
+              {experimental::property::graph::assume_buffer_outlives_graph{}}} {
+  }
 
 protected:
   void SetUp() override {}
@@ -1400,8 +1404,10 @@ TEST_F(CommandGraphTest, InvalidHostAccessor) {
 
   {
     // Create a graph in local scope so we can destroy it
-    ext::oneapi::experimental::command_graph Graph{Queue.get_context(),
-                                                   Queue.get_device()};
+    ext::oneapi::experimental::command_graph Graph{
+        Queue.get_context(),
+        Queue.get_device(),
+        {experimental::property::graph::assume_buffer_outlives_graph{}}};
 
     // Add the buffer to the graph.
     Graph.add([&](handler &CGH) {
