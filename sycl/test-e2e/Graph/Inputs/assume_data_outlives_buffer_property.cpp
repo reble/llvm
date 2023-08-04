@@ -36,7 +36,6 @@ int main() {
     }
     assert(ErrorCode == sycl::errc::success);
 
-    ErrorCode = sycl::errc::success;
     // This should not throw regardless of property use
     try {
       add_node(Graph, Queue, [&](handler &CGH) {
