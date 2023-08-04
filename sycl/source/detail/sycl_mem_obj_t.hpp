@@ -19,6 +19,7 @@
 #include <sycl/property_list.hpp>
 #include <sycl/range.hpp>
 
+#include <atomic>
 #include <cstring>
 #include <memory>
 #include <type_traits>
@@ -338,7 +339,7 @@ protected:
   // pointer was provided or not.
   bool MIsInternal = false;
   // The number of graphs which are currently using this memory object.
-  size_t MGraphUseCount = 0;
+  std::atomic<size_t> MGraphUseCount = 0;
 };
 } // namespace detail
 } // namespace _V1
