@@ -772,6 +772,10 @@ private:
   std::list<std::shared_ptr<node_impl>> MSchedule;
   /// Pointer to the modifiable graph impl associated with this executable
   /// graph.
+  /// Thread-safe implementation note: in the current implementation
+  /// multiple exec_graph_impl can reference the same graph_impl object.
+  /// This specificity must be taken into account when trying to lock
+  /// the graph_impl mutex from an exec_graph_impl to avoid deadlock.
   std::shared_ptr<graph_impl> MGraphImpl;
   /// Map of devices to command buffers.
   std::unordered_map<sycl::device, sycl::detail::pi::PiExtCommandBuffer>
