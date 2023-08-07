@@ -1202,6 +1202,25 @@ TEST_F(CommandGraphTest, KernelBundle) {
       sycl::exception);
 }
 
+// Tests that using reductions in a graph will throw.
+TEST_F(CommandGraphTest, Reductions) {
+  int ReduVar = 0;
+  ASSERT_THROW(
+      {
+        try {
+          Graph.add([&](handler &CGH) {
+            CGH.parallel_for<class TestKernel>(
+                range<1>{1}, reduction(&ReduVar, int{0}, sycl::plus()),
+                [=](item<1> idx, auto &Sum) {});
+          });
+        } catch (const sycl::exception &e) {
+          ASSERT_EQ(e.code(), make_error_code(sycl::errc::invalid));
+          throw;
+        }
+      },
+      sycl::exception);
+}
+
 class MultiThreadGraphTest : public CommandGraphTest {
 public:
   MultiThreadGraphTest()
