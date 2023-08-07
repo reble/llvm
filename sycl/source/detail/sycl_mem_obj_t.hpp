@@ -287,8 +287,17 @@ public:
   /// Decrement an internal counter for how many graphs are currently using this
   /// memory object.
   void markNoLongerBeingUsedInGraph() {
-    if (MGraphUseCount > 0)
-      MGraphUseCount -= 1;
+    // Compare exchange loop to safely decrement MGraphUseCount
+    while (true) {
+      size_t CurrentVal = MGraphUseCount;
+      if (CurrentVal == 0) {
+        break;
+      }
+      if (MGraphUseCount.compare_exchange_strong(CurrentVal, CurrentVal - 1) ==
+          false) {
+        continue;
+      }
+    }
   }
 
   /// Returns true if any graphs are currently using this memory object.
