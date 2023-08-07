@@ -730,13 +730,10 @@ void executable_command_graph::finalizeImpl() {
         info::graph_support_level::native;
 
 #if FORCE_EMULATION_MODE
-    setEmulationModeForced(true);
+    // Above query should still succeed in emulation mode, but ignore the
+    // result and use emulation.
+    CmdBufSupport = false;
 #endif
-    if (impl->isEmulationModeForced()) {
-      // Above query should still succeed in emulation mode, but ignore the
-      // result and use emulation.
-      CmdBufSupport = false;
-    }
 
     if (CmdBufSupport) {
       impl->createCommandBuffers(Device);

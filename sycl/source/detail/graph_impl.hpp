@@ -592,14 +592,6 @@ public:
   void makeEdge(std::shared_ptr<node_impl> Src,
                 std::shared_ptr<node_impl> Dest);
 
-  /// Force to use an emulated backend
-  /// @param Forced true force to use an emulated backend
-  ///               false enable the use of non-emulatated backend
-  void setEmulationModeForced(bool Forced) { MEmulationModeForced = Forced; }
-  /// Get the status of MEmulationModeForced member
-  /// @return true is bakced is forced to emulation
-  bool getEmulationModeForced() { return MEmulationModeForced; }
-
 private:
   /// Iterate over the graph depth-first and run \p NodeFunc on each node.
   /// @param NodeFunc A function which receives as input a node in the graph to
@@ -638,9 +630,6 @@ private:
   /// Controls whether we skip the cycle checks in makeEdge, set by the presence
   /// of the no_cycle_check property on construction.
   bool MSkipCycleChecks = false;
-
-  /// Force to use an emulated backend
-  bool MEmulationModeForced = false;
 };
 
 /// Class representing the implementation of command_graph<executable>.
@@ -711,11 +700,6 @@ public:
                                                    DebugPrint);
     }
     return false;
-  }
-
-  /// @return true if emulated backend has been forced
-  bool isEmulationModeForced() const {
-    return MGraphImpl->getEmulationModeForced();
   }
 
 private:

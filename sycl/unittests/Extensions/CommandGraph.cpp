@@ -14,28 +14,18 @@
 #include <detail/config.hpp>
 #include <helpers/PiMock.hpp>
 #include <helpers/ScopedEnvVar.hpp>
+#include <helpers/TestKernel.hpp>
 
 #include <gtest/gtest.h>
 
 using namespace sycl;
 using namespace sycl::ext::oneapi;
 
-namespace {
-void forceEmulatedBackend(
-    experimental::command_graph<experimental::graph_state::modifiable> Graph) {
-  auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
-  GraphImpl->setEmulationModeForced(true);
-}
-} // anonymous namespace
-
 class CommandGraphTest : public ::testing::Test {
 public:
   CommandGraphTest()
       : Mock{}, Plat{Mock.getPlatform()}, Dev{Plat.get_devices()[0]},
-        Queue{Dev}, Graph{Queue.get_context(), Dev} {
-    // We need to disable backend for unitests as backends are not loaded
-    forceEmulatedBackend(Graph);
-  }
+        Queue{Dev}, Graph{Queue.get_context(), Dev} {}
 
 protected:
   void SetUp() override {}
@@ -54,7 +44,7 @@ TEST_F(CommandGraphTest, AddNode) {
   ASSERT_TRUE(GraphImpl->MRoots.empty());
 
   auto Node1 = Graph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
   ASSERT_NE(sycl::detail::getSyclObjImpl(Node1), nullptr);
   ASSERT_FALSE(sycl::detail::getSyclObjImpl(Node1)->isEmpty());
   ASSERT_EQ(GraphImpl->MRoots.size(), 1lu);
@@ -109,17 +99,17 @@ TEST_F(CommandGraphTest, Finalize) {
   sycl::buffer<int> Buf(1);
   auto Node1 = Graph.add([&](sycl::handler &cgh) {
     sycl::accessor A(Buf, cgh, sycl::write_only, sycl::no_init);
-    cgh.single_task<class TestKernel1>([=]() { A[0] = 1; });
+    cgh.single_task<TestKernel<>>([]() {});
   });
 
   // Add independent node
   auto Node2 = Graph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   // Add a node that depends on Node1 due to the accessor
   auto Node3 = Graph.add([&](sycl::handler &cgh) {
     sycl::accessor A(Buf, cgh, sycl::write_only, sycl::no_init);
-    cgh.single_task<class TestKernel2>([=]() { A[0] = 3; });
+    cgh.single_task<TestKernel<>>([]() {});
   });
 
   // Guarantee order of independent nodes 1 and 2
@@ -145,7 +135,7 @@ TEST_F(CommandGraphTest, MakeEdge) {
 
   // Add two independent nodes
   auto Node1 = Graph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
   auto Node2 = Graph.add([&](sycl::handler &cgh) {});
   ASSERT_EQ(GraphImpl->MRoots.size(), 2ul);
   ASSERT_TRUE(sycl::detail::getSyclObjImpl(Node1)->MSuccessors.empty());
@@ -239,7 +229,7 @@ TEST_F(CommandGraphTest, BeginEndRecording) {
 TEST_F(CommandGraphTest, GetCGCopy) {
   auto Node1 = Graph.add([&](sycl::handler &cgh) {});
   auto Node2 = Graph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); },
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); },
       {experimental::property::node::depends_on(Node1)});
 
   // Get copy of CG of Node2 and check equality
@@ -261,21 +251,21 @@ TEST_F(CommandGraphTest, GetCGCopy) {
 TEST_F(CommandGraphTest, SubGraph) {
   // Add sub-graph with two nodes
   auto Node1Graph = Graph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
   auto Node2Graph = Graph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); },
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); },
       {experimental::property::node::depends_on(Node1Graph)});
   auto GraphExec = Graph.finalize();
 
   // Add node to main graph followed by sub-graph and another node
   experimental::command_graph MainGraph(Queue.get_context(), Dev);
   auto Node1MainGraph = MainGraph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
   auto Node2MainGraph =
       MainGraph.add([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); },
                     {experimental::property::node::depends_on(Node1MainGraph)});
   auto Node3MainGraph = MainGraph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); },
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); },
       {experimental::property::node::depends_on(Node2MainGraph)});
 
   // Assert order of the added sub-graph
@@ -292,9 +282,6 @@ TEST_F(CommandGraphTest, SubGraph) {
             0lu);
   ASSERT_EQ(sycl::detail::getSyclObjImpl(Node2MainGraph)->MPredecessors.size(),
             1lu);
-
-  // We need to disable backend for unitests as backends are not loaded
-  forceEmulatedBackend(MainGraph);
 
   // Finalize main graph and check schedule
   auto MainGraphExec = MainGraph.finalize();
@@ -316,10 +303,10 @@ TEST_F(CommandGraphTest, RecordSubGraph) {
   // Record sub-graph with two nodes
   Graph.begin_recording(Queue);
   auto Node1Graph = Queue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
   auto Node2Graph = Queue.submit([&](sycl::handler &cgh) {
     cgh.depends_on(Node1Graph);
-    cgh.single_task<class TestKernel>([]() {});
+    cgh.single_task<TestKernel<>>([]() {});
   });
   Graph.end_recording(Queue);
   auto GraphExec = Graph.finalize();
@@ -328,19 +315,16 @@ TEST_F(CommandGraphTest, RecordSubGraph) {
   experimental::command_graph MainGraph(Queue.get_context(), Dev);
   MainGraph.begin_recording(Queue);
   auto Node1MainGraph = Queue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
   auto Node2MainGraph = Queue.submit([&](handler &cgh) {
     cgh.depends_on(Node1MainGraph);
     cgh.ext_oneapi_graph(GraphExec);
   });
   auto Node3MainGraph = Queue.submit([&](sycl::handler &cgh) {
     cgh.depends_on(Node2MainGraph);
-    cgh.single_task<class TestKernel>([]() {});
+    cgh.single_task<TestKernel<>>([]() {});
   });
   MainGraph.end_recording(Queue);
-
-  // We need to disable backend for unitests as backends are not loaded
-  forceEmulatedBackend(MainGraph);
 
   // Finalize main graph and check schedule
   auto MainGraphExec = MainGraph.finalize();
@@ -388,7 +372,7 @@ TEST_F(CommandGraphTest, InOrderQueue) {
   // Record in-order queue with three nodes
   InOrderGraph.begin_recording(InOrderQueue);
   auto Node1Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode1 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -397,7 +381,7 @@ TEST_F(CommandGraphTest, InOrderQueue) {
   ASSERT_TRUE(PtrNode1->MPredecessors.empty());
 
   auto Node2Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode2 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -410,7 +394,7 @@ TEST_F(CommandGraphTest, InOrderQueue) {
   ASSERT_EQ(PtrNode2->MPredecessors.front().lock(), PtrNode1);
 
   auto Node3Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode3 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -423,9 +407,6 @@ TEST_F(CommandGraphTest, InOrderQueue) {
   ASSERT_EQ(PtrNode3->MPredecessors.front().lock(), PtrNode2);
 
   InOrderGraph.end_recording(InOrderQueue);
-
-  // We need to disable backend for unitests as backends are not loaded
-  forceEmulatedBackend(InOrderGraph);
 
   // Finalize main graph and check schedule
   auto GraphExec = InOrderGraph.finalize();
@@ -451,7 +432,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmpty) {
   // node
   InOrderGraph.begin_recording(InOrderQueue);
   auto Node1Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode1 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -472,7 +453,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmpty) {
   ASSERT_EQ(PtrNode2->MPredecessors.front().lock(), PtrNode1);
 
   auto Node3Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode3 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -485,9 +466,6 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmpty) {
   ASSERT_EQ(PtrNode3->MPredecessors.front().lock(), PtrNode2);
 
   InOrderGraph.end_recording(InOrderQueue);
-
-  // We need to disable backend for unitests as backends are not loaded
-  forceEmulatedBackend(InOrderGraph);
 
   // Finalize main graph and check schedule
   // Note that empty nodes are not scheduled
@@ -519,7 +497,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyFirst) {
   ASSERT_TRUE(PtrNode1->MPredecessors.empty());
 
   auto Node2Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode2 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -532,7 +510,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyFirst) {
   ASSERT_EQ(PtrNode2->MPredecessors.front().lock(), PtrNode1);
 
   auto Node3Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode3 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -545,9 +523,6 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyFirst) {
   ASSERT_EQ(PtrNode3->MPredecessors.front().lock(), PtrNode2);
 
   InOrderGraph.end_recording(InOrderQueue);
-
-  // We need to disable backend for unitests as backends are not loaded
-  forceEmulatedBackend(InOrderGraph);
 
   // Finalize main graph and check schedule
   // Note that empty nodes are not scheduled
@@ -571,7 +546,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyLast) {
   // Record in-order queue with two regular nodes then an empty node
   InOrderGraph.begin_recording(InOrderQueue);
   auto Node1Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode1 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -580,7 +555,7 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyLast) {
   ASSERT_TRUE(PtrNode1->MPredecessors.empty());
 
   auto Node2Graph = InOrderQueue.submit(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   auto PtrNode2 =
       sycl::detail::getSyclObjImpl(InOrderGraph)
@@ -606,9 +581,6 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyLast) {
 
   InOrderGraph.end_recording(InOrderQueue);
 
-  // We need to disable backend for unitests as backends are not loaded
-  forceEmulatedBackend(InOrderGraph);
-
   // Finalize main graph and check schedule
   // Note that empty nodes are not scheduled
   auto GraphExec = InOrderGraph.finalize();
@@ -625,9 +597,9 @@ TEST_F(CommandGraphTest, InOrderQueueWithEmptyLast) {
 TEST_F(CommandGraphTest, MakeEdgeErrors) {
   // Set up some nodes in the graph
   auto NodeA = Graph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
   auto NodeB = Graph.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   // Test error on calling make_edge when a queue is recording to the graph
   Graph.begin_recording(Queue);
@@ -660,7 +632,7 @@ TEST_F(CommandGraphTest, MakeEdgeErrors) {
   experimental::command_graph<experimental::graph_state::modifiable> GraphOther{
       Queue.get_context(), Queue.get_device()};
   auto NodeOther = GraphOther.add(
-      [&](sycl::handler &cgh) { cgh.single_task<class TestKernel>([]() {}); });
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
 
   ASSERT_THROW(
       {
