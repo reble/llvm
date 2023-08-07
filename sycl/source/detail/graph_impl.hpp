@@ -92,6 +92,26 @@ public:
             std::unique_ptr<sycl::detail::CG> &&CommandGroup)
       : MCGType(CGType), MCommandGroup(std::move(CommandGroup)) {}
 
+  /// Tests if two nodes have the same content,
+  /// i.e. same command group
+  /// @param Node node to compare with
+  bool operator==(const node_impl &Node) {
+    if (MCGType != Node.MCGType)
+      return false;
+
+    if ((MCGType == sycl::detail::CG::CGTYPE::Kernel) &&
+        (Node.MCGType == sycl::detail::CG::CGTYPE::Kernel)) {
+      sycl::detail::CGExecKernel *ExecKernelA =
+          static_cast<sycl::detail::CGExecKernel *>(MCommandGroup.get());
+      sycl::detail::CGExecKernel *ExecKernelB =
+          static_cast<sycl::detail::CGExecKernel *>(Node.MCommandGroup.get());
+
+      if (ExecKernelA->MKernelName.compare(ExecKernelB->MKernelName) != 0)
+        return false;
+    }
+    return true;
+  }
+
   /// Recursively add nodes to execution stack.
   /// @param NodeImpl Node to schedule.
   /// @param Schedule Execution ordering to add node to.
@@ -303,7 +323,7 @@ public:
       return false;
 
     if ((MCGType == sycl::detail::CG::CGTYPE::Kernel) &&
-        (MCGType == sycl::detail::CG::CGTYPE::Kernel)) {
+        (Node->MCGType == sycl::detail::CG::CGTYPE::Kernel)) {
       sycl::detail::CGExecKernel *ExecKernelA =
           static_cast<sycl::detail::CGExecKernel *>(MCommandGroup.get());
       sycl::detail::CGExecKernel *ExecKernelB =
@@ -346,6 +366,32 @@ public:
       NumberOfNodes += Succ->depthSearchCount();
     }
     return NumberOfNodes;
+  }
+
+  /// Duplicate recursively a node and its successors
+  /// @param NodesMaps map that associates old nodes pointer to their
+  /// duplicates. This map is populated by this function.
+  /// @return a shared_ptr to the new duplicated node
+  std::shared_ptr<node_impl> duplicateNodeAndSuccessors(
+      std::map<node_impl *, std::shared_ptr<node_impl>> &NodesMaps) {
+    // If the node has already been copied, we skip it
+    if (NodesMaps.find(this) != NodesMaps.end())
+      return NodesMaps[this];
+
+    std::shared_ptr<node_impl> CpyNode;
+    if (MCGType == sycl::detail::CG::None) {
+      CpyNode = std::make_shared<node_impl>();
+      CpyNode->MCGType = sycl::detail::CG::None;
+    } else {
+      CpyNode = std::make_shared<node_impl>(MCGType, getCGCopy());
+    }
+    NodesMaps.insert({this, CpyNode});
+    for (auto &NextNode : MSuccessors) {
+      auto Successor = NextNode->duplicateNodeAndSuccessors(NodesMaps);
+
+      CpyNode->registerSuccessor(Successor, CpyNode);
+    }
+    return CpyNode;
   }
 
 private:
@@ -399,6 +445,13 @@ public:
   }
 
   ~graph_impl();
+
+  /// Copy constructor
+  graph_impl(const graph_impl &GraphImpl)
+      : MContext(GraphImpl.MContext), MDevice(GraphImpl.MDevice),
+        MRecordingQueues(), MEventsMap(), MInorderQueueMap() {
+    duplicateGraph(GraphImpl);
+  }
 
   /// Remove node from list of root nodes.
   /// @param Root Node to remove from list of root nodes.
@@ -490,6 +543,13 @@ public:
   /// @return An empty node is used to schedule dependencies on this sub-graph.
   std::shared_ptr<node_impl>
   addSubgraphNodes(const std::list<std::shared_ptr<node_impl>> &NodeList);
+
+  /// Duplicates and Adds sub-graph nodes from an executable graph to this
+  /// graph.
+  /// @param NodeList List of nodes from sub-graph in schedule order.
+  /// @return An empty node is used to schedule dependencies on this sub-graph.
+  std::shared_ptr<node_impl>
+  DuplicateAndAddSubgraphNodes(const std::shared_ptr<graph_impl> &SubGraph);
 
   /// Query for the context tied to this graph.
   /// @return Context associated with graph.
@@ -670,6 +730,12 @@ private:
   /// @param Root Node to add to list of root nodes.
   void addRoot(const std::shared_ptr<node_impl> &Root);
 
+  /// Duplicates the nodes of GraphImpl and their dependencies to the caller
+  /// graph It also populates MEventsMap with the pointers to new duplicated
+  /// nodes.
+  /// @param GraphImpl Modifiable Graph to duplicate
+  void duplicateGraph(const graph_impl &GraphImpl);
+
   /// Context associated with this graph.
   sycl::context MContext;
   /// Device associated with this graph. All graph nodes will execute on this
@@ -753,6 +819,10 @@ public:
   const std::list<std::shared_ptr<node_impl>> &getSchedule() const {
     return MSchedule;
   }
+
+  /// Query the graph_impl.
+  /// @return pointer to the graph_impl MGraphImpl .
+  const std::shared_ptr<graph_impl> &getGraphImpl() const { return MGraphImpl; }
 
   /// Prints the contents of the graph to a text file in DOT format
   /// @param GraphName is a string appended to the output file name

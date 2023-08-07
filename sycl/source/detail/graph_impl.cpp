@@ -108,6 +108,21 @@ bool visitNodeDepthFirst(
   NodeStack.pop_back();
   return false;
 }
+
+/// Recursively append CurrentNode to Outputs if a given node is an exit node
+/// @param[in] CurrentNode Node to check as exit node.
+/// @param[inout] Outputs list of exit nodes.
+void appendExitNodesFromRoot(std::shared_ptr<node_impl> CurrentNode,
+                             std::vector<std::shared_ptr<node_impl>> &Outputs) {
+  if (CurrentNode->MSuccessors.size() > 0) {
+    for (auto Successor : CurrentNode->MSuccessors) {
+      appendExitNodesFromRoot(Successor, Outputs);
+    }
+  } else {
+    Outputs.push_back(CurrentNode);
+  }
+}
+
 } // anonymous namespace
 
 void exec_graph_impl::schedule() {
@@ -146,6 +161,27 @@ std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
   }
 
   return this->add(Outputs);
+}
+
+std::shared_ptr<node_impl> graph_impl::DuplicateAndAddSubgraphNodes(
+    const std::shared_ptr<graph_impl> &SubGraph) {
+  std::map<node_impl *, std::shared_ptr<node_impl>> NodesMaps;
+  std::vector<std::shared_ptr<node_impl>> SubGraphRoots;
+  std::vector<std::shared_ptr<node_impl>> SubGraphOutputs;
+
+  for (auto &Root : SubGraph->MRoots) {
+    auto NewRoot = Root->duplicateNodeAndSuccessors(NodesMaps);
+    SubGraphRoots.push_back(NewRoot);
+    appendExitNodesFromRoot(NewRoot, SubGraphOutputs);
+  }
+
+  // Recursively walk the graph to find exit nodes and connect up the inputs
+  // TODO: Consider caching exit nodes so we don't have to do this
+  for (auto NodeImpl : MRoots) {
+    connectToExitNodes(NodeImpl, SubGraphRoots);
+  }
+
+  return this->add(SubGraphOutputs);
 }
 
 void graph_impl::addRoot(const std::shared_ptr<node_impl> &Root) {
@@ -384,6 +420,23 @@ void graph_impl::makeEdge(std::shared_ptr<node_impl> Src,
     }
   }
   removeRoot(Dest); // remove receiver from root node list
+}
+
+void graph_impl::duplicateGraph(const graph_impl &GraphImpl) {
+  std::map<node_impl *, std::shared_ptr<node_impl>> NodesMaps;
+  for (auto &Root : GraphImpl.MRoots) {
+    auto CpyRoot = Root->duplicateNodeAndSuccessors(NodesMaps);
+    this->addRoot(CpyRoot);
+  }
+
+  for (auto &Queue : GraphImpl.MRecordingQueues) {
+    MRecordingQueues.insert(Queue);
+  }
+
+  for (auto &Element : GraphImpl.MEventsMap) {
+    if (NodesMaps.find(Element.second.get()) != NodesMaps.end())
+      addEventForNode(Element.first, NodesMaps[Element.second.get()]);
+  }
 }
 
 // Check if nodes are empty and if so loop back through predecessors until we
