@@ -31,6 +31,7 @@ namespace detail {
 // List of sycl features and extensions which are not supported by graphs. Used
 // for throwing errors when these features are used with graphs.
 enum class UnsupportedGraphFeatures {
+  sycl_reductions,
   sycl_specialization_constants,
   sycl_kernel_bundle,
   sycl_ext_oneapi_kernel_properties,
@@ -43,6 +44,8 @@ constexpr const char *
 UnsupportedFeatureToString(UnsupportedGraphFeatures Feature) {
   using UGF = UnsupportedGraphFeatures;
   switch (Feature) {
+  case UGF::sycl_reductions:
+    return "Reductions";
   case UGF::sycl_specialization_constants:
     return "Specialization Constants";
   case UGF::sycl_kernel_bundle:

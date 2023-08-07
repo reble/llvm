@@ -1368,9 +1368,9 @@ void handler::throwIfGraphAssociated(
   if (MGraph || MQueue->getCommandGraph()) {
     std::string FeatureString = UnsupportedFeatureToString(Feature);
     throw sycl::exception(sycl::make_error_code(errc::invalid),
-                          "The feature " + FeatureString +
-                              " is not yet available "
-                              "along with SYCL Graph extension.");
+                          "The " + FeatureString +
+                              " feature is not yet available "
+                              "for use with the SYCL Graph extension.");
   }
 }
 
