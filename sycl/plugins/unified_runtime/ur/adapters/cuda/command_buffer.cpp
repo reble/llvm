@@ -12,11 +12,11 @@
 /// Stub implementations of UR experimental feature command-buffers
 
 ur_exp_command_buffer_handle_t_::ur_exp_command_buffer_handle_t_(
-    ur_context_handle_t Context, ur_device_handle_t Device)
-    : Context(Context),
-      Device(Device), cudaGraph{nullptr}, cudaGraphExec{nullptr}, RefCount{1} {
-  urContextRetain(Context);
-  urDeviceRetain(Device);
+    ur_context_handle_t hContext, ur_device_handle_t hDevice)
+    : Context(hContext),
+      Device(hDevice), cudaGraph{nullptr}, cudaGraphExec{nullptr}, RefCount{1} {
+  urContextRetain(hContext);
+  urDeviceRetain(hDevice);
 }
 
 // The ur_exp_command_buffer_handle_t_ destructor release all the memory objects
@@ -35,21 +35,21 @@ ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
   cuGraphExecDestroy(cudaGraphExec);
 }
 
-UR_APIEXPORT ur_result_t UR_APICALL
-urCommandBufferCreateExp(ur_context_handle_t Context, ur_device_handle_t Device,
-                         const ur_exp_command_buffer_desc_t *CommandBufferDesc,
-                         ur_exp_command_buffer_handle_t *CommandBuffer) {
-  (void)CommandBufferDesc;
+UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferCreateExp(
+    ur_context_handle_t hContext, ur_device_handle_t hDevice,
+    const ur_exp_command_buffer_desc_t *hCommandBufferDesc,
+    ur_exp_command_buffer_handle_t *hCommandBuffer) {
+  (void)hCommandBufferDesc;
 
   try {
-    *CommandBuffer = new ur_exp_command_buffer_handle_t_(Context, Device);
+    *hCommandBuffer = new ur_exp_command_buffer_handle_t_(hContext, hDevice);
   } catch (const std::bad_alloc &) {
     return UR_RESULT_ERROR_OUT_OF_HOST_MEMORY;
   } catch (...) {
     return UR_RESULT_ERROR_UNKNOWN;
   }
 
-  auto RetCommandBuffer = *CommandBuffer;
+  auto RetCommandBuffer = *hCommandBuffer;
   try {
     UR_CHECK_ERROR(cuGraphCreate(&RetCommandBuffer->cudaGraph, 0));
   } catch (...) {
@@ -60,25 +60,25 @@ urCommandBufferCreateExp(ur_context_handle_t Context, ur_device_handle_t Device,
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL
-urCommandBufferRetainExp(ur_exp_command_buffer_handle_t CommandBuffer) {
-  CommandBuffer->incrementReferenceCount();
+urCommandBufferRetainExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
+  hCommandBuffer->incrementReferenceCount();
   return UR_RESULT_SUCCESS;
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL
-urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t CommandBuffer) {
-  if (!CommandBuffer->decrementAndTestReferenceCount())
+urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
+  if (!hCommandBuffer->decrementAndTestReferenceCount())
     return UR_RESULT_SUCCESS;
 
-  delete CommandBuffer;
+  delete hCommandBuffer;
   return UR_RESULT_SUCCESS;
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL
-urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t CommandBuffer) {
+urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
   try {
-    UR_CHECK_ERROR(cuGraphInstantiate(&CommandBuffer->cudaGraphExec,
-                                      CommandBuffer->cudaGraph, 0));
+    UR_CHECK_ERROR(cuGraphInstantiate(&hCommandBuffer->cudaGraphExec,
+                                      hCommandBuffer->cudaGraph, 0));
   } catch (...) {
     return UR_RESULT_ERROR_UNKNOWN;
   }

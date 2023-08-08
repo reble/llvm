@@ -17,7 +17,7 @@ int main() {
   sycl::device CudaDev{GetCudaBackend};
   queue Queue{CudaDev};
 
-  // Skip the test is no cuda backend found
+  // Skip the test if no cuda backend found
   if (CudaDev.get_backend() != backend::ext_oneapi_cuda)
     return 0;
 

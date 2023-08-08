@@ -11,24 +11,10 @@
 
 #include <cuda.h>
 
-// Trace an internal PI call; returns in case of an error.
-#define UR_CALL(Call)                                                          \
-  {                                                                            \
-    if (PrintTrace)                                                            \
-      fprintf(stderr, "UR ---> %s\n", #Call);                                  \
-    ur_result_t Result = (Call);                                               \
-    if (PrintTrace)                                                            \
-      fprintf(stderr, "UR <--- %s(%s)\n", #Call, getUrResultString(Result));   \
-    if (Result != UR_RESULT_SUCCESS)                                           \
-      return Result;                                                           \
-  }
-
-/// Stub implementation of command-buffers for CUDA
-
 struct ur_exp_command_buffer_handle_t_ {
 
-  ur_exp_command_buffer_handle_t_(ur_context_handle_t Context,
-                                  ur_device_handle_t Device);
+  ur_exp_command_buffer_handle_t_(ur_context_handle_t hContext,
+                                  ur_device_handle_t hDevice);
 
   ~ur_exp_command_buffer_handle_t_();
 
