@@ -1405,44 +1405,42 @@ TEST_F(CommandGraphTest, Reductions) {
 }
 
 TEST_F(CommandGraphTest, BindlessExceptionCheck) {
-  auto ctxt = Queue.get_context();
+  auto Ctxt = Queue.get_context();
 
   // declare image data
-  size_t height = 13;
-  size_t width = 7;
-  size_t depth = 11;
-  size_t N = height * width * depth;
-  std::vector<sycl::float4> out(N);
-  std::vector<float> expected(N);
-  std::vector<sycl::float4> dataIn(N);
+  size_t Height = 13;
+  size_t Width = 7;
+  size_t Depth = 11;
+  size_t N = Height * Width * Depth;
+  std::vector<sycl::float4> DataIn(N);
 
   // Extension: image descriptor - can use the same for both images
-  sycl::ext::oneapi::experimental::image_descriptor desc(
-      {width, height, depth}, sycl::image_channel_order::rgba,
+  sycl::ext::oneapi::experimental::image_descriptor Desc(
+      {Width, Height, Depth}, sycl::image_channel_order::rgba,
       sycl::image_channel_type::fp32);
 
   // Extension: allocate memory on device and create the handle
   // Input images memory
-  sycl::ext::oneapi::experimental::image_mem imgMem(desc, Dev, ctxt);
+  sycl::ext::oneapi::experimental::image_mem ImgMem(Desc, Dev, Ctxt);
   // Extension: returns the device pointer to USM allocated pitched memory
-  size_t pitch = 0;
-  auto imgMemUSM = sycl::ext::oneapi::experimental::pitched_alloc_device(
-      &pitch, desc, Queue);
+  size_t Pitch = 0;
+  auto ImgMemUSM = sycl::ext::oneapi::experimental::pitched_alloc_device(
+      &Pitch, Desc, Queue);
 
   Graph.begin_recording(Queue);
 
-  addImagesCopies<OperationPath::RecordReplay>(Graph, Queue, imgMem, dataIn,
-                                               imgMemUSM, pitch, desc);
+  addImagesCopies<OperationPath::RecordReplay>(Graph, Queue, ImgMem, DataIn,
+                                               ImgMemUSM, Pitch, Desc);
 
-  addImagesCopies<OperationPath::Shortcut>(Graph, Queue, imgMem, dataIn,
-                                           imgMemUSM, pitch, desc);
+  addImagesCopies<OperationPath::Shortcut>(Graph, Queue, ImgMem, DataIn,
+                                           ImgMemUSM, Pitch, Desc);
 
   Graph.end_recording();
 
-  addImagesCopies<OperationPath::Explicit>(Graph, Queue, imgMem, dataIn,
-                                           imgMemUSM, pitch, desc);
+  addImagesCopies<OperationPath::Explicit>(Graph, Queue, ImgMem, DataIn,
+                                           ImgMemUSM, Pitch, Desc);
 
-  sycl::free(imgMemUSM, ctxt);
+  sycl::free(ImgMemUSM, Ctxt);
 }
 
 class MultiThreadGraphTest : public CommandGraphTest {
