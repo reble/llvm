@@ -541,22 +541,24 @@ performed on a `command_graph` in this state will result in undefined
 behavior.
 
 ===== Assume-Buffer-Outlives-Graph Property [[assume-buffer-outlives-graph-property]]
+
 The `property::graph::assume_buffer_outlives_graph` property disables
-restrictions on using buffers in a `command_graph` and can be passed to a
-`command_graph` on construction via the property list parameter. This property
-represents a promise from the user that any buffer which is used in a graph
-will be kept alive on the host for the lifetime of the graph. Destroying that
-buffer during the lifetime of a `command_graph` constructured with this
-property results in undefined behavior.
+<<buffer-limitations, restrictions on using buffers>> in a `command_graph` and
+can be passed to a `command_graph` on construction via the property list
+parameter. This property represents a promise from the user that any buffer
+which is used in a graph will be kept alive on the host for the lifetime of the
+graph. Destroying that buffer during the lifetime of a `command_graph`
+constructed with this property results in undefined behavior.
 
 ===== Assume-Data-Outlives-Buffer Property [[assume-data-outlives-buffer-property]]
+
 The `property::graph::assume_data_outlives_buffer` property disables
-restrictions on using buffers which have been created with a host pointer
-in a `command_graph`, and can be passed to a `command_graph` on construction
-via the property list parameter. This property represents a promise from the
-user that any host data passed to a buffer's constructor will outlive the
-buffer itself, and by extension any graph in which that buffer is used.
-Deleting or otherwise modifying this host data during the lifetime of the
+<<buffer-limitations, restrictions on using buffers>> which have been created
+with a host pointer in a `command_graph`, and can be passed to a `command_graph`
+on construction via the property list parameter. This property represents a
+promise from the user that any host data passed to a buffer's constructor will
+outlive the buffer itself, and by extension any graph in which that buffer is
+used. Deleting or otherwise modifying this host data during the lifetime of the
 buffer or graph results in undefined behavior when using this property.
 
 ==== Graph Member Functions
