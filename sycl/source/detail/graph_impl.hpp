@@ -313,26 +313,16 @@ public:
   /// Tests is the caller is similar to Node
   /// @return True if the two nodes are similars
   bool isSimilar(std::shared_ptr<node_impl> Node) {
-    if (MCGType != Node->MCGType)
-      return false;
-
     if (MSuccessors.size() != Node->MSuccessors.size())
       return false;
 
     if (MPredecessors.size() != Node->MPredecessors.size())
       return false;
 
-    if ((MCGType == sycl::detail::CG::CGTYPE::Kernel) &&
-        (Node->MCGType == sycl::detail::CG::CGTYPE::Kernel)) {
-      sycl::detail::CGExecKernel *ExecKernelA =
-          static_cast<sycl::detail::CGExecKernel *>(MCommandGroup.get());
-      sycl::detail::CGExecKernel *ExecKernelB =
-          static_cast<sycl::detail::CGExecKernel *>(Node->MCommandGroup.get());
+    if (*this == *Node.get())
+      return true;
 
-      if (ExecKernelA->MKernelName.compare(ExecKernelB->MKernelName) != 0)
-        return false;
-    }
-    return true;
+    return false;
   }
 
   /// Recursive traversal of successor nodes checking for
@@ -549,7 +539,7 @@ public:
   /// @param NodeList List of nodes from sub-graph in schedule order.
   /// @return An empty node is used to schedule dependencies on this sub-graph.
   std::shared_ptr<node_impl>
-  DuplicateAndAddSubgraphNodes(const std::shared_ptr<graph_impl> &SubGraph);
+  duplicateAndAddSubgraphNodes(const std::shared_ptr<graph_impl> &SubGraph);
 
   /// Query for the context tied to this graph.
   /// @return Context associated with graph.

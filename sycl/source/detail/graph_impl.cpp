@@ -163,7 +163,7 @@ std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
   return this->add(Outputs);
 }
 
-std::shared_ptr<node_impl> graph_impl::DuplicateAndAddSubgraphNodes(
+std::shared_ptr<node_impl> graph_impl::duplicateAndAddSubgraphNodes(
     const std::shared_ptr<graph_impl> &SubGraph) {
   std::map<node_impl *, std::shared_ptr<node_impl>> NodesMaps;
   std::vector<std::shared_ptr<node_impl>> SubGraphRoots;
@@ -427,10 +427,6 @@ void graph_impl::duplicateGraph(const graph_impl &GraphImpl) {
   for (auto &Root : GraphImpl.MRoots) {
     auto CpyRoot = Root->duplicateNodeAndSuccessors(NodesMaps);
     this->addRoot(CpyRoot);
-  }
-
-  for (auto &Queue : GraphImpl.MRecordingQueues) {
-    MRecordingQueues.insert(Queue);
   }
 
   for (auto &Element : GraphImpl.MEventsMap) {

@@ -1370,7 +1370,7 @@ void handler::ext_oneapi_graph(
     // The nodes of the subgraph are duplicated when added to its parents.
     // This avoids changing properties of the graph added as a subgraph.
     MSubgraphNode =
-        ParentGraph->DuplicateAndAddSubgraphNodes(GraphImpl->getGraphImpl());
+        ParentGraph->duplicateAndAddSubgraphNodes(GraphImpl->getGraphImpl());
 
     // If we are recording an in-order queue remember the subgraph node, so it
     // can be used as a dependency for any more nodes recorded from this queue.
