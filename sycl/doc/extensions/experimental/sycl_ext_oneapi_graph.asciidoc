@@ -547,7 +547,7 @@ restrictions on using buffers in a `command_graph` and can be passed to a
 represents a promise from the user that any buffer which is used in a graph
 will be kept alive on the host for the lifetime of the graph. Destroying that
 buffer during the lifetime of a `command_graph` constructured with this
-property results in undefined behaviour.
+property results in undefined behavior.
 
 ===== Assume-Data-Outlives-Buffer Property [[assume-data-outlives-buffer-property]]
 The `property::graph::assume_data_outlives_buffer` property disables
@@ -557,7 +557,7 @@ via the property list parameter. This property represents a promise from the
 user that any host data passed to a buffer's constructor will outlive the
 buffer itself, and by extension any graph in which that buffer is used.
 Deleting or otherwise modifying this host data during the lifetime of the
-buffer or graph results in undefined behaviour when using this property.
+buffer or graph results in undefined behavior when using this property.
 
 ==== Graph Member Functions
 
@@ -1110,7 +1110,7 @@ There are also restrictions on using a buffer which has been created with a
 host data pointer in commands recorded to a `command_graph`. Because of the
 delayed execution of a `command_graph`, data may not be copied to the device
 immediately when commands using these buffers are submitted to the graph,
-therefore the host data must also outlive the graph to ensure correct behaviour.
+therefore the host data must also outlive the graph to ensure correct behavior.
 Users can pass the <<assume-data-outlives-buffer-property, Assume-Data-Outlives-Buffer>>
 property to the graph constructor to provide a promise that this will not occur
 and that it is safe to use this buffer in the graph.
