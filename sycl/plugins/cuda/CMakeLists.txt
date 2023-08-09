@@ -23,7 +23,7 @@ else()
   )
 endif()
 
-if (SYCL_ENABLE_XPTI_TRACING)                                                   
+if (SYCL_ENABLE_XPTI_TRACING)
   # The following two if's can be removed when FindCUDA -> FindCUDAToolkit.
   # CUDA_CUPTI_INCLUDE_DIR -> CUDAToolkit_CUPTI_INCLUDE_DIR
   include(FindCUDACupti)
