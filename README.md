@@ -64,7 +64,7 @@ is something we are interested in expanding on.
 | Using `handler::memset` in a graph node                            | Not implemented - Exception: "CG type not implemented for command buffers"       |
 | Using `handler::prefetch` in a graph node                          | Not implemented - Exception: "CG type not implemented for command buffers"       |
 | Using `handler::memadvise` in a graph node                         | Not implemented - Exception: "CG type not implemented for command buffers"       |
-| Using specialization constants in a graph node                     | Not implemented - Throws an exception that features is not supported yet |
+| Using specialization constants in a graph node                     | Not implemented - Throws an exception that feature is not supported yet |
 | Using reductions in a graph node                                   | Not implemented - Throws an exception that feature is not supported yet |
 | Using kernel bundles in a graph node                                   | Not implemented - Throws an exception that feature is not supported yet |
 | Using sycl streams in a graph node                                 | Not implemented - Exception: "Failed to add kernel to PI command-buffer"      |
