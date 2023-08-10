@@ -1392,7 +1392,7 @@ TEST_F(CommandGraphTest, Reductions) {
       {
         try {
           Graph.add([&](handler &CGH) {
-            CGH.parallel_for<class TestKernel>(
+            CGH.parallel_for<class CustomTestKernel>(
                 range<1>{1}, reduction(&ReduVar, int{0}, sycl::plus()),
                 [=](item<1> idx, auto &Sum) {});
           });
