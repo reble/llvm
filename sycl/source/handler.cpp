@@ -799,9 +799,9 @@ void handler::verifyUsedKernelBundle(const std::string &KernelName) {
 }
 
 void handler::ext_oneapi_barrier(const std::vector<event> &WaitList) {
-  throwIfGraphAssociated(
+  throwIfGraphAssociated<
       ext::oneapi::experimental::detail::UnsupportedGraphFeatures::
-          sycl_ext_oneapi_enqueue_barrier);
+          sycl_ext_oneapi_enqueue_barrier>();
   throwIfActionIsCreated();
   MCGType = detail::CG::BarrierWaitlist;
   MEventsWaitWithBarrier.resize(WaitList.size());
@@ -1110,8 +1110,8 @@ void handler::ext_oneapi_signal_external_semaphore(
 void handler::use_kernel_bundle(
     const kernel_bundle<bundle_state::executable> &ExecBundle) {
 
-  throwIfGraphAssociated(ext::oneapi::experimental::detail::
-                             UnsupportedGraphFeatures::sycl_kernel_bundle);
+  throwIfGraphAssociated<ext::oneapi::experimental::detail::
+                             UnsupportedGraphFeatures::sycl_kernel_bundle>();
 
   std::shared_ptr<detail::queue_impl> PrimaryQueue =
       MImpl->MSubmissionPrimaryQueue;
@@ -1360,18 +1360,6 @@ handler::getCommandGraph() const {
     return MGraph;
   }
   return MQueue->getCommandGraph();
-}
-
-void handler::throwIfGraphAssociated(
-    ext::oneapi::experimental::detail::UnsupportedGraphFeatures Feature) const {
-
-  if (MGraph || MQueue->getCommandGraph()) {
-    std::string FeatureString = UnsupportedFeatureToString(Feature);
-    throw sycl::exception(sycl::make_error_code(errc::invalid),
-                          "The " + FeatureString +
-                              " feature is not yet available "
-                              "for use with the SYCL Graph extension.");
-  }
 }
 
 } // namespace _V1
