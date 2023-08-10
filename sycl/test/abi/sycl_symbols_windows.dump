@@ -5053,7 +5053,6 @@
 ?sycl_host_u_upsample@__host_std@@YAIGG@Z
 ?sycl_host_u_upsample@__host_std@@YA_KII@Z
 ?throwIfActionIsCreated@handler@_V1@sycl@@AEAAXXZ
-?throwIfGraphAssociated@handler@_V1@sycl@@AEBAXW4UnsupportedGraphFeatures@detail@experimental@oneapi@ext@23@@Z
 ?throw_asynchronous@queue@_V1@sycl@@QEAAXXZ
 ?unmap@MemoryManager@detail@_V1@sycl@@SAXPEAVSYCLMemObjI@234@PEAXV?$shared_ptr@Vqueue_impl@detail@_V1@sycl@@@std@@1V?$vector@PEAU_pi_event@@V?$allocator@PEAU_pi_event@@@std@@@7@AEAPEAU_pi_event@@@Z
 ?unsampledImageConstructorNotification@detail@_V1@sycl@@YAXPEAX0AEBV?$optional@W4image_target@_V1@sycl@@@std@@W4mode@access@23@PEBXIAEBUcode_location@123@@Z
