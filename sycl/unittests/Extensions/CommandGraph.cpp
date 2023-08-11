@@ -822,7 +822,7 @@ TEST_F(CommandGraphTest, SubGraph) {
   ASSERT_EQ(sycl::detail::getSyclObjImpl(Node1MainGraph)->MSuccessors.size(),
             1lu);
   // Subgraph nodes are duplicated when inserted to parent graph.
-  // we thus check the node type only.
+  // we thus check the node content only.
   ASSERT_TRUE(
       *(sycl::detail::getSyclObjImpl(Node1MainGraph)->MSuccessors.front()) ==
       *(sycl::detail::getSyclObjImpl(Node1Graph)));

@@ -123,6 +123,16 @@ void appendExitNodesFromRoot(std::shared_ptr<node_impl> CurrentNode,
   }
 }
 
+void duplicateNode(const std::shared_ptr<node_impl> Node,
+                   std::shared_ptr<node_impl> &NodeCopy) {
+  if (Node->MCGType == sycl::detail::CG::None) {
+    NodeCopy = std::make_shared<node_impl>();
+    NodeCopy->MCGType = sycl::detail::CG::None;
+  } else {
+    NodeCopy = std::make_shared<node_impl>(Node->MCGType, Node->getCGCopy());
+  }
+}
+
 } // anonymous namespace
 
 void exec_graph_impl::schedule() {
@@ -164,24 +174,37 @@ std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
 }
 
 std::shared_ptr<node_impl> graph_impl::duplicateAndAddSubgraphNodes(
-    const std::shared_ptr<graph_impl> &SubGraph) {
-  std::map<node_impl *, std::shared_ptr<node_impl>> NodesMaps;
-  std::vector<std::shared_ptr<node_impl>> SubGraphRoots;
-  std::vector<std::shared_ptr<node_impl>> SubGraphOutputs;
+    const std::list<std::shared_ptr<node_impl>> &NodeList) {
+  std::map<std::shared_ptr<node_impl>, std::shared_ptr<node_impl>> NodesMap;
+  std::list<std::shared_ptr<node_impl>> NewNodeList;
 
-  for (auto &Root : SubGraph->MRoots) {
-    auto NewRoot = Root->duplicateNodeAndSuccessors(NodesMaps);
-    SubGraphRoots.push_back(NewRoot);
-    appendExitNodesFromRoot(NewRoot, SubGraphOutputs);
+  for (std::list<std::shared_ptr<node_impl>>::const_iterator NodeIt =
+           NodeList.end();
+       NodeIt != NodeList.begin();) {
+    --NodeIt;
+    auto Node = *NodeIt;
+    std::shared_ptr<node_impl> NodeCopy;
+    duplicateNode(Node, NodeCopy);
+    NewNodeList.push_back(NodeCopy);
+    NodesMap.insert({Node, NodeCopy});
+    for (auto &NextNode : Node->MSuccessors) {
+      if (NodesMap.find(NextNode) != NodesMap.end()) {
+        auto Successor = NodesMap[NextNode];
+        NodeCopy->registerSuccessor(Successor, NodeCopy);
+      }
+    }
   }
 
-  // Recursively walk the graph to find exit nodes and connect up the inputs
-  // TODO: Consider caching exit nodes so we don't have to do this
-  for (auto NodeImpl : MRoots) {
-    connectToExitNodes(NodeImpl, SubGraphRoots);
-  }
+  return addSubgraphNodes(NewNodeList);
+}
 
-  return this->add(SubGraphOutputs);
+std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
+    const std::shared_ptr<exec_graph_impl> &SubGraphExec,
+    const bool DuplicateNodes) {
+  if (DuplicateNodes) {
+    return duplicateAndAddSubgraphNodes(SubGraphExec->getSchedule());
+  }
+  return addSubgraphNodes(SubGraphExec->getSchedule());
 }
 
 void graph_impl::addRoot(const std::shared_ptr<node_impl> &Root) {
@@ -423,15 +446,15 @@ void graph_impl::makeEdge(std::shared_ptr<node_impl> Src,
 }
 
 void graph_impl::duplicateGraph(const graph_impl &GraphImpl) {
-  std::map<node_impl *, std::shared_ptr<node_impl>> NodesMaps;
+  std::map<node_impl *, std::shared_ptr<node_impl>> NodesMap;
   for (auto &Root : GraphImpl.MRoots) {
-    auto CpyRoot = Root->duplicateNodeAndSuccessors(NodesMaps);
-    this->addRoot(CpyRoot);
+    auto RootCopy = Root->duplicateNodeAndSuccessors(NodesMap);
+    this->addRoot(RootCopy);
   }
 
   for (auto &Element : GraphImpl.MEventsMap) {
-    if (NodesMaps.find(Element.second.get()) != NodesMaps.end())
-      addEventForNode(Element.first, NodesMaps[Element.second.get()]);
+    if (NodesMap.find(Element.second.get()) != NodesMap.end())
+      addEventForNode(Element.first, NodesMap[Element.second.get()]);
   }
 }
 
