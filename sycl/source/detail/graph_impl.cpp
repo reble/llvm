@@ -445,19 +445,6 @@ void graph_impl::makeEdge(std::shared_ptr<node_impl> Src,
   removeRoot(Dest); // remove receiver from root node list
 }
 
-void graph_impl::duplicateGraph(const graph_impl &GraphImpl) {
-  std::map<node_impl *, std::shared_ptr<node_impl>> NodesMap;
-  for (auto &Root : GraphImpl.MRoots) {
-    auto RootCopy = Root->duplicateNodeAndSuccessors(NodesMap);
-    this->addRoot(RootCopy);
-  }
-
-  for (auto &Element : GraphImpl.MEventsMap) {
-    if (NodesMap.find(Element.second.get()) != NodesMap.end())
-      addEventForNode(Element.first, NodesMap[Element.second.get()]);
-  }
-}
-
 // Check if nodes are empty and if so loop back through predecessors until we
 // find the real dependency.
 void exec_graph_impl::findRealDeps(

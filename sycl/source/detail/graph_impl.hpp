@@ -378,32 +378,6 @@ public:
     return NumberOfNodes;
   }
 
-  /// Duplicate recursively a node and its successors
-  /// @param NodesMaps map that associates old nodes pointer to their
-  /// duplicates. This map is populated by this function.
-  /// @return a shared_ptr to the new duplicated node
-  std::shared_ptr<node_impl> duplicateNodeAndSuccessors(
-      std::map<node_impl *, std::shared_ptr<node_impl>> &NodesMaps) {
-    // If the node has already been copied, we skip it
-    if (NodesMaps.find(this) != NodesMaps.end())
-      return NodesMaps[this];
-
-    std::shared_ptr<node_impl> NodeCopy;
-    if (MCGType == sycl::detail::CG::None) {
-      NodeCopy = std::make_shared<node_impl>();
-      NodeCopy->MCGType = sycl::detail::CG::None;
-    } else {
-      NodeCopy = std::make_shared<node_impl>(MCGType, getCGCopy());
-    }
-    NodesMaps.insert({this, NodeCopy});
-    for (auto &NextNode : MSuccessors) {
-      auto Successor = NextNode->duplicateNodeAndSuccessors(NodesMaps);
-
-      NodeCopy->registerSuccessor(Successor, NodeCopy);
-    }
-    return NodeCopy;
-  }
-
 private:
   /// Creates a copy of the node's CG by casting to it's actual type, then using
   /// that to copy construct and create a new unique ptr from that copy.
@@ -455,13 +429,6 @@ public:
   }
 
   ~graph_impl();
-
-  /// Copy constructor
-  graph_impl(const graph_impl &GraphImpl)
-      : MContext(GraphImpl.MContext), MDevice(GraphImpl.MDevice),
-        MRecordingQueues(), MEventsMap(), MInorderQueueMap() {
-    duplicateGraph(GraphImpl);
-  }
 
   /// Remove node from list of root nodes.
   /// @param Root Node to remove from list of root nodes.
@@ -732,16 +699,6 @@ private:
   /// graph, a cycle is present and the search ends immediately.
   /// @return True if a cycle is detected, false if not.
   bool checkForCycles();
-
-  /// Insert node into list of root nodes.
-  /// @param Root Node to add to list of root nodes.
-  void addRoot(const std::shared_ptr<node_impl> &Root);
-
-  /// Duplicates the nodes of GraphImpl and their dependencies to the caller
-  /// graph It also populates MEventsMap with the pointers to new duplicated
-  /// nodes.
-  /// @param GraphImpl Modifiable Graph to duplicate
-  void duplicateGraph(const graph_impl &GraphImpl);
 
   /// Context associated with this graph.
   sycl::context MContext;
