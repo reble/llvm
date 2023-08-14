@@ -150,7 +150,7 @@ graph_impl::~graph_impl() {
   }
 }
 
-std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
+std::shared_ptr<node_impl> graph_impl::addNodesToExits(
     const std::list<std::shared_ptr<node_impl>> &NodeList) {
   // Find all input and output nodes from the node list
   std::vector<std::shared_ptr<node_impl>> Inputs;
@@ -173,10 +173,12 @@ std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
   return this->add(Outputs);
 }
 
-std::shared_ptr<node_impl> graph_impl::duplicateAndAddSubgraphNodes(
-    const std::list<std::shared_ptr<node_impl>> &NodeList) {
+std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
+    const std::shared_ptr<exec_graph_impl> &SubGraphExec) {
   std::map<std::shared_ptr<node_impl>, std::shared_ptr<node_impl>> NodesMap;
   std::list<std::shared_ptr<node_impl>> NewNodeList;
+
+  std::list<std::shared_ptr<node_impl>> NodeList = SubGraphExec->getSchedule();
 
   for (std::list<std::shared_ptr<node_impl>>::const_iterator NodeIt =
            NodeList.end();
@@ -195,16 +197,7 @@ std::shared_ptr<node_impl> graph_impl::duplicateAndAddSubgraphNodes(
     }
   }
 
-  return addSubgraphNodes(NewNodeList);
-}
-
-std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
-    const std::shared_ptr<exec_graph_impl> &SubGraphExec,
-    const bool DuplicateNodes) {
-  if (DuplicateNodes) {
-    return duplicateAndAddSubgraphNodes(SubGraphExec->getSchedule());
-  }
-  return addSubgraphNodes(SubGraphExec->getSchedule());
+  return addNodesToExits(NewNodeList);
 }
 
 void graph_impl::addRoot(const std::shared_ptr<node_impl> &Root) {

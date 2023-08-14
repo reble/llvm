@@ -1776,15 +1776,3 @@ TEST_F(CommandGraphTest, InvalidHostAccessor) {
   // Graph is now out of scope so we should be able to create a host_accessor
   ASSERT_NO_THROW({ host_accessor HostAcc{Buffer}; });
 }
- 
-TEST_F(CommandGraphTest, CopyConstructor) {
-  // Create graph with multiple roots
-  addKernels(Graph);
-  addKernels(Graph);
-  addKernels(Graph);
-
-  auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
-  auto GraphCopyImpl(*GraphImpl);
-  ASSERT_EQ(GraphCopyImpl.hasSimilarStructure(GraphImpl), true);
-  ASSERT_NE(*(GraphImpl->MRoots.begin()), *(GraphCopyImpl.MRoots.begin()));
-}

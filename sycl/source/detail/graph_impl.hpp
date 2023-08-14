@@ -518,12 +518,9 @@ public:
   /// Duplicates and Adds sub-graph nodes from an executable graph to this
   /// graph.
   /// @param SubGraphExec sub-graph to add to the parent.
-  /// @param DuplicateNodes if true nodes are duplicated first, then added to
-  /// the parent graph
   /// @return An empty node is used to schedule dependencies on this sub-graph.
   std::shared_ptr<node_impl>
-  addSubgraphNodes(const std::shared_ptr<exec_graph_impl> &SubGraphExec,
-                   const bool DuplicateNodes = true);
+  addSubgraphNodes(const std::shared_ptr<exec_graph_impl> &SubGraphExec);
 
   /// Query for the context tied to this graph.
   /// @return Context associated with graph.
@@ -738,18 +735,11 @@ private:
   /// @param Root Node to add to list of root nodes.
   void addRoot(const std::shared_ptr<node_impl> &Root);
 
-  /// Adds sub-graph nodes from an executable graph to this graph.
+  /// Adds nodes to the exit nodes of this graph.
   /// @param NodeList List of nodes from sub-graph in schedule order.
   /// @return An empty node is used to schedule dependencies on this sub-graph.
   std::shared_ptr<node_impl>
-  addSubgraphNodes(const std::list<std::shared_ptr<node_impl>> &NodeList);
-
-  /// Duplicates and Adds sub-graph nodes from an executable graph to this
-  /// graph.
-  /// @param NodeList List of nodes from sub-graph in schedule order.
-  /// @return An empty node is used to schedule dependencies on this sub-graph.
-  std::shared_ptr<node_impl> duplicateAndAddSubgraphNodes(
-      const std::list<std::shared_ptr<node_impl>> &NodeList);
+  addNodesToExits(const std::list<std::shared_ptr<node_impl>> &NodeList);
 };
 
 /// Class representing the implementation of command_graph<executable>.
