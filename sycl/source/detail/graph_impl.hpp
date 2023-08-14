@@ -518,8 +518,8 @@ public:
   /// Duplicates and Adds sub-graph nodes from an executable graph to this
   /// graph.
   /// @param SubGraphExec sub-graph to add to the parent.
-  /// @param DuplicateNodes if true nodes are duplicated first, then add the the
-  /// parent graph
+  /// @param DuplicateNodes if true nodes are duplicated first, then added to
+  /// the parent graph
   /// @return An empty node is used to schedule dependencies on this sub-graph.
   std::shared_ptr<node_impl>
   addSubgraphNodes(const std::shared_ptr<exec_graph_impl> &SubGraphExec,
