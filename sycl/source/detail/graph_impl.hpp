@@ -135,16 +135,18 @@ public:
   /// Recursively add nodes to execution stack.
   /// @param NodeImpl Node to schedule.
   /// @param Schedule Execution ordering to add node to.
+  /// @param ForcePush is true force to push empty nodes to the list Schedule
   void sortTopological(std::shared_ptr<node_impl> NodeImpl,
-                       std::list<std::shared_ptr<node_impl>> &Schedule) {
+                       std::list<std::shared_ptr<node_impl>> &Schedule,
+                       bool ForcePush = false) {
     for (auto Next : MSuccessors) {
       // Check if we've already scheduled this node
       if (std::find(Schedule.begin(), Schedule.end(), Next) == Schedule.end())
-        Next->sortTopological(Next, Schedule);
+        Next->sortTopological(Next, Schedule, ForcePush);
     }
     // We don't need to schedule empty nodes as they are only used when
     // calculating dependencies
-    if (!NodeImpl->isEmpty())
+    if (ForcePush || !NodeImpl->isEmpty())
       Schedule.push_front(NodeImpl);
   }
 

@@ -178,8 +178,13 @@ std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
   std::map<std::shared_ptr<node_impl>, std::shared_ptr<node_impl>> NodesMap;
   std::list<std::shared_ptr<node_impl>> NewNodeList;
 
-  std::list<std::shared_ptr<node_impl>> NodeList = SubGraphExec->getSchedule();
+  // Create a list of nodes from the graph structure
+  std::list<std::shared_ptr<node_impl>> NodeList;
+  for (auto Node : SubGraphExec->getGraphImpl()->MRoots) {
+    Node->sortTopological(Node, NodeList, true);
+  }
 
+  // Duplication of nodes
   for (std::list<std::shared_ptr<node_impl>>::const_iterator NodeIt =
            NodeList.end();
        NodeIt != NodeList.begin();) {
@@ -193,6 +198,8 @@ std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
       if (NodesMap.find(NextNode) != NodesMap.end()) {
         auto Successor = NodesMap[NextNode];
         NodeCopy->registerSuccessor(Successor, NodeCopy);
+      } else {
+        assert("Node duplication failed. A duplicated node is missing.");
       }
     }
   }

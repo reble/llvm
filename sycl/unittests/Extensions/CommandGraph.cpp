@@ -849,6 +849,130 @@ TEST_F(CommandGraphTest, SubGraph) {
   ASSERT_EQ(Queue.get_context(), MainGraphExecImpl->getContext());
 }
 
+TEST_F(CommandGraphTest, SubGraphWithEmptyNode) {
+  // Add sub-graph with two nodes
+  auto Node1Graph = Graph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
+  auto Empty1Graph =
+      Graph.add([&](sycl::handler &cgh) { /*empty node */ },
+                {experimental::property::node::depends_on(Node1Graph)});
+  auto Node2Graph = Graph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); },
+      {experimental::property::node::depends_on(Empty1Graph)});
+
+  auto GraphExec = Graph.finalize();
+
+  // Add node to main graph followed by sub-graph and another node
+  experimental::command_graph MainGraph(Queue.get_context(), Dev);
+  auto Node1MainGraph = MainGraph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
+  auto Node2MainGraph =
+      MainGraph.add([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); },
+                    {experimental::property::node::depends_on(Node1MainGraph)});
+  auto Node3MainGraph = MainGraph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); },
+      {experimental::property::node::depends_on(Node2MainGraph)});
+
+  // Assert order of the added sub-graph
+  ASSERT_NE(sycl::detail::getSyclObjImpl(Node2MainGraph), nullptr);
+  ASSERT_TRUE(sycl::detail::getSyclObjImpl(Node2MainGraph)->isEmpty());
+  // Check the structure of the main graph.
+  // 1 root connected to 1 successor (the single root of the subgraph)
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(MainGraph)->MRoots.size(), 1lu);
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node1MainGraph)->MSuccessors.size(),
+            1lu);
+  // Subgraph nodes are duplicated when inserted to parent graph.
+  // we thus check the node content only.
+  ASSERT_TRUE(
+      *(sycl::detail::getSyclObjImpl(Node1MainGraph)->MSuccessors.front()) ==
+      *(sycl::detail::getSyclObjImpl(Node1Graph)));
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node1MainGraph)->MSuccessors.size(),
+            1lu);
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node2MainGraph)->MSuccessors.size(),
+            1lu);
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node1MainGraph)->MPredecessors.size(),
+            0lu);
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node2MainGraph)->MPredecessors.size(),
+            1lu);
+
+  // Finalize main graph and check schedule
+  auto MainGraphExec = MainGraph.finalize();
+  auto MainGraphExecImpl = sycl::detail::getSyclObjImpl(MainGraphExec);
+  auto Schedule = MainGraphExecImpl->getSchedule();
+  auto ScheduleIt = Schedule.begin();
+  ASSERT_EQ(Schedule.size(), 4ul);
+  ASSERT_EQ(*ScheduleIt, sycl::detail::getSyclObjImpl(Node1MainGraph));
+  ScheduleIt++;
+  ASSERT_TRUE(*(*ScheduleIt) == *(sycl::detail::getSyclObjImpl(Node1Graph)));
+  ScheduleIt++;
+  ASSERT_TRUE(*(*ScheduleIt) == *(sycl::detail::getSyclObjImpl(Node2Graph)));
+  ScheduleIt++;
+  ASSERT_EQ(*ScheduleIt, sycl::detail::getSyclObjImpl(Node3MainGraph));
+  ASSERT_EQ(Queue.get_context(), MainGraphExecImpl->getContext());
+}
+
+TEST_F(CommandGraphTest, SubGraphWithEmptyNodeLast) {
+  // Add sub-graph with two nodes
+  auto Node1Graph = Graph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
+  auto Node2Graph = Graph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); },
+      {experimental::property::node::depends_on(Node1Graph)});
+  auto EmptyGraph =
+      Graph.add([&](sycl::handler &cgh) { /*empty node */ },
+                {experimental::property::node::depends_on(Node2Graph)});
+
+  auto GraphExec = Graph.finalize();
+
+  // Add node to main graph followed by sub-graph and another node
+  experimental::command_graph MainGraph(Queue.get_context(), Dev);
+  auto Node1MainGraph = MainGraph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
+  auto Node2MainGraph =
+      MainGraph.add([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); },
+                    {experimental::property::node::depends_on(Node1MainGraph)});
+  auto Node3MainGraph = MainGraph.add(
+      [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); },
+      {experimental::property::node::depends_on(Node2MainGraph)});
+
+  // Assert order of the added sub-graph
+  ASSERT_NE(sycl::detail::getSyclObjImpl(Node2MainGraph), nullptr);
+  ASSERT_TRUE(sycl::detail::getSyclObjImpl(Node2MainGraph)->isEmpty());
+  // Check the structure of the main graph.
+  // 1 root connected to 1 successor (the single root of the subgraph)
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(MainGraph)->MRoots.size(), 1lu);
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node1MainGraph)->MSuccessors.size(),
+            1lu);
+  // Subgraph nodes are duplicated when inserted to parent graph.
+  // we thus check the node content only.
+  ASSERT_TRUE(
+      *(sycl::detail::getSyclObjImpl(Node1MainGraph)->MSuccessors.front()) ==
+      *(sycl::detail::getSyclObjImpl(Node1Graph)));
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node1MainGraph)->MSuccessors.size(),
+            1lu);
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node2MainGraph)->MSuccessors.size(),
+            1lu);
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node1MainGraph)->MPredecessors.size(),
+            0lu);
+  ASSERT_EQ(sycl::detail::getSyclObjImpl(Node2MainGraph)->MPredecessors.size(),
+            1lu);
+
+  // Finalize main graph and check schedule
+  auto MainGraphExec = MainGraph.finalize();
+  auto MainGraphExecImpl = sycl::detail::getSyclObjImpl(MainGraphExec);
+  auto Schedule = MainGraphExecImpl->getSchedule();
+  auto ScheduleIt = Schedule.begin();
+  ASSERT_EQ(Schedule.size(), 4ul);
+  ASSERT_EQ(*ScheduleIt, sycl::detail::getSyclObjImpl(Node1MainGraph));
+  ScheduleIt++;
+  ASSERT_TRUE(*(*ScheduleIt) == *(sycl::detail::getSyclObjImpl(Node1Graph)));
+  ScheduleIt++;
+  ASSERT_TRUE(*(*ScheduleIt) == *(sycl::detail::getSyclObjImpl(Node2Graph)));
+  ScheduleIt++;
+  ASSERT_EQ(*ScheduleIt, sycl::detail::getSyclObjImpl(Node3MainGraph));
+  ASSERT_EQ(Queue.get_context(), MainGraphExecImpl->getContext());
+}
+
 TEST_F(CommandGraphTest, RecordSubGraph) {
   // Record sub-graph with two nodes
   Graph.begin_recording(Queue);
