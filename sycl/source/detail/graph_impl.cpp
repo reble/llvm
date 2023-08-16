@@ -526,7 +526,7 @@ void exec_graph_impl::createCommandBuffers(sycl::device Device) {
 
   // TODO extract kernel bundle logic from enqueueImpKernel
   for (auto Node : MSchedule) {
-    // Empty nodes are node processed as other nodes, but only their
+    // Empty nodes are not processed as other nodes, but only their
     // dependencies are propagated in findRealDeps
     if (Node->isEmpty())
       continue;
