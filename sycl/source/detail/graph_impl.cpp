@@ -176,23 +176,19 @@ std::shared_ptr<node_impl> graph_impl::addNodesToExits(
 std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
     const std::shared_ptr<exec_graph_impl> &SubGraphExec) {
   std::map<std::shared_ptr<node_impl>, std::shared_ptr<node_impl>> NodesMap;
-  std::list<std::shared_ptr<node_impl>> NewNodeList;
+  std::list<std::shared_ptr<node_impl>> NewNodesList;
 
-  // Create a list of nodes from the graph structure
-  std::list<std::shared_ptr<node_impl>> NodeList;
-  for (auto Node : SubGraphExec->getGraphImpl()->MRoots) {
-    Node->sortTopological(Node, NodeList, true);
-  }
+  std::list<std::shared_ptr<node_impl>> NodesList = SubGraphExec->getSchedule();
 
   // Duplication of nodes
   for (std::list<std::shared_ptr<node_impl>>::const_iterator NodeIt =
-           NodeList.end();
-       NodeIt != NodeList.begin();) {
+           NodesList.end();
+       NodeIt != NodesList.begin();) {
     --NodeIt;
     auto Node = *NodeIt;
     std::shared_ptr<node_impl> NodeCopy;
     duplicateNode(Node, NodeCopy);
-    NewNodeList.push_back(NodeCopy);
+    NewNodesList.push_back(NodeCopy);
     NodesMap.insert({Node, NodeCopy});
     for (auto &NextNode : Node->MSuccessors) {
       if (NodesMap.find(NextNode) != NodesMap.end()) {
@@ -204,7 +200,7 @@ std::shared_ptr<node_impl> graph_impl::addSubgraphNodes(
     }
   }
 
-  return addNodesToExits(NewNodeList);
+  return addNodesToExits(NewNodesList);
 }
 
 void graph_impl::addRoot(const std::shared_ptr<node_impl> &Root) {
@@ -530,6 +526,11 @@ void exec_graph_impl::createCommandBuffers(sycl::device Device) {
 
   // TODO extract kernel bundle logic from enqueueImpKernel
   for (auto Node : MSchedule) {
+    // Empty nodes are node processed as other nodes, but only their
+    // dependencies are propagated in findRealDeps
+    if (Node->isEmpty())
+      continue;
+
     sycl::detail::CG::CGTYPE type = Node->MCGType;
     // If the node is a kernel with no special requirements we can enqueue it
     // directly.
@@ -669,8 +670,9 @@ exec_graph_impl::enqueue(const std::shared_ptr<sycl::detail::queue_impl> &Queue,
               "Error during emulated graph command group submission.");
         }
         ScheduledEvents.push_back(NewEvent);
-      } else {
-
+      } else if (!NodeImpl->isEmpty()) {
+        // Empty nodes are node processed as other nodes, but only their
+        // dependencies are propagated in findRealDeps
         sycl::detail::EventImplPtr EventImpl =
             sycl::detail::Scheduler::getInstance().addCG(NodeImpl->getCGCopy(),
                                                          Queue);
