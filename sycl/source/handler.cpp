@@ -369,15 +369,15 @@ event handler::finalize() {
     break;
   case detail::CG::Barrier:
   case detail::CG::BarrierWaitlist: {
-    auto GraphImpl = getCommandGraph();
-    if (GraphImpl != nullptr) {
+    if (auto GraphImpl = getCommandGraph(); GraphImpl != nullptr) {
       // if no event to wait for was specified, we add all the previous
       // nodes/events of the graph
       if (MEventsWaitWithBarrier.size() == 0) {
         MEventsWaitWithBarrier = GraphImpl->getExitNodesEvents();
       }
-      CGData.MEvents.insert(end(CGData.MEvents), begin(MEventsWaitWithBarrier),
-                            end(MEventsWaitWithBarrier));
+      CGData.MEvents.insert(std::end(CGData.MEvents),
+                            std::begin(MEventsWaitWithBarrier),
+                            std::end(MEventsWaitWithBarrier));
       // Barrier node is implemented as an empty node in Graph
       // but keep the barrier type to help managing dependencies
       MCGType = detail::CG::Barrier;
