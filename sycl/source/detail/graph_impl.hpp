@@ -319,8 +319,8 @@ public:
     printDotCG(Stream);
     for (const auto &Dep : MPredecessors) {
       auto NodeDep = Dep.lock();
-      Stream << "  \"" << MCommandGroup.get() << "\" -> \""
-             << NodeDep->MCommandGroup.get() << "\"" << std::endl;
+      Stream << "  \"" << NodeDep->MCommandGroup.get() << "\" -> \""
+             << MCommandGroup.get() << "\"" << std::endl;
     }
 
     for (std::shared_ptr<node_impl> Succ : MSuccessors) {
