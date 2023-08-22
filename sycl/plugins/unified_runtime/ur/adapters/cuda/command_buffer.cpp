@@ -14,13 +14,10 @@
 #include "memory.hpp"
 #include "queue.hpp"
 
-/// Stub implementations of UR experimental feature command-buffers
-
 ur_exp_command_buffer_handle_t_::ur_exp_command_buffer_handle_t_(
     ur_context_handle_t hContext, ur_device_handle_t hDevice)
     : Context(hContext),
-      Device(hDevice), MCudaGraph{nullptr}, MCudaGraphExec{nullptr}, RefCount{
-                                                                         1} {
+      Device(hDevice), CudaGraph{nullptr}, CudaGraphExec{nullptr}, RefCount{1} {
   urContextRetain(hContext);
   urDeviceRetain(hDevice);
 }
@@ -35,10 +32,10 @@ ur_exp_command_buffer_handle_t_::~ur_exp_command_buffer_handle_t_() {
   urDeviceRelease(Device);
 
   // Release the memory allocated to the CudaGraph
-  cuGraphDestroy(MCudaGraph);
+  cuGraphDestroy(CudaGraph);
 
   // Release the memory allocated to the CudaGraphExec
-  cuGraphExecDestroy(MCudaGraphExec);
+  cuGraphExecDestroy(CudaGraphExec);
 }
 
 /// Helper function for finding the Cuda Nodes associated with the
@@ -90,7 +87,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferCreateExp(
 
   auto RetCommandBuffer = *hCommandBuffer;
   try {
-    UR_CHECK_ERROR(cuGraphCreate(&RetCommandBuffer->MCudaGraph, 0));
+    UR_CHECK_ERROR(cuGraphCreate(&RetCommandBuffer->CudaGraph, 0));
   } catch (...) {
     return UR_RESULT_ERROR_OUT_OF_RESOURCES;
   }
@@ -116,8 +113,8 @@ urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
 UR_APIEXPORT ur_result_t UR_APICALL
 urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t hCommandBuffer) {
   try {
-    UR_CHECK_ERROR(cuGraphInstantiate(&hCommandBuffer->MCudaGraphExec,
-                                      hCommandBuffer->MCudaGraph, 0));
+    UR_CHECK_ERROR(cuGraphInstantiate(&hCommandBuffer->CudaGraphExec,
+                                      hCommandBuffer->CudaGraph, 0));
   } catch (...) {
     return UR_RESULT_ERROR_UNKNOWN;
   }
@@ -145,9 +142,9 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
                                  pSyncPointWaitList, DepsList));
 
   if (*pGlobalWorkSize == 0) {
-    // Create a empty node is the kernel worload size is zero
+    // Create a empty node if the kernel worload size is zero
     Result = UR_CHECK_ERROR(
-        cuGraphAddEmptyNode(&GraphNode, hCommandBuffer->MCudaGraph,
+        cuGraphAddEmptyNode(&GraphNode, hCommandBuffer->CudaGraph,
                             DepsList.data(), DepsList.size()));
 
     // Get sync point and register the event with it.
@@ -160,119 +157,21 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
   // Set the number of threads per block to the number of threads per warp
   // by default unless user has provided a better number
   size_t ThreadsPerBlock[3] = {32u, 1u, 1u};
-  size_t MaxWorkGroupSize = 0u;
-  size_t MaxThreadsPerBlock[3] = {};
-  bool ProvidedLocalWorkGroupSize = (pLocalWorkSize != nullptr);
+  size_t BlocksPerGrid[3] = {1u, 1u, 1u};
+
   uint32_t LocalSize = hKernel->getLocalSize();
+  CUfunction CuFunc = hKernel->get();
+
+  if ((Result = setKernelParams(
+           hCommandBuffer->Context, hCommandBuffer->Device, workDim,
+           pGlobalWorkOffset, pGlobalWorkSize, pLocalWorkSize, hKernel, CuFunc,
+           ThreadsPerBlock, BlocksPerGrid)) != UR_RESULT_SUCCESS) {
+    return Result;
+  }
 
   try {
-    // Set the active context here as guessLocalWorkSize needs an active context
-    ScopedContext Active(hCommandBuffer->Context);
-    {
-      size_t *ReqdThreadsPerBlock = hKernel->ReqdThreadsPerBlock;
-      MaxWorkGroupSize = hCommandBuffer->Device->getMaxWorkGroupSize();
-      hCommandBuffer->Device->getMaxWorkItemSizes(sizeof(MaxThreadsPerBlock),
-                                                  MaxThreadsPerBlock);
-
-      if (ProvidedLocalWorkGroupSize) {
-        auto IsValid = [&](int Dim) {
-          if (ReqdThreadsPerBlock[Dim] != 0 &&
-              pLocalWorkSize[Dim] != ReqdThreadsPerBlock[Dim])
-            return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
-
-          if (pLocalWorkSize[Dim] > MaxThreadsPerBlock[Dim])
-            return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
-          // Checks that local work sizes are a divisor of the global work sizes
-          // which includes that the local work sizes are neither larger than
-          // the global work sizes and not 0.
-          if (0u == pLocalWorkSize[Dim])
-            return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
-          if (0u != (pGlobalWorkSize[Dim] % pLocalWorkSize[Dim]))
-            return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
-          ThreadsPerBlock[Dim] = pLocalWorkSize[Dim];
-          return UR_RESULT_SUCCESS;
-        };
-
-        size_t KernelLocalWorkGroupSize = 0;
-        for (size_t Dim = 0; Dim < workDim; Dim++) {
-          auto Err = IsValid(Dim);
-          if (Err != UR_RESULT_SUCCESS)
-            return Err;
-          // If no error then sum the total local work size per dim.
-          KernelLocalWorkGroupSize += pLocalWorkSize[Dim];
-        }
-
-        if (hasExceededMaxRegistersPerBlock(hCommandBuffer->Device, hKernel,
-                                            KernelLocalWorkGroupSize)) {
-          return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
-        }
-      } else {
-        guessLocalWorkSize(hCommandBuffer->Device, ThreadsPerBlock,
-                           pGlobalWorkSize, workDim, MaxThreadsPerBlock,
-                           hKernel, LocalSize);
-      }
-    }
-
-    if (MaxWorkGroupSize <
-        ThreadsPerBlock[0] * ThreadsPerBlock[1] * ThreadsPerBlock[2]) {
-      return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
-    }
-
-    size_t BlocksPerGrid[3] = {1u, 1u, 1u};
-
-    for (size_t i = 0; i < workDim; i++) {
-      BlocksPerGrid[i] =
-          (pGlobalWorkSize[i] + ThreadsPerBlock[i] - 1) / ThreadsPerBlock[i];
-    }
-
-    CUfunction CuFunc = hKernel->get();
-
-    // Set the implicit global offset parameter if kernel has offset variant
-    if (hKernel->get_with_offset_parameter()) {
-      std::uint32_t CudaImplicitOffset[3] = {0, 0, 0};
-      if (pGlobalWorkOffset) {
-        for (size_t i = 0; i < workDim; i++) {
-          CudaImplicitOffset[i] =
-              static_cast<std::uint32_t>(pGlobalWorkOffset[i]);
-          if (pGlobalWorkOffset[i] != 0) {
-            CuFunc = hKernel->get_with_offset_parameter();
-          }
-        }
-      }
-      hKernel->setImplicitOffsetArg(sizeof(CudaImplicitOffset),
-                                    CudaImplicitOffset);
-    }
-
-    auto &ArgIndices = hKernel->getArgIndices();
-
-    if (hCommandBuffer->Context->getDevice()->maxLocalMemSizeChosen()) {
-      // Set up local memory requirements for kernel.
-      auto Device = hCommandBuffer->Context->getDevice();
-      if (Device->getMaxChosenLocalMem() < 0) {
-        setErrorMessage("Invalid value specified for "
-                        "SYCL_PI_CUDA_MAX_LOCAL_MEM_SIZE",
-                        UR_RESULT_ERROR_ADAPTER_SPECIFIC);
-        return UR_RESULT_ERROR_ADAPTER_SPECIFIC;
-      }
-      if (LocalSize > static_cast<uint32_t>(Device->getMaxCapacityLocalMem())) {
-        setErrorMessage("Too much local memory allocated for device",
-                        UR_RESULT_ERROR_ADAPTER_SPECIFIC);
-        return UR_RESULT_ERROR_ADAPTER_SPECIFIC;
-      }
-      if (LocalSize > static_cast<uint32_t>(Device->getMaxChosenLocalMem())) {
-        setErrorMessage(
-            "Local memory for kernel exceeds the amount requested using "
-            "SYCL_PI_CUDA_MAX_LOCAL_MEM_SIZE. Try increasing the value for "
-            "SYCL_PI_CUDA_MAX_LOCAL_MEM_SIZE.",
-            UR_RESULT_ERROR_ADAPTER_SPECIFIC);
-        return UR_RESULT_ERROR_ADAPTER_SPECIFIC;
-      }
-      UR_CHECK_ERROR(cuFuncSetAttribute(
-          CuFunc, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
-          Device->getMaxChosenLocalMem()));
-    }
-
     // Set node param structure with the kernel related data
+    auto &ArgIndices = hKernel->getArgIndices();
     CUDA_KERNEL_NODE_PARAMS nodeParams;
     nodeParams.func = CuFunc;
     nodeParams.gridDimX = BlocksPerGrid[0];
@@ -287,7 +186,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
 
     // Create and add an new kernel node to the Cuda graph
     Result = UR_CHECK_ERROR(
-        cuGraphAddKernelNode(&GraphNode, hCommandBuffer->MCudaGraph,
+        cuGraphAddKernelNode(&GraphNode, hCommandBuffer->CudaGraph,
                              DepsList.data(), DepsList.size(), &nodeParams));
 
     if (LocalSize != 0)
@@ -478,8 +377,10 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
   CUstream CuStream = hQueue->getNextComputeStream(
       numEventsInWaitList, phEventWaitList, Guard, &StreamToken);
 
-  Result =
-      enqueueEventsWait(hQueue, CuStream, numEventsInWaitList, phEventWaitList);
+  if ((Result = enqueueEventsWait(hQueue, CuStream, numEventsInWaitList,
+                                  phEventWaitList)) != UR_RESULT_SUCCESS) {
+    return Result;
+  }
 
   if (phEvent) {
     RetImplEvent =
@@ -490,7 +391,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
 
   // Launch graph
   Result =
-      UR_CHECK_ERROR(cuGraphLaunch(hCommandBuffer->MCudaGraphExec, CuStream));
+      UR_CHECK_ERROR(cuGraphLaunch(hCommandBuffer->CudaGraphExec, CuStream));
 
   if (phEvent) {
     Result = RetImplEvent->record();

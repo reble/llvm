@@ -177,7 +177,6 @@ struct ur_exp_command_buffer_handle_t_ {
 
   void RegisterSyncPoint(ur_exp_command_buffer_sync_point_t SyncPoint,
                          std::shared_ptr<CUgraphNode> CuNode) {
-    std::cout << SyncPoint << " : " << CuNode.get() << std::endl;
     SyncPoints[SyncPoint] = CuNode;
     NextSyncPoint++;
   }
@@ -191,9 +190,9 @@ struct ur_exp_command_buffer_handle_t_ {
   // Device associated with this command buffer
   ur_device_handle_t Device;
   // Cuda Graph handle
-  CUgraph MCudaGraph;
+  CUgraph CudaGraph;
   // Cuda Graph Exec handle
-  CUgraphExec MCudaGraphExec;
+  CUgraphExec CudaGraphExec;
   // Atomic variable counting the number of reference to this command_buffer
   // using std::atomic prevents data race when incrementing/decrementing.
   std::atomic_uint32_t RefCount;

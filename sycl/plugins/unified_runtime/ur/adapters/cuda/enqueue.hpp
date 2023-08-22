@@ -23,3 +23,11 @@ void guessLocalWorkSize(ur_device_handle_t Device, size_t *ThreadsPerBlock,
 bool hasExceededMaxRegistersPerBlock(ur_device_handle_t Device,
                                      ur_kernel_handle_t Kernel,
                                      size_t BlockSize);
+
+ur_result_t
+setKernelParams(const ur_context_handle_t hContext,
+                const ur_device_handle_t hDevice, const uint32_t workDim,
+                const size_t *pGlobalWorkOffset, const size_t *pGlobalWorkSize,
+                const size_t *pLocalWorkSize, ur_kernel_handle_t &hKernel,
+                CUfunction &hCuFunc, size_t (&ThreadsPerBlock)[3],
+                size_t (&BlocksPerGrid)[3]);
