@@ -249,7 +249,7 @@ graph_impl::add(const std::shared_ptr<graph_impl> &Impl,
     throw sycl::exception(
         make_error_code(errc::invalid),
         "The sycl_ext_oneapi_enqueue_barrier feature is not available with "
-        "SYCL graph Explicit API. Please use empty nodes instead.");
+        "SYCL Graph Explicit API. Please use empty nodes instead.");
   }
 
   // If the handler recorded a subgraph return that here as the relevant nodes
