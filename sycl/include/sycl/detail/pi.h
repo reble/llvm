@@ -2457,6 +2457,42 @@ __SYCL_EXPORT pi_result piextCommandBufferMemBufferWriteRect(
     const pi_ext_sync_point *sync_point_wait_list,
     pi_ext_sync_point *sync_point);
 
+/// API to append a mem buffer fill command to the command-buffer.
+/// \param command_buffer The command-buffer to append onto.
+/// \param buffer is the location to fill the data
+/// \param pattern pointer to the pattern to fill the buffer with.
+/// \param pattern_size size of the pattern in bytes.
+/// \param offset Offset into the buffer to fill from.
+/// \param size fill size in bytes.
+/// \param num_sync_points_in_wait_list The number of sync points in the
+/// provided wait list.
+/// \param sync_point_wait_list A list of sync points that this command must
+/// wait on.
+/// \param sync_point The sync_point associated with this memory operation.
+__SYCL_EXPORT pi_result piextCommandBufferMembufferFill(
+    pi_ext_command_buffer command_buffer, pi_mem buffer, const void *pattern,
+    size_t pattern_size, size_t offset, size_t size,
+    pi_uint32 num_events_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point);
+
+/// API to append a USM fill command to the command-buffer.
+/// \param command_buffer The command-buffer to append onto.
+/// \param ptr pointer to the USM allocation to fill.
+/// \param pattern pointer to the pattern to fill ptr with.
+/// \param pattern_size size of the pattern in bytes.
+/// \param size fill size in bytes.
+/// \param num_sync_points_in_wait_list The number of sync points in the
+/// provided wait list.
+/// \param sync_point_wait_list A list of sync points that this command must
+/// wait on.
+/// \param sync_point The sync_point associated with this memory operation.
+__SYCL_EXPORT pi_result piextCommandBufferFillUSM(
+    pi_ext_command_buffer command_buffer, void *ptr, const void *pattern,
+    size_t pattern_size, size_t size, pi_uint32 num_events_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point);
+
 /// API to submit the command-buffer to queue for execution, returns an error if
 /// the command-buffer is not finalized or another instance of the same
 /// command-buffer is currently executing.

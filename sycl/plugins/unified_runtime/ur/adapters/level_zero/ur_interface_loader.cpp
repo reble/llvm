@@ -320,6 +320,7 @@ UR_DLLEXPORT ur_result_t UR_APICALL urGetCommandBufferExpProcAddrTable(
   pDdiTable->pfnFinalizeExp = urCommandBufferFinalizeExp;
   pDdiTable->pfnAppendKernelLaunchExp = urCommandBufferAppendKernelLaunchExp;
   pDdiTable->pfnAppendMemcpyUSMExp = urCommandBufferAppendMemcpyUSMExp;
+  pDdiTable->pfnAppendFillUSMExp = urCommandBufferAppendFillUSMExp;
   pDdiTable->pfnAppendMembufferCopyExp = urCommandBufferAppendMembufferCopyExp;
   pDdiTable->pfnAppendMembufferCopyRectExp =
       urCommandBufferAppendMembufferCopyRectExp;
@@ -330,6 +331,7 @@ UR_DLLEXPORT ur_result_t UR_APICALL urGetCommandBufferExpProcAddrTable(
       urCommandBufferAppendMembufferWriteExp;
   pDdiTable->pfnAppendMembufferWriteRectExp =
       urCommandBufferAppendMembufferWriteRectExp;
+  pDdiTable->pfnAppendMembufferFillExp = urCommandBufferAppendMembufferFillExp;
   pDdiTable->pfnEnqueueExp = urCommandBufferEnqueueExp;
 
   return retVal;
