@@ -186,72 +186,72 @@ bool hasExceededMaxRegistersPerBlock(ur_device_handle_t Device,
 
 // Helper to compute and put in good shape kernel parameters from workload
 // dimensions.
-// @param [in]  hContext handler to the target Context
-// @param [in]  hDevice handler to the target Device
-// @param [in]  workDim workload dimension
-// @param [in]  pGlobalWorkOffset pointer workload global offsets
-// @param [in]  pLocalWorkOffset pointer workload local offsets
-// @param [inout] hKernel handler to the kernel
-// @param [inout] hCuFunc handler to the cuda function attached to the kernel
+// @param [in]  Context handler to the target Context
+// @param [in]  Device handler to the target Device
+// @param [in]  WorkDim workload dimension
+// @param [in]  GlobalWorkOffset pointer workload global offsets
+// @param [in]  LocalWorkOffset pointer workload local offsets
+// @param [inout] Kernel handler to the kernel
+// @param [inout] CuFunc handler to the cuda function attached to the kernel
 // @param [out] ThreadsPerBlock Number of threads per block we should run
 // @param [out] BlocksPerGrid Number of blocks per grid we should run
 ur_result_t
-setKernelParams(const ur_context_handle_t hContext,
-                const ur_device_handle_t hDevice, const uint32_t workDim,
-                const size_t *pGlobalWorkOffset, const size_t *pGlobalWorkSize,
-                const size_t *pLocalWorkSize, ur_kernel_handle_t &hKernel,
-                CUfunction &hCuFunc, size_t (&ThreadsPerBlock)[3],
+setKernelParams(const ur_context_handle_t Context,
+                const ur_device_handle_t Device, const uint32_t WorkDim,
+                const size_t *GlobalWorkOffset, const size_t *GlobalWorkSize,
+                const size_t *LocalWorkSize, ur_kernel_handle_t &Kernel,
+                CUfunction &CuFunc, size_t (&ThreadsPerBlock)[3],
                 size_t (&BlocksPerGrid)[3]) {
   ur_result_t Result = UR_RESULT_SUCCESS;
   size_t MaxWorkGroupSize = 0u;
   size_t MaxThreadsPerBlock[3] = {};
-  bool ProvidedLocalWorkGroupSize = (pLocalWorkSize != nullptr);
-  uint32_t LocalSize = hKernel->getLocalSize();
+  bool ProvidedLocalWorkGroupSize = (LocalWorkSize != nullptr);
+  uint32_t LocalSize = Kernel->getLocalSize();
 
   try {
     // Set the active context here as guessLocalWorkSize needs an active context
-    ScopedContext Active(hContext);
+    ScopedContext Active(Context);
     {
-      size_t *ReqdThreadsPerBlock = hKernel->ReqdThreadsPerBlock;
-      MaxWorkGroupSize = hDevice->getMaxWorkGroupSize();
-      hDevice->getMaxWorkItemSizes(sizeof(MaxThreadsPerBlock),
-                                   MaxThreadsPerBlock);
+      size_t *ReqdThreadsPerBlock = Kernel->ReqdThreadsPerBlock;
+      MaxWorkGroupSize = Device->getMaxWorkGroupSize();
+      Device->getMaxWorkItemSizes(sizeof(MaxThreadsPerBlock),
+                                  MaxThreadsPerBlock);
 
       if (ProvidedLocalWorkGroupSize) {
         auto IsValid = [&](int Dim) {
           if (ReqdThreadsPerBlock[Dim] != 0 &&
-              pLocalWorkSize[Dim] != ReqdThreadsPerBlock[Dim])
+              LocalWorkSize[Dim] != ReqdThreadsPerBlock[Dim])
             return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
 
-          if (pLocalWorkSize[Dim] > MaxThreadsPerBlock[Dim])
+          if (LocalWorkSize[Dim] > MaxThreadsPerBlock[Dim])
             return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
           // Checks that local work sizes are a divisor of the global work sizes
           // which includes that the local work sizes are neither larger than
           // the global work sizes and not 0.
-          if (0u == pLocalWorkSize[Dim])
+          if (0u == LocalWorkSize[Dim])
             return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
-          if (0u != (pGlobalWorkSize[Dim] % pLocalWorkSize[Dim]))
+          if (0u != (GlobalWorkSize[Dim] % LocalWorkSize[Dim]))
             return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
-          ThreadsPerBlock[Dim] = pLocalWorkSize[Dim];
+          ThreadsPerBlock[Dim] = LocalWorkSize[Dim];
           return UR_RESULT_SUCCESS;
         };
 
         size_t KernelLocalWorkGroupSize = 0;
-        for (size_t Dim = 0; Dim < workDim; Dim++) {
+        for (size_t Dim = 0; Dim < WorkDim; Dim++) {
           auto Err = IsValid(Dim);
           if (Err != UR_RESULT_SUCCESS)
             return Err;
           // If no error then sum the total local work size per dim.
-          KernelLocalWorkGroupSize += pLocalWorkSize[Dim];
+          KernelLocalWorkGroupSize += LocalWorkSize[Dim];
         }
 
-        if (hasExceededMaxRegistersPerBlock(hDevice, hKernel,
+        if (hasExceededMaxRegistersPerBlock(Device, Kernel,
                                             KernelLocalWorkGroupSize)) {
           return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
         }
       } else {
-        guessLocalWorkSize(hDevice, ThreadsPerBlock, pGlobalWorkSize, workDim,
-                           MaxThreadsPerBlock, hKernel, LocalSize);
+        guessLocalWorkSize(Device, ThreadsPerBlock, GlobalWorkSize, WorkDim,
+                           MaxThreadsPerBlock, Kernel, LocalSize);
       }
     }
 
@@ -260,30 +260,30 @@ setKernelParams(const ur_context_handle_t hContext,
       return UR_RESULT_ERROR_INVALID_WORK_GROUP_SIZE;
     }
 
-    for (size_t i = 0; i < workDim; i++) {
+    for (size_t i = 0; i < WorkDim; i++) {
       BlocksPerGrid[i] =
-          (pGlobalWorkSize[i] + ThreadsPerBlock[i] - 1) / ThreadsPerBlock[i];
+          (GlobalWorkSize[i] + ThreadsPerBlock[i] - 1) / ThreadsPerBlock[i];
     }
 
     // Set the implicit global offset parameter if kernel has offset variant
-    if (hKernel->get_with_offset_parameter()) {
+    if (Kernel->get_with_offset_parameter()) {
       std::uint32_t CudaImplicitOffset[3] = {0, 0, 0};
-      if (pGlobalWorkOffset) {
-        for (size_t i = 0; i < workDim; i++) {
+      if (GlobalWorkOffset) {
+        for (size_t i = 0; i < WorkDim; i++) {
           CudaImplicitOffset[i] =
-              static_cast<std::uint32_t>(pGlobalWorkOffset[i]);
-          if (pGlobalWorkOffset[i] != 0) {
-            hCuFunc = hKernel->get_with_offset_parameter();
+              static_cast<std::uint32_t>(GlobalWorkOffset[i]);
+          if (GlobalWorkOffset[i] != 0) {
+            CuFunc = Kernel->get_with_offset_parameter();
           }
         }
       }
-      hKernel->setImplicitOffsetArg(sizeof(CudaImplicitOffset),
-                                    CudaImplicitOffset);
+      Kernel->setImplicitOffsetArg(sizeof(CudaImplicitOffset),
+                                   CudaImplicitOffset);
     }
 
-    if (hContext->getDevice()->maxLocalMemSizeChosen()) {
+    if (Context->getDevice()->maxLocalMemSizeChosen()) {
       // Set up local memory requirements for kernel.
-      auto Device = hContext->getDevice();
+      auto Device = Context->getDevice();
       if (Device->getMaxChosenLocalMem() < 0) {
         setErrorMessage("Invalid value specified for "
                         "SYCL_PI_CUDA_MAX_LOCAL_MEM_SIZE",
@@ -304,7 +304,7 @@ setKernelParams(const ur_context_handle_t hContext,
         return UR_RESULT_ERROR_ADAPTER_SPECIFIC;
       }
       UR_CHECK_ERROR(cuFuncSetAttribute(
-          hCuFunc, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
+          CuFunc, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
           Device->getMaxChosenLocalMem()));
     }
 
