@@ -371,18 +371,20 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
     uint32_t numEventsInWaitList, const ur_event_handle_t *phEventWaitList,
     ur_event_handle_t *phEvent) {
   ur_result_t Result = UR_RESULT_SUCCESS;
-  std::unique_ptr<ur_event_handle_t_> RetImplEvent{nullptr};
-  uint32_t StreamToken;
-  ur_stream_guard_ Guard;
-  CUstream CuStream = hQueue->getNextComputeStream(
-      numEventsInWaitList, phEventWaitList, Guard, &StreamToken);
-
-  if ((Result = enqueueEventsWait(hQueue, CuStream, numEventsInWaitList,
-                                  phEventWaitList)) != UR_RESULT_SUCCESS) {
-    return Result;
-  }
 
   try {
+    std::unique_ptr<ur_event_handle_t_> RetImplEvent{nullptr};
+    ScopedContext Active(hQueue->getContext());
+    uint32_t StreamToken;
+    ur_stream_guard_ Guard;
+    CUstream CuStream = hQueue->getNextComputeStream(
+        numEventsInWaitList, phEventWaitList, Guard, &StreamToken);
+
+    if ((Result = enqueueEventsWait(hQueue, CuStream, numEventsInWaitList,
+                                    phEventWaitList)) != UR_RESULT_SUCCESS) {
+      return Result;
+    }
+
     if (phEvent) {
       RetImplEvent =
           std::unique_ptr<ur_event_handle_t_>(ur_event_handle_t_::makeNative(
