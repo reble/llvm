@@ -142,15 +142,19 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
                                  pSyncPointWaitList, DepsList));
 
   if (*pGlobalWorkSize == 0) {
-    // Create a empty node if the kernel worload size is zero
-    Result = UR_CHECK_ERROR(
-        cuGraphAddEmptyNode(&GraphNode, hCommandBuffer->CudaGraph,
-                            DepsList.data(), DepsList.size()));
+    try {
+      // Create a empty node if the kernel worload size is zero
+      Result = UR_CHECK_ERROR(
+          cuGraphAddEmptyNode(&GraphNode, hCommandBuffer->CudaGraph,
+                              DepsList.data(), DepsList.size()));
 
-    // Get sync point and register the event with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+      // Get sync point and register the event with it.
+      *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
+      hCommandBuffer->RegisterSyncPoint(
+          *pSyncPoint, std::make_shared<CUgraphNode>(GraphNode));
+    } catch (ur_result_t Err) {
+      Result = Err;
+    }
     return Result;
   }
 
