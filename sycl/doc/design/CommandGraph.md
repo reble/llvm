@@ -133,8 +133,8 @@ data.
 Implementation of [UR command-buffers](#UR-command-buffer-experimental-feature)
 for each of the supported SYCL 2020 backends.
 
-This is currently only Level Zero but more sub-sections will be added here as
-other backends are implemented.
+Currently Level Zero and CUDA backends are implemented. 
+More sub-sections will be added here as other backends are supported.
 
 ### Level Zero
 
@@ -215,3 +215,19 @@ Level Zero:
 
 Future work will include exploring L0 API extensions to improve the mapping of
 UR command-buffer to L0 command-list.
+
+### CUDA
+
+The SYCL Graph CUDA backend relies on the CUDA graph feature, which is the CUDA public API for batching command-groups with dependencies.
+
+UR sync-points are implemented as CUDA nodes using the CUDA Driver API.
+Dependencies between command-groups are implemented using CUDA graph dependencies.
+
+An executable CUDA Graph of the command-groups sequence is saved in the CommandBuffer to allow for efficient graph resubmission.
+
+---
+**NOTE**
+
+The CUDA Driver API is preferred over the CUDA Runtime API to implement the SYCL Graph backend to remain consistent with other UR functions.
+
+---
