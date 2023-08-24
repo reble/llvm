@@ -1376,18 +1376,17 @@ inline pi_result mock_piextCommandBufferMemBufferCopyRect(
 inline pi_result mock_piextCommandBufferMembufferFill(
     pi_ext_command_buffer command_buffer, pi_mem buffer, const void *pattern,
     size_t pattern_size, size_t offset, size_t size,
-    pi_uint32 num_events_in_wait_list,
+    pi_uint32 num_sync_points_in_wait_list,
     const pi_ext_sync_point *sync_point_wait_list,
     pi_ext_sync_point *sync_point) {
   return PI_SUCCESS;
 }
 
-inline pi_result
-mock_piextCommandBufferFillUSM(pi_ext_command_buffer command_buffer, void *ptr,
-                               const void *pattern, size_t pattern_size,
-                               size_t size, pi_uint32 num_events_in_wait_list,
-                               const pi_ext_sync_point *sync_point_wait_list,
-                               pi_ext_sync_point *sync_point) {
+inline pi_result mock_piextCommandBufferFillUSM(
+    pi_ext_command_buffer command_buffer, void *ptr, const void *pattern,
+    size_t pattern_size, size_t size, pi_uint32 num_sync_points_in_wait_list,
+    const pi_ext_sync_point *sync_point_wait_list,
+    pi_ext_sync_point *sync_point) {
   return PI_SUCCESS;
 }
 

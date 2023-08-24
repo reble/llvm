@@ -1443,6 +1443,7 @@ void MemoryManager::ext_oneapi_fill_usm_cmd_buffer(
                         PI_ERROR_INVALID_VALUE);
 
   const PluginPtr &Plugin = Context->getPlugin();
+  // Pattern is interpreted as an unsigned char so pattern size is always 1.
   size_t PatternSize = 1;
   Plugin->call<PiApiKind::piextCommandBufferFillUSM>(
       CommandBuffer, DstMem, &Pattern, PatternSize, Len, Deps.size(),
