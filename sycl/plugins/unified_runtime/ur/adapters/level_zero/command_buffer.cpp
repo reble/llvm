@@ -359,6 +359,10 @@ static ur_result_t enqueueCommandBufferMemCopyRectHelper(
   UR_CALL(EventCreate(CommandBuffer->Context, nullptr, true, &LaunchEvent));
   LaunchEvent->CommandType = CommandType;
 
+  // Get sync point and register the event with it.
+  *SyncPoint = CommandBuffer->GetNextSyncPoint();
+  CommandBuffer->RegisterSyncPoint(*SyncPoint, LaunchEvent);
+
   ZE2UR_CALL(zeCommandListAppendMemoryCopyRegion,
              (CommandBuffer->ZeCommandList, Dst, &ZeDstRegion, DstPitch,
               DstSlicePitch, Src, &ZeSrcRegion, SrcPitch, SrcSlicePitch,
@@ -368,9 +372,6 @@ static ur_result_t enqueueCommandBufferMemCopyRectHelper(
           "  ZeEvent %#lx\n",
           ur_cast<std::uintptr_t>(LaunchEvent->ZeEvent));
 
-  // Get sync point and register the event with it.
-  *SyncPoint = CommandBuffer->GetNextSyncPoint();
-  CommandBuffer->RegisterSyncPoint(*SyncPoint, LaunchEvent);
   return UR_RESULT_SUCCESS;
 }
 
@@ -381,10 +382,17 @@ static ur_result_t enqueueCommandBufferFillHelper(
     uint32_t NumSyncPointsInWaitList,
     const ur_exp_command_buffer_sync_point_t *SyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *SyncPoint) {
-
   // Pattern size must be a power of two.
   UR_ASSERT((PatternSize > 0) && ((PatternSize & (PatternSize - 1)) == 0),
             UR_RESULT_ERROR_INVALID_VALUE);
+
+  // Pattern size must fit the compute queue capabilities.
+  UR_ASSERT(
+      PatternSize <=
+          CommandBuffer->Device
+              ->QueueGroup[ur_device_handle_t_::queue_group_info_t::Compute]
+              .ZeProperties.maxMemoryFillPatternSize,
+      UR_RESULT_ERROR_INVALID_VALUE);
 
   std::vector<ze_event_handle_t> ZeEventList;
   UR_CALL(getEventsFromSyncPoints(CommandBuffer, NumSyncPointsInWaitList,
