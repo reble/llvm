@@ -2053,8 +2053,8 @@ TEST_F(CommandGraphTest, FillMemsetNodes) {
     auto NodeBImpl = sycl::detail::getSyclObjImpl(NodeB);
 
     // Check Operator==
-    ASSERT_EQ(NodeAImpl, NodeAImpl);
-    ASSERT_NE(NodeAImpl, NodeBImpl);
+    EXPECT_EQ(NodeAImpl, NodeAImpl);
+    EXPECT_NE(NodeAImpl, NodeBImpl);
   }
 
   // USM
@@ -2078,13 +2078,13 @@ TEST_F(CommandGraphTest, FillMemsetNodes) {
     auto MemsetNodeBImpl = sycl::detail::getSyclObjImpl(MemsetNodeB);
 
     // Check Operator==
-    ASSERT_EQ(FillNodeAImpl, FillNodeAImpl);
-    ASSERT_EQ(FillNodeBImpl, FillNodeBImpl);
-    ASSERT_NE(FillNodeAImpl, FillNodeBImpl);
+    EXPECT_EQ(FillNodeAImpl, FillNodeAImpl);
+    EXPECT_EQ(FillNodeBImpl, FillNodeBImpl);
+    EXPECT_NE(FillNodeAImpl, FillNodeBImpl);
 
-    ASSERT_EQ(MemsetNodeAImpl, MemsetNodeAImpl);
-    ASSERT_EQ(MemsetNodeBImpl, MemsetNodeBImpl);
-    ASSERT_NE(MemsetNodeAImpl, MemsetNodeBImpl);
+    EXPECT_EQ(MemsetNodeAImpl, MemsetNodeAImpl);
+    EXPECT_EQ(MemsetNodeBImpl, MemsetNodeBImpl);
+    EXPECT_NE(MemsetNodeAImpl, MemsetNodeBImpl);
     sycl::free(USMPtr, Queue);
   }
 }
