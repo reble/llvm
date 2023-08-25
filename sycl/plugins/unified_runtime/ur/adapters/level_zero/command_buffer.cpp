@@ -359,10 +359,6 @@ static ur_result_t enqueueCommandBufferMemCopyRectHelper(
   UR_CALL(EventCreate(CommandBuffer->Context, nullptr, true, &LaunchEvent));
   LaunchEvent->CommandType = CommandType;
 
-  // Get sync point and register the event with it.
-  *SyncPoint = CommandBuffer->GetNextSyncPoint();
-  CommandBuffer->RegisterSyncPoint(*SyncPoint, LaunchEvent);
-
   ZE2UR_CALL(zeCommandListAppendMemoryCopyRegion,
              (CommandBuffer->ZeCommandList, Dst, &ZeDstRegion, DstPitch,
               DstSlicePitch, Src, &ZeSrcRegion, SrcPitch, SrcSlicePitch,
@@ -372,6 +368,9 @@ static ur_result_t enqueueCommandBufferMemCopyRectHelper(
           "  ZeEvent %#lx\n",
           ur_cast<std::uintptr_t>(LaunchEvent->ZeEvent));
 
+  // Get sync point and register the event with it.
+  *SyncPoint = CommandBuffer->GetNextSyncPoint();
+  CommandBuffer->RegisterSyncPoint(*SyncPoint, LaunchEvent);
   return UR_RESULT_SUCCESS;
 }
 
@@ -402,6 +401,10 @@ static ur_result_t enqueueCommandBufferFillHelper(
   UR_CALL(EventCreate(CommandBuffer->Context, nullptr, true, &LaunchEvent));
   LaunchEvent->CommandType = CommandType;
 
+  // Get sync point and register the event with it.
+  *SyncPoint = CommandBuffer->GetNextSyncPoint();
+  CommandBuffer->RegisterSyncPoint(*SyncPoint, LaunchEvent);
+
   ZE2UR_CALL(zeCommandListAppendMemoryFill,
              (CommandBuffer->ZeCommandList, Ptr, Pattern, PatternSize, Size,
               LaunchEvent->ZeEvent, ZeEventList.size(), ZeEventList.data()));
@@ -410,9 +413,6 @@ static ur_result_t enqueueCommandBufferFillHelper(
           "  ZeEvent %#lx\n",
           ur_cast<std::uintptr_t>(LaunchEvent->ZeEvent));
 
-  // Get sync point and register the event with it.
-  *SyncPoint = CommandBuffer->GetNextSyncPoint();
-  CommandBuffer->RegisterSyncPoint(*SyncPoint, LaunchEvent);
   return UR_RESULT_SUCCESS;
 }
 
