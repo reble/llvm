@@ -1373,7 +1373,7 @@ inline pi_result mock_piextCommandBufferMemBufferCopyRect(
   return PI_SUCCESS;
 }
 
-inline pi_result mock_piextCommandBufferMembufferFill(
+inline pi_result mock_piextCommandBufferMemBufferFill(
     pi_ext_command_buffer command_buffer, pi_mem buffer, const void *pattern,
     size_t pattern_size, size_t offset, size_t size,
     pi_uint32 num_sync_points_in_wait_list,

@@ -1466,7 +1466,7 @@ void MemoryManager::ext_oneapi_fill_cmd_buffer(
                           "Images are not supported in Graphs");
   }
   if (Dim <= 1) {
-    Plugin->call<PiApiKind::piextCommandBufferMembufferFill>(
+    Plugin->call<PiApiKind::piextCommandBufferMemBufferFill>(
         CommandBuffer, pi::cast<sycl::detail::pi::PiMem>(Mem), Pattern,
         PatternSize, AccessOffset[0] * ElementSize,
         AccessRange[0] * ElementSize, Deps.size(), Deps.data(), OutSyncPoint);

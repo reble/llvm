@@ -2469,7 +2469,7 @@ __SYCL_EXPORT pi_result piextCommandBufferMemBufferWriteRect(
 /// \param sync_point_wait_list A list of sync points that this command must
 /// wait on.
 /// \param sync_point The sync_point associated with this memory operation.
-__SYCL_EXPORT pi_result piextCommandBufferMembufferFill(
+__SYCL_EXPORT pi_result piextCommandBufferMemBufferFill(
     pi_ext_command_buffer command_buffer, pi_mem buffer, const void *pattern,
     size_t pattern_size, size_t offset, size_t size,
     pi_uint32 num_sync_points_in_wait_list,
