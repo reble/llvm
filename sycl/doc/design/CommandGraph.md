@@ -218,16 +218,25 @@ UR command-buffer to L0 command-list.
 
 ### CUDA
 
-The SYCL Graph CUDA backend relies on the CUDA graph feature, which is the CUDA public API for batching command-groups with dependencies.
+The SYCL Graph CUDA backend relies on the
+[CUDA graph feature](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-graphs),
+which is the CUDA public API for batching series of operations,
+such as kernel launches, connected by dependencies.
 
-UR sync-points are implemented as CUDA nodes using the CUDA Driver API.
-Dependencies between command-groups are implemented using CUDA graph dependencies.
+UR commands (e.g. kernels) are mapped as CUDA nodes using the
+[CUDA Driver API](https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__GRAPH.html#group__CUDA__GRAPH).
+The CUDA Driver API is preferred over the CUDA Runtime API to implement
+the SYCL Graph backend to remain consistent with other UR functions.
+Synchonizations between commands (UR sync-points) are implemented
+using CUDA graph dependencies.
 
-An executable CUDA Graph of the command-groups sequence is saved in the CommandBuffer to allow for efficient graph resubmission.
+Executable CUDA Graphs can be submitted to a CUDA stream
+in the same way as regular kernels.
+The CUDA backend enables enqueuing events we want to wait for into a stream.
+It also allows signaling the completion of a submission with an event.   
+Therefore submitting a UR command-buffer consists only in submitting to a stream
+the executable CUDA Graph that represent this serie of operations.
 
----
-**NOTE**
-
-The CUDA Driver API is preferred over the CUDA Runtime API to implement the SYCL Graph backend to remain consistent with other UR functions.
-
----
+An executable CUDA Graph, which contains all commands and synchonization
+information, is saved in the UR command-buffer to allow for efficient
+graph resubmission.
