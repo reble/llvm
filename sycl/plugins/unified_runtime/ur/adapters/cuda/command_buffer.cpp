@@ -183,7 +183,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
           cuGraphAddEmptyNode(&GraphNode, hCommandBuffer->CudaGraph,
                               DepsList.data(), DepsList.size()));
 
-      // Get sync point and register the event with it.
+      // Get sync point and register the cuNode with it.
       *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
       hCommandBuffer->RegisterSyncPoint(
           *pSyncPoint, std::make_shared<CUgraphNode>(GraphNode));
@@ -211,27 +211,27 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
   try {
     // Set node param structure with the kernel related data
     auto &ArgIndices = hKernel->getArgIndices();
-    CUDA_KERNEL_NODE_PARAMS nodeParams;
-    nodeParams.func = CuFunc;
-    nodeParams.gridDimX = BlocksPerGrid[0];
-    nodeParams.gridDimY = BlocksPerGrid[1];
-    nodeParams.gridDimZ = BlocksPerGrid[2];
-    nodeParams.blockDimX = ThreadsPerBlock[0];
-    nodeParams.blockDimY = ThreadsPerBlock[1];
-    nodeParams.blockDimZ = ThreadsPerBlock[2];
-    nodeParams.sharedMemBytes = LocalSize;
-    nodeParams.kernelParams = const_cast<void **>(ArgIndices.data());
-    nodeParams.extra = nullptr;
+    CUDA_KERNEL_NODE_PARAMS NodeParams;
+    NodeParams.func = CuFunc;
+    NodeParams.gridDimX = BlocksPerGrid[0];
+    NodeParams.gridDimY = BlocksPerGrid[1];
+    NodeParams.gridDimZ = BlocksPerGrid[2];
+    NodeParams.blockDimX = ThreadsPerBlock[0];
+    NodeParams.blockDimY = ThreadsPerBlock[1];
+    NodeParams.blockDimZ = ThreadsPerBlock[2];
+    NodeParams.sharedMemBytes = LocalSize;
+    NodeParams.kernelParams = const_cast<void **>(ArgIndices.data());
+    NodeParams.extra = nullptr;
 
     // Create and add an new kernel node to the Cuda graph
     Result = UR_CHECK_ERROR(
         cuGraphAddKernelNode(&GraphNode, hCommandBuffer->CudaGraph,
-                             DepsList.data(), DepsList.size(), &nodeParams));
+                             DepsList.data(), DepsList.size(), &NodeParams));
 
     if (LocalSize != 0)
       hKernel->clearLocalSize();
 
-    // Get sync point and register the event with it.
+    // Get sync point and register the cuNode with it.
     *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
     hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
                                       std::make_shared<CUgraphNode>(GraphNode));
@@ -253,15 +253,15 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMemcpyUSMExp(
                                  pSyncPointWaitList, DepsList));
 
   try {
-    CUDA_MEMCPY3D nodeParams = {};
+    CUDA_MEMCPY3D NodeParams = {};
     setCopyParams(pSrc, CU_MEMORYTYPE_HOST, pDst, CU_MEMORYTYPE_HOST, size,
-                  nodeParams);
+                  NodeParams);
 
     Result = UR_CHECK_ERROR(cuGraphAddMemcpyNode(
         &GraphNode, hCommandBuffer->CudaGraph, DepsList.data(), DepsList.size(),
-        &nodeParams, hCommandBuffer->Device->getContext()));
+        &NodeParams, hCommandBuffer->Device->getContext()));
 
-    // Get sync point and register the event with it.
+    // Get sync point and register the cuNode with it.
     *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
     hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
                                       std::make_shared<CUgraphNode>(GraphNode));
@@ -287,15 +287,15 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyExp(
     auto Src = hSrcMem->Mem.BufferMem.get() + srcOffset;
     auto Dst = hDstMem->Mem.BufferMem.get() + dstOffset;
 
-    CUDA_MEMCPY3D nodeParams = {};
+    CUDA_MEMCPY3D NodeParams = {};
     setCopyParams(&Src, CU_MEMORYTYPE_DEVICE, &Dst, CU_MEMORYTYPE_DEVICE, size,
-                  nodeParams);
+                  NodeParams);
 
     Result = UR_CHECK_ERROR(cuGraphAddMemcpyNode(
         &GraphNode, hCommandBuffer->CudaGraph, DepsList.data(), DepsList.size(),
-        &nodeParams, hCommandBuffer->Device->getContext()));
+        &NodeParams, hCommandBuffer->Device->getContext()));
 
-    // Get sync point and register the event with it.
+    // Get sync point and register the cuNode with it.
     *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
     hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
                                       std::make_shared<CUgraphNode>(GraphNode));
@@ -322,17 +322,17 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyRectExp(
   try {
     CUdeviceptr SrcPtr = hSrcMem->Mem.BufferMem.get();
     CUdeviceptr DstPtr = hDstMem->Mem.BufferMem.get();
-    CUDA_MEMCPY3D nodeParams = {};
+    CUDA_MEMCPY3D NodeParams = {};
 
     setCopyRectParams(region, &SrcPtr, CU_MEMORYTYPE_DEVICE, srcOrigin,
                       srcRowPitch, srcSlicePitch, &DstPtr, CU_MEMORYTYPE_DEVICE,
-                      dstOrigin, dstRowPitch, dstSlicePitch, nodeParams);
+                      dstOrigin, dstRowPitch, dstSlicePitch, NodeParams);
 
     Result = UR_CHECK_ERROR(cuGraphAddMemcpyNode(
         &GraphNode, hCommandBuffer->CudaGraph, DepsList.data(), DepsList.size(),
-        &nodeParams, hCommandBuffer->Device->getContext()));
+        &NodeParams, hCommandBuffer->Device->getContext()));
 
-    // Get sync point and register the event with it.
+    // Get sync point and register the cuNode with it.
     *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
     hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
                                       std::make_shared<CUgraphNode>(GraphNode));
@@ -358,15 +358,15 @@ ur_result_t UR_APICALL urCommandBufferAppendMembufferWriteExp(
   try {
     auto Dst = hBuffer->Mem.BufferMem.get() + offset;
 
-    CUDA_MEMCPY3D nodeParams = {};
+    CUDA_MEMCPY3D NodeParams = {};
     setCopyParams(pSrc, CU_MEMORYTYPE_HOST, &Dst, CU_MEMORYTYPE_DEVICE, size,
-                  nodeParams);
+                  NodeParams);
 
     Result = UR_CHECK_ERROR(cuGraphAddMemcpyNode(
         &GraphNode, hCommandBuffer->CudaGraph, DepsList.data(), DepsList.size(),
-        &nodeParams, hCommandBuffer->Device->getContext()));
+        &NodeParams, hCommandBuffer->Device->getContext()));
 
-    // Get sync point and register the event with it.
+    // Get sync point and register the cuNode with it.
     *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
     hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
                                       std::make_shared<CUgraphNode>(GraphNode));
@@ -391,15 +391,15 @@ ur_result_t UR_APICALL urCommandBufferAppendMembufferReadExp(
   try {
     auto Src = hBuffer->Mem.BufferMem.get() + offset;
 
-    CUDA_MEMCPY3D nodeParams = {};
+    CUDA_MEMCPY3D NodeParams = {};
     setCopyParams(&Src, CU_MEMORYTYPE_DEVICE, pDst, CU_MEMORYTYPE_HOST, size,
-                  nodeParams);
+                  NodeParams);
 
     Result = UR_CHECK_ERROR(cuGraphAddMemcpyNode(
         &GraphNode, hCommandBuffer->CudaGraph, DepsList.data(), DepsList.size(),
-        &nodeParams, hCommandBuffer->Device->getContext()));
+        &NodeParams, hCommandBuffer->Device->getContext()));
 
-    // Get sync point and register the event with it.
+    // Get sync point and register the cuNode with it.
     *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
     hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
                                       std::make_shared<CUgraphNode>(GraphNode));
@@ -426,18 +426,18 @@ ur_result_t UR_APICALL urCommandBufferAppendMembufferWriteRectExp(
 
   try {
     CUdeviceptr DstPtr = hBuffer->Mem.BufferMem.get();
-    CUDA_MEMCPY3D nodeParams = {};
+    CUDA_MEMCPY3D NodeParams = {};
 
     setCopyRectParams(region, pSrc, CU_MEMORYTYPE_HOST, hostOffset,
                       hostRowPitch, hostSlicePitch, &DstPtr,
                       CU_MEMORYTYPE_DEVICE, bufferOffset, bufferRowPitch,
-                      bufferSlicePitch, nodeParams);
+                      bufferSlicePitch, NodeParams);
 
     Result = UR_CHECK_ERROR(cuGraphAddMemcpyNode(
         &GraphNode, hCommandBuffer->CudaGraph, DepsList.data(), DepsList.size(),
-        &nodeParams, hCommandBuffer->Device->getContext()));
+        &NodeParams, hCommandBuffer->Device->getContext()));
 
-    // Get sync point and register the event with it.
+    // Get sync point and register the cuNode with it.
     *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
     hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
                                       std::make_shared<CUgraphNode>(GraphNode));
@@ -464,18 +464,18 @@ ur_result_t UR_APICALL urCommandBufferAppendMembufferReadRectExp(
 
   try {
     CUdeviceptr SrcPtr = hBuffer->Mem.BufferMem.get();
-    CUDA_MEMCPY3D nodeParams = {};
+    CUDA_MEMCPY3D NodeParams = {};
 
     setCopyRectParams(region, &SrcPtr, CU_MEMORYTYPE_DEVICE, bufferOffset,
                       bufferRowPitch, bufferSlicePitch, pDst,
                       CU_MEMORYTYPE_HOST, hostOffset, hostRowPitch,
-                      hostSlicePitch, nodeParams);
+                      hostSlicePitch, NodeParams);
 
     Result = UR_CHECK_ERROR(cuGraphAddMemcpyNode(
         &GraphNode, hCommandBuffer->CudaGraph, DepsList.data(), DepsList.size(),
-        &nodeParams, hCommandBuffer->Device->getContext()));
+        &NodeParams, hCommandBuffer->Device->getContext()));
 
-    // Get sync point and register the event with it.
+    // Get sync point and register the cuNode with it.
     *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
     hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
                                       std::make_shared<CUgraphNode>(GraphNode));

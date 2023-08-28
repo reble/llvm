@@ -473,7 +473,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urEnqueueKernelLaunch(
   return Result;
 }
 
-/// Set parameter for General 3D memory copy.
+/// Set parameters for general 3D memory copy.
 /// If the source and/or destination is on the device, SrcPtr and/or DstPtr
 /// must be a pointer to a CUdeviceptr
 void setCopyRectParams(ur_rect_region_t region, const void *SrcPtr,
