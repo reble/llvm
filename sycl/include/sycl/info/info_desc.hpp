@@ -193,7 +193,7 @@ template <typename T, T param> struct compatibility_param_traits {};
 
 namespace ext::oneapi::experimental {
 
-enum class graph_support_level { unsupported = 0, native, emulated };
+enum class graph_support_level { unsupported = 0, native = 1, emulated = 2 };
 
 namespace info::device {
 template <int Dimensions> struct max_work_groups;
