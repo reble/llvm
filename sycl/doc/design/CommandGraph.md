@@ -235,7 +235,7 @@ in the same way as regular kernels.
 The CUDA backend enables enqueuing events we want to wait for into a stream.
 It also allows signaling the completion of a submission with an event.   
 Therefore submitting a UR command-buffer consists only in submitting to a stream
-the executable CUDA Graph that represent this serie of operations.
+the executable CUDA Graph that represent this series of operations.
 
 An executable CUDA Graph, which contains all commands and synchonization
 information, is saved in the UR command-buffer to allow for efficient
