@@ -219,7 +219,7 @@ UR command-buffer to L0 command-list.
 ### CUDA
 
 The SYCL Graph CUDA backend relies on the
-[CUDA graph feature](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-graphs),
+[CUDA Graphs feature](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-graphs),
 which is the CUDA public API for batching series of operations,
 such as kernel launches, connected by dependencies.
 
