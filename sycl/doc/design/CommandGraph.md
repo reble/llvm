@@ -223,7 +223,7 @@ The SYCL Graph CUDA backend relies on the
 which is the CUDA public API for batching series of operations,
 such as kernel launches, connected by dependencies.
 
-UR commands (e.g. kernels) are mapped as CUDA nodes using the
+UR commands (e.g. kernels) are mapped as graph nodes using the
 [CUDA Driver API](https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__GRAPH.html#group__CUDA__GRAPH).
 The CUDA Driver API is preferred over the CUDA Runtime API to implement
 the SYCL Graph backend to remain consistent with other UR functions.
