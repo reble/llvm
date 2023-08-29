@@ -228,7 +228,7 @@ UR commands (e.g. kernels) are mapped as graph nodes using the
 The CUDA Driver API is preferred over the CUDA Runtime API to implement
 the SYCL Graph backend to remain consistent with other UR functions.
 Synchonizations between commands (UR sync-points) are implemented
-using CUDA graph dependencies.
+using graph dependencies.
 
 Executable CUDA Graphs can be submitted to a CUDA stream
 in the same way as regular kernels.
