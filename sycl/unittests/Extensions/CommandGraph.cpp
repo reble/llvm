@@ -1941,7 +1941,7 @@ TEST_F(MultiThreadGraphTest, Finalize) {
     auto GraphExec = Graph.finalize();
     Queue.submit([&](sycl::handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
 
-    std::lock_guard<std::mutex> guard(MutexMap);
+    std::lock_guard<std::mutex> Guard(MutexMap);
     GraphsExecMap.insert(
         std::map<int, experimental::command_graph<
                           experimental::graph_state::executable>>::
