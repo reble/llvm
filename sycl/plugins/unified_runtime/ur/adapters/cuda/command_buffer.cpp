@@ -184,9 +184,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
                               DepsList.data(), DepsList.size()));
 
       // Get sync point and register the cuNode with it.
-      *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-      hCommandBuffer->RegisterSyncPoint(
-          *pSyncPoint, std::make_shared<CUgraphNode>(GraphNode));
+      *pSyncPoint = hCommandBuffer->AddSyncPoint(
+          std::make_shared<CUgraphNode>(GraphNode));
     } catch (ur_result_t Err) {
       Result = Err;
     }
@@ -232,9 +231,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
       hKernel->clearLocalSize();
 
     // Get sync point and register the cuNode with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+    *pSyncPoint =
+        hCommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
   } catch (ur_result_t Err) {
     Result = Err;
   }
@@ -262,9 +260,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMemcpyUSMExp(
         &NodeParams, hCommandBuffer->Device->getContext()));
 
     // Get sync point and register the cuNode with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+    *pSyncPoint =
+        hCommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
   } catch (ur_result_t Err) {
     Result = Err;
   }
@@ -296,9 +293,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyExp(
         &NodeParams, hCommandBuffer->Device->getContext()));
 
     // Get sync point and register the cuNode with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+    *pSyncPoint =
+        hCommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
   } catch (ur_result_t Err) {
     Result = Err;
   }
@@ -333,9 +329,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMembufferCopyRectExp(
         &NodeParams, hCommandBuffer->Device->getContext()));
 
     // Get sync point and register the cuNode with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+    *pSyncPoint =
+        hCommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
   } catch (ur_result_t Err) {
     Result = Err;
   }
@@ -367,9 +362,8 @@ ur_result_t UR_APICALL urCommandBufferAppendMembufferWriteExp(
         &NodeParams, hCommandBuffer->Device->getContext()));
 
     // Get sync point and register the cuNode with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+    *pSyncPoint =
+        hCommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
   } catch (ur_result_t Err) {
     Result = Err;
   }
@@ -400,9 +394,8 @@ ur_result_t UR_APICALL urCommandBufferAppendMembufferReadExp(
         &NodeParams, hCommandBuffer->Device->getContext()));
 
     // Get sync point and register the cuNode with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+    *pSyncPoint =
+        hCommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
   } catch (ur_result_t Err) {
     Result = Err;
   }
@@ -438,9 +431,8 @@ ur_result_t UR_APICALL urCommandBufferAppendMembufferWriteRectExp(
         &NodeParams, hCommandBuffer->Device->getContext()));
 
     // Get sync point and register the cuNode with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+    *pSyncPoint =
+        hCommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
   } catch (ur_result_t Err) {
     Result = Err;
   }
@@ -476,9 +468,8 @@ ur_result_t UR_APICALL urCommandBufferAppendMembufferReadRectExp(
         &NodeParams, hCommandBuffer->Device->getContext()));
 
     // Get sync point and register the cuNode with it.
-    *pSyncPoint = hCommandBuffer->GetNextSyncPoint();
-    hCommandBuffer->RegisterSyncPoint(*pSyncPoint,
-                                      std::make_shared<CUgraphNode>(GraphNode));
+    *pSyncPoint =
+        hCommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
   } catch (ur_result_t Err) {
     Result = Err;
   }
