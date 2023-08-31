@@ -18,7 +18,6 @@
 
 #include <cstring>
 #include <deque>
-#include <fstream>
 #include <functional>
 #include <list>
 #include <set>
@@ -94,63 +93,64 @@ public:
 
   /// Tests if two nodes have the same content,
   /// i.e. same command group
+  /// This function should only be used for internal purposes.
+  /// A true return from this operator is not a guarantee that the nodes are
+  /// equals according to the Common reference semantics. But this function is
+  /// an helper to verify that two nodes contain equivalent Command Groups.
   /// @param Node node to compare with
+  /// @return true if two nodes have equivament command groups. false otherwise.
   bool operator==(const node_impl &Node) {
     if (MCGType != Node.MCGType)
       return false;
 
-    if (MCGType == sycl::detail::CG::CGTYPE::Kernel) {
+    switch (MCGType) {
+    case sycl::detail::CG::CGTYPE::Kernel: {
       sycl::detail::CGExecKernel *ExecKernelA =
           static_cast<sycl::detail::CGExecKernel *>(MCommandGroup.get());
       sycl::detail::CGExecKernel *ExecKernelB =
           static_cast<sycl::detail::CGExecKernel *>(Node.MCommandGroup.get());
-
-      if (ExecKernelA->MKernelName.compare(ExecKernelB->MKernelName) != 0)
-        return false;
+      return ExecKernelA->MKernelName.compare(ExecKernelB->MKernelName) == 0;
     }
-    if (MCGType == sycl::detail::CG::CGTYPE::CopyUSM) {
+    case sycl::detail::CG::CGTYPE::CopyUSM: {
       sycl::detail::CGCopyUSM *CopyA =
           static_cast<sycl::detail::CGCopyUSM *>(MCommandGroup.get());
       sycl::detail::CGCopyUSM *CopyB =
           static_cast<sycl::detail::CGCopyUSM *>(MCommandGroup.get());
-      if ((CopyA->getSrc() != CopyB->getSrc()) ||
-          (CopyA->getDst() != CopyB->getDst()) ||
-          (CopyA->getLength() == CopyB->getLength()))
-        return false;
+      return (CopyA->getSrc() == CopyB->getSrc()) &&
+             (CopyA->getDst() == CopyB->getDst()) &&
+             (CopyA->getLength() == CopyB->getLength());
     }
-    if ((MCGType == sycl::detail::CG::CGTYPE::CopyAccToAcc) ||
-        (MCGType == sycl::detail::CG::CGTYPE::CopyAccToPtr) ||
-        (MCGType == sycl::detail::CG::CGTYPE::CopyPtrToAcc)) {
+    case sycl::detail::CG::CGTYPE::CopyAccToAcc:
+    case sycl::detail::CG::CGTYPE::CopyAccToPtr:
+    case sycl::detail::CG::CGTYPE::CopyPtrToAcc: {
       sycl::detail::CGCopy *CopyA =
           static_cast<sycl::detail::CGCopy *>(MCommandGroup.get());
       sycl::detail::CGCopy *CopyB =
           static_cast<sycl::detail::CGCopy *>(MCommandGroup.get());
-      if ((CopyA->getSrc() != CopyB->getSrc()) ||
-          (CopyA->getDst() != CopyB->getDst()))
-        return false;
+      return (CopyA->getSrc() == CopyB->getSrc()) &&
+             (CopyA->getDst() == CopyB->getDst());
     }
-    if ((MCGType == sycl::detail::CG::CGTYPE::Fill)) {
+    case sycl::detail::CG::CGTYPE::Fill: {
       sycl::detail::CGFill *FillA =
           static_cast<sycl::detail::CGFill *>(MCommandGroup.get());
       sycl::detail::CGFill *FillB =
           static_cast<sycl::detail::CGFill *>(Node.MCommandGroup.get());
-      if ((FillA->getReqToFill() != FillB->getReqToFill()) ||
-          (FillA->MPattern != FillB->MPattern)) {
-        return false;
-      }
+      return (FillA->getReqToFill() != FillB->getReqToFill()) &&
+             (FillA->MPattern != FillB->MPattern);
     }
-    if ((MCGType == sycl::detail::CG::CGTYPE::FillUSM)) {
+    case sycl::detail::CG::CGTYPE::FillUSM: {
       sycl::detail::CGFillUSM *FillA =
           static_cast<sycl::detail::CGFillUSM *>(MCommandGroup.get());
       sycl::detail::CGFillUSM *FillB =
           static_cast<sycl::detail::CGFillUSM *>(Node.MCommandGroup.get());
-      if ((FillA->getDst() != FillB->getDst()) ||
-          (FillA->getFill() != FillB->getFill()) ||
-          (FillA->getLength() != FillB->getLength())) {
-        return false;
-      }
+      return (FillA->getDst() != FillB->getDst()) &&
+             (FillA->getFill() != FillB->getFill()) &&
+             (FillA->getLength() != FillB->getLength());
     }
-    return true;
+    default:
+      assert(false && "Unexpected command group type!");
+      return false;
+    }
   }
 
   /// Recursively add nodes to execution stack.
@@ -158,7 +158,7 @@ public:
   /// @param Schedule Execution ordering to add node to.
   void sortTopological(std::shared_ptr<node_impl> NodeImpl,
                        std::list<std::shared_ptr<node_impl>> &Schedule) {
-    for (auto Next : MSuccessors) {
+    for (auto &Next : MSuccessors) {
       // Check if we've already scheduled this node
       if (std::find(Schedule.begin(), Schedule.end(), Next) == Schedule.end())
         Next->sortTopological(Next, Schedule);
@@ -355,7 +355,7 @@ public:
   }
 
   /// Tests is the caller is similar to Node
-  /// @return True if the two nodes are similars
+  /// @return True if the two nodes are similar
   bool isSimilar(std::shared_ptr<node_impl> Node) {
     if (MSuccessors.size() != Node->MSuccessors.size())
       return false;
@@ -377,11 +377,9 @@ public:
     size_t FoundCnt = 0;
     for (std::shared_ptr<node_impl> SuccA : MSuccessors) {
       for (std::shared_ptr<node_impl> SuccB : Node->MSuccessors) {
-        if (isSimilar(Node)) {
-          if (SuccA->checkNodeRecursive(SuccB)) {
-            FoundCnt++;
-            break;
-          }
+        if (isSimilar(Node) && SuccA->checkNodeRecursive(SuccB)) {
+          FoundCnt++;
+          break;
         }
       }
     }
@@ -442,7 +440,7 @@ public:
 
     if (SyclDevice.get_info<
             ext::oneapi::experimental::info::device::graph_support>() ==
-        info::graph_support_level::unsupported) {
+        graph_support_level::unsupported) {
       std::stringstream Stream;
       Stream << SyclDevice.get_backend();
       std::string BackendString = Stream.str();
@@ -673,6 +671,7 @@ public:
 
     return true;
   }
+  
   /// Make an edge between two nodes in the graph. Performs some mandatory
   /// error checks as well as an optional check for cycles introduced by making
   /// this edge.
@@ -827,7 +826,7 @@ public:
   }
 
   /// Query the graph_impl.
-  /// @return pointer to the graph_impl MGraphImpl .
+  /// @return pointer to the graph_impl MGraphImpl
   const std::shared_ptr<graph_impl> &getGraphImpl() const { return MGraphImpl; }
 
   /// Prints the contents of the graph to a text file in DOT format
@@ -910,6 +909,9 @@ private:
   /// List of requirements for enqueueing this command graph, accumulated from
   /// all nodes enqueued to the graph.
   std::vector<sycl::detail::AccessorImplHost *> MRequirements;
+  /// Storage for accessors which are used by this graph, accumulated from
+  /// all nodes enqueued to the graph.
+  std::vector<sycl::detail::AccessorImplPtr> MAccessors;
   /// List of all execution events returned from command buffer enqueue calls.
   std::vector<sycl::detail::EventImplPtr> MExecutionEvents;
 };
