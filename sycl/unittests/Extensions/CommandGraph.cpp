@@ -392,7 +392,7 @@ bool depthSearchSuccessorCheck(
 /// Submits four kernels with diamond dependency to the queue Q
 /// @param Q Queue to submit nodes to.
 /// @param Dep Events to add as previous dependencies to the node group
-/// @return handler of the event associated to the last kernel submitted
+/// @return The event associated with the last kernel submitted
 sycl::event runKernels(queue Q, std::vector<sycl::event> Dep = {}) {
   sycl::event NodeA;
   if (Dep.size() > 0) {

@@ -698,7 +698,7 @@ public:
   size_t getNumberOfNodes() {
     size_t NumberOfNodes = 0;
     auto CountFunc = [&](std::shared_ptr<node_impl> &Node,
-                         std::deque<std::shared_ptr<node_impl>> &NodeStack) {
+                         std::deque<std::shared_ptr<node_impl>> &) {
       if (!Node->MVisited) {
         NumberOfNodes++;
       }
