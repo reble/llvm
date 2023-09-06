@@ -143,10 +143,10 @@ static ur_result_t enqueueCommandBufferFillHelper(
       // Get sync point and register the cuNode with it.
       *SyncPoint =
           CommandBuffer->AddSyncPoint(std::make_shared<CUgraphNode>(GraphNode));
-      // pattern size in bytes
+
     } else {
       // CUDA has no memset functions that allow setting values more than 4
-      // bytes. PI API lets you pass an arbitrary "pattern" to the buffer
+      // bytes. UR API lets you pass an arbitrary "pattern" to the buffer
       // fill, which can be more than 4 bytes. We must break up the pattern
       // into 4 byte values, and set the buffer using multiple strided calls.
       // This means that one cuGraphAddMemsetNode call is made for every 4 bytes
@@ -571,9 +571,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendMemBufferFillExp(
 
   auto PatternIsValid = (pPattern != nullptr);
 
-  auto PatternSizeIsValid =
-      ((patternSize & (patternSize - 1)) == 0) && // is power of two
-      (patternSize > 0) && (patternSize <= 128);  // falls within valid range
+  auto PatternSizeIsValid = ((patternSize & (patternSize - 1)) == 0) &&
+                            (patternSize > 0); // is a positive power of two
   UR_ASSERT(ArgsAreMultiplesOfPatternSize && PatternIsValid &&
                 PatternSizeIsValid,
             UR_RESULT_ERROR_INVALID_SIZE);
@@ -594,9 +593,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendUSMFillExp(
 
   auto PatternIsValid = (pPattern != nullptr);
 
-  auto PatternSizeIsValid =
-      ((patternSize & (patternSize - 1)) == 0) && // is power of two
-      (patternSize > 0) && (patternSize <= 128);  // falls within valid range
+  auto PatternSizeIsValid = ((patternSize & (patternSize - 1)) == 0) &&
+                            (patternSize > 0); // is a positive power of two
 
   UR_ASSERT(PatternIsValid && PatternSizeIsValid, UR_RESULT_ERROR_INVALID_SIZE);
   return enqueueCommandBufferFillHelper(
