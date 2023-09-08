@@ -13,6 +13,9 @@
 // ZE_DEBUG=4 testing capability.
 
 #include "./graph_common.hpp"
+#include <unistd.h>
+
+// #define VERBOSE
 
 bool verifyProfiling(event Event) {
   auto Submit =
@@ -21,6 +24,12 @@ bool verifyProfiling(event Event) {
       Event.get_profiling_info<sycl::info::event_profiling::command_start>();
   auto End =
       Event.get_profiling_info<sycl::info::event_profiling::command_end>();
+
+#ifdef VERBOSE
+  std::cout << "Submit = " << Submit << std::endl;
+  std::cout << "Start = " << Start << std::endl;
+  std::cout << "End = " << End << " ( " << (End - Start) << " ) " << std::endl;
+#endif
 
   assert((Submit && Start && End) && "Profiling information failed.");
   assert(Submit < Start);
@@ -32,13 +41,46 @@ bool verifyProfiling(event Event) {
   return Pass;
 }
 
+bool compareProfiling(event Event1, event Event2) {
+  assert(Event1 != Event2);
+
+  auto SubmitEvent1 =
+      Event1.get_profiling_info<sycl::info::event_profiling::command_submit>();
+  auto StartEvent1 =
+      Event1.get_profiling_info<sycl::info::event_profiling::command_start>();
+  auto EndEvent1 =
+      Event1.get_profiling_info<sycl::info::event_profiling::command_end>();
+  assert((SubmitEvent1 && StartEvent1 && EndEvent1) &&
+         "Profiling information failed.");
+
+  auto SubmitEvent2 =
+      Event2.get_profiling_info<sycl::info::event_profiling::command_submit>();
+  auto StartEvent2 =
+      Event2.get_profiling_info<sycl::info::event_profiling::command_start>();
+  auto EndEvent2 =
+      Event2.get_profiling_info<sycl::info::event_profiling::command_end>();
+  assert((SubmitEvent2 && StartEvent2 && EndEvent2) &&
+         "Profiling information failed.");
+
+  assert(SubmitEvent1 != SubmitEvent2);
+  assert(StartEvent1 != StartEvent2);
+  assert(EndEvent1 != EndEvent2);
+
+  bool Pass1 = sycl::info::event_command_status::complete ==
+               Event1.get_info<sycl::info::event::command_execution_status>();
+  bool Pass2 = sycl::info::event_command_status::complete ==
+               Event2.get_info<sycl::info::event::command_execution_status>();
+
+  return (Pass1 && Pass2);
+}
+
 // The test checks that get_profiling_info waits for command asccociated with
 // event to complete execution.
 int main() {
   device Dev;
   queue Queue{Dev, sycl::property::queue::enable_profiling()};
 
-  const size_t Size = 10000;
+  const size_t Size = 1000000;
   int Data[Size] = {0};
   for (size_t I = 0; I < Size; ++I) {
     Data[I] = I;
@@ -94,13 +136,17 @@ int main() {
     // Run graphs
     event CopyEvent = Queue.submit(
         [&](handler &CGH) { CGH.ext_oneapi_graph(CopyGraphExec); });
-    event KernelEvent = Queue.submit(
+    event KernelEvent1 = Queue.submit(
+        [&](handler &CGH) { CGH.ext_oneapi_graph(KernelGraphExec); });
+    event KernelEvent2 = Queue.submit(
         [&](handler &CGH) { CGH.ext_oneapi_graph(KernelGraphExec); });
 
     Queue.wait_and_throw();
 
     // Checks profiling times
-    assert(verifyProfiling(CopyEvent) && verifyProfiling(KernelEvent));
+    assert(verifyProfiling(CopyEvent) && verifyProfiling(KernelEvent1) &&
+           verifyProfiling(KernelEvent2) &&
+           compareProfiling(KernelEvent1, KernelEvent2));
   }
 
   host_accessor HostData(BufferTo);

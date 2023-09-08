@@ -600,8 +600,8 @@ uint64_t device_impl::getCurrentDeviceTime() {
 
   // To account for potential clock drift between host clock and device clock.
   // The value set is arbitrary: 200 seconds
-  constexpr uint64_t TimeTillRefresh = 200e9;
-  uint64_t Diff = HostTime - MDeviceHostBaseTime.second;
+  constexpr uint64_t TimeTillRefresh = 0; // Previous value 200e9
+  uint64_t Diff = HostTime - MDeviceHostBaseTime.second;  
 
   if (Diff > TimeTillRefresh || Diff <= 0) {
     const auto &Plugin = getPlugin();
