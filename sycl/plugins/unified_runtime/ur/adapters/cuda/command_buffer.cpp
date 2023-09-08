@@ -119,7 +119,7 @@ static ur_result_t enqueueCommandBufferFillHelper(
                                  SyncPointWaitList, DepsList));
 
   try {
-    auto N = Size / PatternSize;
+    size_t N = Size / PatternSize;
     auto Value = *static_cast<const uint32_t *>(Pattern);
     auto DstPtr = DstType == CU_MEMORYTYPE_DEVICE
                       ? *static_cast<CUdeviceptr *>(DstDevice)
@@ -152,7 +152,7 @@ static ur_result_t enqueueCommandBufferFillHelper(
       // This means that one cuGraphAddMemsetNode call is made for every 4 bytes
       // in the pattern.
 
-      auto NumberOfSteps = PatternSize / sizeof(uint32_t);
+      size_t NumberOfSteps = PatternSize / sizeof(uint32_t);
 
       // we walk up the pattern in 4-byte steps, and call cuMemset for each
       // 4-byte chunk of the pattern.
