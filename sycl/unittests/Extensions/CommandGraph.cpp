@@ -1952,13 +1952,15 @@ TEST_F(MultiThreadGraphTest, BeginEndRecording) {
       Queue.get_context(), Queue.get_device()};
 
   for (unsigned i = 0; i < NumThreads; ++i) {
-    queue MyQueue{Queue.get_context(), Queue.get_device()};
+    queue MyQueue;
+    GraphRef.begin_recording(MyQueue);
+    runKernels(MyQueue);
     GraphRef.end_recording(MyQueue);
-
-    auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
-    auto GraphRefImpl = sycl::detail::getSyclObjImpl(GraphRef);
-    ASSERT_EQ(GraphImpl->hasSimilarStructure(GraphRefImpl), true);
   }
+
+  auto GraphImpl = sycl::detail::getSyclObjImpl(Graph);
+  auto GraphRefImpl = sycl::detail::getSyclObjImpl(GraphRef);
+  ASSERT_EQ(GraphImpl->hasSimilarStructure(GraphRefImpl), true);
 }
 
 TEST_F(MultiThreadGraphTest, ExplicitAddNodes) {
