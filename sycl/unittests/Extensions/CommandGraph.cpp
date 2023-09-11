@@ -1952,7 +1952,7 @@ TEST_F(MultiThreadGraphTest, BeginEndRecording) {
       Queue.get_context(), Queue.get_device()};
 
   for (unsigned i = 0; i < NumThreads; ++i) {
-    queue MyQueue;
+    queue MyQueue{Queue.get_context(), Queue.get_device()};
     GraphRef.begin_recording(MyQueue);
     runKernels(MyQueue);
     GraphRef.end_recording(MyQueue);
