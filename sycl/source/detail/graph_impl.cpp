@@ -623,7 +623,7 @@ exec_graph_impl::enqueue(const std::shared_ptr<sycl::detail::queue_impl> &Queue,
   sycl::detail::EventImplPtr NewEvent;
 
   if (CommandBuffer) {
-    if (!arePreviousSubmissionsCompleted()) {
+    if (!previousSubmissionCompleted()) {
       throw sycl::exception(make_error_code(errc::invalid),
                             "This Graph cannot be submitted at the moment "
                             "because the previous run has not yet completed.");

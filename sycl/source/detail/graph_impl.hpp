@@ -875,7 +875,7 @@ public:
   /// submissions.
   /// @return true if all previous submissions have been completed, false
   /// otherwise.
-  bool arePreviousSubmissionsCompleted() const {
+  bool previousSubmissionCompleted() const {
     for (auto Event : MExecutionEvents) {
       if (!Event->isCompleted()) {
         return false;
