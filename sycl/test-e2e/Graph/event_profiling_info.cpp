@@ -32,7 +32,7 @@ bool verifyProfiling(event Event) {
 #endif
 
   assert((Submit && Start && End) && "Profiling information failed.");
-  assert(Submit < Start);
+  assert(Submit <= Start);
   assert(Start < End);
 
   bool Pass = sycl::info::event_command_status::complete ==

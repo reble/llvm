@@ -155,8 +155,8 @@ event_impl::event_impl(sycl::detail::pi::PiEvent Event,
 }
 
 event_impl::event_impl(const QueueImplPtr &Queue)
-    : MQueue{Queue},
-      MIsProfilingEnabled{Queue->is_host() || Queue->MIsProfilingEnabled},
+    : MQueue{Queue}, MIsProfilingEnabled{Queue->is_host() ||
+                                         Queue->MIsProfilingEnabled},
       MFallbackProfiling{MIsProfilingEnabled && Queue->isProfilingFallback()} {
   this->setContextImpl(Queue->getContextImplPtr());
   if (Queue->is_host()) {
@@ -284,6 +284,25 @@ template <>
 uint64_t
 event_impl::get_profiling_info<info::event_profiling::command_submit>() {
   checkProfilingPreconditions();
+  // The delay between the submission and the actual start of a CommandBuffer
+  // can be short. As a consequence, the submission time, which is based on
+  // a estimated clock and not on the real device clock, may be ahead of time
+  // than the start time, which is based on the actual device clock.
+  // MSubmitTime is set in a critical performance path.
+  // Force reading the device clock when setting MSubmitTime may deteriorate
+  // the performance.
+  // Since submit time is a estimated time, we implement this little hack
+  // that allows all profiled time to be meaningful.
+  // (Note that the observed time deviation between the estimated clock and
+  // the real device clock  is less than 0.5ms. The approximation we make by
+  // forcing the re-sync of submt time to start time is less than 0.5ms).
+  if (MEventFromSubmitedExecCommandBuffer && !MHostEvent && MEvent) {
+    uint64_t StartTime =
+        get_event_profiling_info<info::event_profiling::command_start>(
+            this->getHandleRef(), this->getPlugin());
+    if (StartTime < MSubmitTime)
+      MSubmitTime = StartTime;
+  }
   return MSubmitTime;
 }
 
