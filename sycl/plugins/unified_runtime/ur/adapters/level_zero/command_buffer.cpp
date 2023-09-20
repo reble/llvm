@@ -803,7 +803,6 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
 
   // Execution event for this enqueue of the PI command-buffer
   ur_event_handle_t RetEvent{};
-  ur_event_handle_t StartEvent{};
   // Create a command-list to signal RetEvent on completion
   ur_command_list_ptr_t SignalCommandList{};
   if (Event) {
@@ -818,21 +817,24 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
                (SignalCommandList->first, RetEvent->ZeEvent, 1,
                 &(CommandBuffer->SignalEvent->ZeEvent)));
 
-    // We create an extra-signal specific to the current execution of the
-    // CommandBuffer. This signal is needed for profiling the execution time
-    // of the CommandBuffer. It waits for the WaitEvent to be signaled
-    // which indicates the start of the CommandBuffer actual execution.
-    // This event is embeded into the Event return to user to allow
-    // the profiling engine to retrieve it.
-    UR_CALL(createEventAndAssociateQueue(Queue, &StartEvent,
-                                         UR_COMMAND_COMMAND_BUFFER_ENQUEUE_EXP,
-                                         WaitCommandList, false));
+    if ((Queue->Properties & UR_QUEUE_FLAG_PROFILING_ENABLE)) {
+      // We create an extra-signal specific to the current execution of the
+      // CommandBuffer. This signal is needed for profiling the execution time
+      // of the CommandBuffer. It waits for the WaitEvent to be signaled
+      // which indicates the start of the CommandBuffer actual execution.
+      // This event is embeded into the Event return to user to allow
+      // the profiling engine to retrieve it.
+      ur_event_handle_t StartEvent{};
+      UR_CALL(createEventAndAssociateQueue(
+          Queue, &StartEvent, UR_COMMAND_COMMAND_BUFFER_ENQUEUE_EXP,
+          WaitCommandList, false));
 
-    ZE2UR_CALL(zeCommandListAppendBarrier,
-               (WaitCommandList->first, StartEvent->ZeEvent, 1,
-                &(CommandBuffer->WaitEvent->ZeEvent)));
+      ZE2UR_CALL(zeCommandListAppendBarrier,
+                 (WaitCommandList->first, StartEvent->ZeEvent, 1,
+                  &(CommandBuffer->WaitEvent->ZeEvent)));
 
-    RetEvent->CommandData = StartEvent;
+      RetEvent->CommandData = StartEvent;
+    }
   }
 
   // Execution our command-lists asynchronously

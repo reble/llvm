@@ -15,7 +15,7 @@
 #include "./graph_common.hpp"
 #include <unistd.h>
 
-// #define VERBOSE
+#define VERBOSE 0
 
 bool verifyProfiling(event Event) {
   auto Submit =
@@ -25,7 +25,7 @@ bool verifyProfiling(event Event) {
   auto End =
       Event.get_profiling_info<sycl::info::event_profiling::command_end>();
 
-#ifdef VERBOSE
+#if VERBOSE
   std::cout << "Submit = " << Submit << std::endl;
   std::cout << "Start = " << Start << std::endl;
   std::cout << "End = " << End << " ( " << (End - Start) << " ) " << std::endl;
