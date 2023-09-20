@@ -1,5 +1,5 @@
 // REQUIRES: cuda || level_zero, gpu
-// RUN: %{build_pthread_inc} -o %t.out
+// RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 // RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
 //
@@ -46,7 +46,7 @@ int main() {
 
   auto GraphExec = Graph.finalize();
 
-  // Serial Submissionss
+  // Serial Submissions
   for (unsigned i = 0; i < NumIterations; ++i) {
     Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
     Queue.wait_and_throw();
