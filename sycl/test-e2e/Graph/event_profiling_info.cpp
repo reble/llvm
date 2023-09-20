@@ -99,13 +99,11 @@ int main() {
   BufferA.set_write_back(false);
   BufferB.set_write_back(false);
   BufferC.set_write_back(false);
-  {
-    // buffer copy
+  { // buffer copy
     exp_ext::command_graph CopyGraph{
         Queue.get_context(),
         Queue.get_device(),
-        {exp_ext::property::graph::assume_buffer_outlives_graph{},
-         exp_ext::property::graph::assume_data_outlives_buffer{}}};
+        {exp_ext::property::graph::assume_buffer_outlives_graph{}}};
     CopyGraph.begin_recording(Queue);
 
     Queue.submit([&](sycl::handler &Cgh) {
@@ -122,8 +120,7 @@ int main() {
     exp_ext::command_graph KernelGraph{
         Queue.get_context(),
         Queue.get_device(),
-        {exp_ext::property::graph::assume_buffer_outlives_graph{},
-         exp_ext::property::graph::assume_data_outlives_buffer{}}};
+        {exp_ext::property::graph::assume_buffer_outlives_graph{}}};
     KernelGraph.begin_recording(Queue);
 
     run_kernels(Queue, Size, BufferA, BufferB, BufferC);
