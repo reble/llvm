@@ -17,6 +17,10 @@
 
 #define VERBOSE 0
 
+#if VERBOSE
+#include <chrono>
+#endif
+
 bool verifyProfiling(event Event) {
   auto Submit =
       Event.get_profiling_info<sycl::info::event_profiling::command_submit>();
@@ -28,7 +32,8 @@ bool verifyProfiling(event Event) {
 #if VERBOSE
   std::cout << "Submit = " << Submit << std::endl;
   std::cout << "Start = " << Start << std::endl;
-  std::cout << "End = " << End << " ( " << (End - Start) << " ) " << std::endl;
+  std::cout << "End = " << End << " ( " << (End - Start) << " ) "
+            << " => full ( " << (End - Submit) << " ) " << std::endl;
 #endif
 
   assert((Submit && Start && End) && "Profiling information failed.");
@@ -130,15 +135,46 @@ int main() {
     auto CopyGraphExec = CopyGraph.finalize();
     auto KernelGraphExec = KernelGraph.finalize();
 
+    event CopyEvent, KernelEvent1, KernelEvent2;
     // Run graphs
-    event CopyEvent = Queue.submit(
+#if VERBOSE
+    auto StartCopyGraph = std::chrono::high_resolution_clock::now();
+#endif
+    CopyEvent = Queue.submit(
         [&](handler &CGH) { CGH.ext_oneapi_graph(CopyGraphExec); });
-    event KernelEvent1 = Queue.submit(
-        [&](handler &CGH) { CGH.ext_oneapi_graph(KernelGraphExec); });
-    event KernelEvent2 = Queue.submit(
-        [&](handler &CGH) { CGH.ext_oneapi_graph(KernelGraphExec); });
-
     Queue.wait_and_throw();
+#if VERBOSE
+    auto EndCopyGraph = std::chrono::high_resolution_clock::now();
+    auto StartKernelSubmit1 = std::chrono::high_resolution_clock::now();
+#endif
+    KernelEvent1 = Queue.submit(
+        [&](handler &CGH) { CGH.ext_oneapi_graph(KernelGraphExec); });
+    Queue.wait_and_throw();
+#if VERBOSE
+    auto endKernelSubmit1 = std::chrono::high_resolution_clock::now();
+    auto StartKernelSubmit2 = std::chrono::high_resolution_clock::now();
+#endif
+    KernelEvent2 = Queue.submit(
+        [&](handler &CGH) { CGH.ext_oneapi_graph(KernelGraphExec); });
+    Queue.wait_and_throw();
+#if VERBOSE
+    auto endKernelSubmit2 = std::chrono::high_resolution_clock::now();
+
+    double DelayCopy = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                           EndCopyGraph - StartCopyGraph)
+                           .count();
+    std::cout << "Copy Graph delay (in ns) : " << DelayCopy << std::endl;
+    double DelayKernel1 = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              endKernelSubmit1 - StartKernelSubmit1)
+                              .count();
+    std::cout << "Kernel 1st Execution delay (in ns) : " << DelayKernel1
+              << std::endl;
+    double DelayKernel2 = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              endKernelSubmit2 - StartKernelSubmit2)
+                              .count();
+    std::cout << "Kernel 2nd Execution delay (in ns) : " << DelayKernel2
+              << std::endl;
+#endif
 
     // Checks profiling times
     assert(verifyProfiling(CopyEvent) && verifyProfiling(KernelEvent1) &&

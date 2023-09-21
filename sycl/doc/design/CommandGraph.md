@@ -166,7 +166,7 @@ created on UR command-buffer enqueue.
 There is also a *WaitEvent* used by the `ur_exp_command_buffer_handle_t` class
 in the prefix to wait on any dependencies passed in the enqueue wait-list.
 
-If command-buffer is about to be submitted to a queue with the profiling 
+If a command-buffer is about to be submitted to a queue with the profiling 
 property enabled, a profiling *StartEvent* is added to the end of the prefix.
 This event is used to get the command-buffer execution start time on the 
 device. 

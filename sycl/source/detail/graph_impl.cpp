@@ -661,7 +661,7 @@ exec_graph_impl::enqueue(const std::shared_ptr<sycl::detail::queue_impl> &Queue,
       NewEvent = sycl::detail::Scheduler::getInstance().addCG(
           std::move(CommandGroup), Queue);
     }
-    NewEvent->setEventFromSubmitedExecCommandBuffer(true);
+    NewEvent->setEventFromSubmittedExecCommandBuffer(true);
   } else {
     std::vector<std::shared_ptr<sycl::detail::event_impl>> ScheduledEvents;
     for (auto &NodeImpl : MSchedule) {
