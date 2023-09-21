@@ -295,7 +295,9 @@ event_impl::get_profiling_info<info::event_profiling::command_submit>() {
   // that allows all profiled time to be meaningful.
   // (Note that the observed time deviation between the estimated clock and
   // the real device clock  is less than 0.5ms. The approximation we make by
-  // forcing the re-sync of submit time to start time is less than 0.5ms).
+  // forcing the re-sync of submit time to start time is less than 0.5ms.
+  // These timing values were obainted empirically using an integrated Intel
+  // GPU).
   if (MEventFromSubmittedExecCommandBuffer && !MHostEvent && MEvent) {
     uint64_t StartTime =
         get_event_profiling_info<info::event_profiling::command_start>(
