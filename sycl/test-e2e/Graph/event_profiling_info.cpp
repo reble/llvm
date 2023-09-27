@@ -13,11 +13,10 @@
 // ZE_DEBUG=4 testing capability.
 
 #include "./graph_common.hpp"
-#include <unistd.h>
 
-#define VERBOSE 0
+#define GRAPH_TESTS_VERBOSE_PRINT 0
 
-#if VERBOSE
+#if GRAPH_TESTS_VERBOSE_PRINT
 #include <chrono>
 #endif
 
@@ -29,7 +28,7 @@ bool verifyProfiling(event Event) {
   auto End =
       Event.get_profiling_info<sycl::info::event_profiling::command_end>();
 
-#if VERBOSE
+#if GRAPH_TESTS_VERBOSE_PRINT
   std::cout << "Submit = " << Submit << std::endl;
   std::cout << "Start = " << Start << std::endl;
   std::cout << "End = " << End << " ( " << (End - Start) << " ) "
@@ -137,27 +136,27 @@ int main() {
 
     event CopyEvent, KernelEvent1, KernelEvent2;
     // Run graphs
-#if VERBOSE
+#if GRAPH_TESTS_VERBOSE_PRINT
     auto StartCopyGraph = std::chrono::high_resolution_clock::now();
 #endif
     CopyEvent = Queue.submit(
         [&](handler &CGH) { CGH.ext_oneapi_graph(CopyGraphExec); });
     Queue.wait_and_throw();
-#if VERBOSE
+#if GRAPH_TESTS_VERBOSE_PRINT
     auto EndCopyGraph = std::chrono::high_resolution_clock::now();
     auto StartKernelSubmit1 = std::chrono::high_resolution_clock::now();
 #endif
     KernelEvent1 = Queue.submit(
         [&](handler &CGH) { CGH.ext_oneapi_graph(KernelGraphExec); });
     Queue.wait_and_throw();
-#if VERBOSE
+#if GRAPH_TESTS_VERBOSE_PRINT
     auto endKernelSubmit1 = std::chrono::high_resolution_clock::now();
     auto StartKernelSubmit2 = std::chrono::high_resolution_clock::now();
 #endif
     KernelEvent2 = Queue.submit(
         [&](handler &CGH) { CGH.ext_oneapi_graph(KernelGraphExec); });
     Queue.wait_and_throw();
-#if VERBOSE
+#if GRAPH_TESTS_VERBOSE_PRINT
     auto endKernelSubmit2 = std::chrono::high_resolution_clock::now();
 
     double DelayCopy = std::chrono::duration_cast<std::chrono::nanoseconds>(

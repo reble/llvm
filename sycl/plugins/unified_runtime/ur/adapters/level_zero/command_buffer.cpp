@@ -822,7 +822,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferEnqueueExp(
       // CommandBuffer. This signal is needed for profiling the execution time
       // of the CommandBuffer. It waits for the WaitEvent to be signaled
       // which indicates the start of the CommandBuffer actual execution.
-      // This event is embeded into the Event return to the user to allow
+      // This event is embedded into the Event return to the user to allow
       // the profiling engine to retrieve it.
       ur_event_handle_t StartEvent{};
       UR_CALL(createEventAndAssociateQueue(
