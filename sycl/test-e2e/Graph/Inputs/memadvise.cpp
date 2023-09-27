@@ -1,22 +1,12 @@
 // Tests adding a USM mem advise operation as a graph node.
-// Since Mem advise is only a memory hint that doesn't
-// impact results but only performances, we verify
-// that a node is correctly added by checking PI function calls
 
 #include "../graph_common.hpp"
 
-int NumNodes = 4;
-
-struct Node {
-  Node() : pNext(nullptr), Num(0xDEADBEEF) {}
-
-  Node *pNext;
-  uint32_t Num;
-};
-
-class foo;
+static constexpr int Count = 100;
 
 int main() {
+
+  using T = int;
 
   queue Queue{{sycl::ext::intel::property::queue::no_immediate_command_list{}}};
 
@@ -26,60 +16,69 @@ int main() {
 
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 
-  Node *Head = (Node *)malloc_shared(sizeof(Node), Queue.get_device(),
-                                     Queue.get_context());
-  if (Head == nullptr) {
-    return -1;
-  }
-  // Test handler::mem_advise
-  add_node(Graph, Queue,
-           [&](handler &CGH) { CGH.mem_advise(Head, sizeof(Node), 0); });
-  Node *Cur = Head;
+  T *Src = (T *)malloc_shared(sizeof(T) * Count, Queue.get_device(),
+                              Queue.get_context());
+  T *Dest = (T *)malloc_shared(sizeof(T) * Count, Queue.get_device(),
+                               Queue.get_context());
+  for (int i = 0; i < Count; i++)
+    Src[i] = i;
 
-  for (int i = 0; i < NumNodes; i++) {
-    Cur->Num = i * 2;
-
-    if (i != (NumNodes - 1)) {
-      Cur->pNext = (Node *)malloc_shared(sizeof(Node), Queue.get_device(),
-                                         Queue.get_context());
-      if (Cur->pNext == nullptr) {
-        return -1;
-      }
-      // Test handler::mem_advise
-      add_node(Graph, Queue, [&](handler &CGH) {
-        CGH.mem_advise(Cur->pNext, sizeof(Node), 0);
-      });
-    } else {
-      Cur->pNext = nullptr;
-    }
-
-    Cur = Cur->pNext;
-  }
-
-  auto E1 = add_node(Graph, Queue, [=](handler &CGH) {
-    CGH.single_task<class foo>([=]() {
-      Node *pHead = Head;
-      while (pHead) {
-        pHead->Num = pHead->Num * 2 + 1;
-        pHead = pHead->pNext;
-      }
+  {
+    // Test handler::mem_advise
+    auto Init = add_node(Graph, Queue, [&](handler &CGH) {
+      CGH.mem_advise(Src, sizeof(T) * Count, 0);
     });
-  });
 
-  auto ExecGraph = Graph.finalize();
-  Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph); });
-  Queue.wait_and_throw();
+    add_node(
+        Graph, Queue,
+        [&](handler &CGH) {
+          CGH.single_task<class double_dest>([=]() {
+            for (int i = 0; i < Count; i++)
+              Dest[i] = 2 * Src[i];
+          });
+        },
+        Init);
 
-  Cur = Head;
-  for (int i = 0; i < NumNodes; i++) {
-    const int Want = i * 4 + 1;
-    if (Cur->Num != Want) {
-      return -2;
+    auto ExecGraph = Graph.finalize();
+
+    Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph); });
+    Queue.wait_and_throw();
+
+    for (int i = 0; i < Count; i++) {
+      assert(Dest[i] == i * 2);
     }
-    Node *Old = Cur;
-    Cur = Cur->pNext;
-    free(Old, Queue.get_context());
   }
 
+#ifdef GRAPH_E2E_RECORD_REPLAY
+  exp_ext::command_graph Graph2{Queue.get_context(), Queue.get_device()};
+
+  // Test queue::mem_advise
+  {
+    Graph2.begin_recording(Queue);
+
+    event InitQ = Queue.mem_advise(Src, sizeof(T) * Count, 0);
+
+    Queue.submit([&](handler &CGH) {
+      CGH.depends_on(InitQ);
+      CGH.single_task<class double_dest3>([=]() {
+        for (int i = 0; i < Count; i++)
+          Dest[i] = 3 * Src[i];
+      });
+    });
+    Graph2.end_recording();
+
+    auto ExecGraph2 = Graph2.finalize();
+
+    Queue.submit([&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph2); });
+    Queue.wait_and_throw();
+
+    for (int i = 0; i < Count; i++) {
+      assert(Dest[i] == i * 3);
+    }
+  }
+#endif
+
+  free(Src, Queue);
+  free(Dest, Queue);
   return 0;
 }

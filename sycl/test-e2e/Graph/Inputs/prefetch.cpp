@@ -1,7 +1,4 @@
 // Tests adding a USM Prefetch operation as a graph node.
-// Since Prefetch is only a memory hint that doesn't
-// impact results but only performances, we verify
-// that a node is correctly added by checking PI function calls
 
 #include "../graph_common.hpp"
 
