@@ -2515,6 +2515,10 @@ __SYCL_EXPORT pi_result piextCommandBufferPrefetchUSM(
 /// \param ptr is the data to be advised
 /// \param length is the size in bytes of the memory to advise
 /// \param advice is device specific advice
+/// \param num_sync_points_in_wait_list The number of sync points in the
+/// provided wait list.
+/// \param sync_point_wait_list A list of sync points that this command must
+/// wait on.
 /// \param sync_point The sync_point associated with this memory operation.
 __SYCL_EXPORT pi_result piextCommandBufferAdviseUSM(
     pi_ext_command_buffer command_buffer, const void *ptr, size_t length,
