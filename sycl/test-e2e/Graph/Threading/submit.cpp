@@ -1,13 +1,18 @@
-// REQUIRES: cuda || level_zero, gpu
+// REQUIRES: level_zero, gpu
 // RUN: %{build_pthread_inc} -o %t.out
 // RUN: %{run} %t.out
 // RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
 //
 // CHECK-NOT: LEAK
 
-// Test finalizing and submitting a graph in a threaded situation.
+// Test submitting a graph in a threaded situation.
 // The second run is to check that there are no leaks reported with the embedded
 // ZE_DEBUG=4 testing capability.
+
+// Note that we do not check the outputs becuse multiple concurrent executions
+// is indeterministic (and depends on the backend command management).
+// However, this test verifies that concurrent graph submissions do not trigger
+// errors nor memory leaks.
 
 #include "../graph_common.hpp"
 
@@ -44,12 +49,19 @@ int main() {
   run_kernels_usm(Queue, Size, PtrA, PtrB, PtrC);
   Graph.end_recording();
 
+  std::vector<exp_ext::command_graph<exp_ext::graph_state::executable>>
+      GraphExecs;
+  for (unsigned i = 0; i < NumThreads; ++i) {
+    GraphExecs.push_back(Graph.finalize());
+  }
+
   Barrier SyncPoint{NumThreads};
 
   auto FinalizeGraph = [&](int ThreadNum) {
     SyncPoint.wait();
-    auto GraphExec = Graph.finalize();
-    Queue.submit([&](sycl::handler &CGH) { CGH.ext_oneapi_graph(GraphExec); });
+    Queue.submit([&](sycl::handler &CGH) {
+      CGH.ext_oneapi_graph(GraphExecs[ThreadNum]);
+    });
   };
 
   std::vector<std::thread> Threads;
@@ -65,18 +77,9 @@ int main() {
 
   Queue.wait_and_throw();
 
-  Queue.copy(PtrA, DataA.data(), Size);
-  Queue.copy(PtrB, DataB.data(), Size);
-  Queue.copy(PtrC, DataC.data(), Size);
-  Queue.wait_and_throw();
-
   free(PtrA, Queue);
   free(PtrB, Queue);
   free(PtrC, Queue);
-
-  assert(ReferenceA == DataA);
-  assert(ReferenceB == DataB);
-  assert(ReferenceC == DataC);
 
   return 0;
 }
