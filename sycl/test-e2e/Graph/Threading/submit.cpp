@@ -1,4 +1,4 @@
-// REQUIRES: level_zero, gpu
+// REQUIRES: cuda || level_zero, gpu
 // RUN: %{build_pthread_inc} -o %t.out
 // RUN: %{run} %t.out
 // RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
@@ -57,7 +57,7 @@ int main() {
 
   Barrier SyncPoint{NumThreads};
 
-  auto FinalizeGraph = [&](int ThreadNum) {
+  auto SubmitGraph = [&](int ThreadNum) {
     SyncPoint.wait();
     Queue.submit([&](sycl::handler &CGH) {
       CGH.ext_oneapi_graph(GraphExecs[ThreadNum]);
@@ -68,7 +68,7 @@ int main() {
   Threads.reserve(NumThreads);
 
   for (unsigned i = 0; i < NumThreads; ++i) {
-    Threads.emplace_back(FinalizeGraph, i);
+    Threads.emplace_back(SubmitGraph, i);
   }
 
   for (unsigned i = 0; i < NumThreads; ++i) {
