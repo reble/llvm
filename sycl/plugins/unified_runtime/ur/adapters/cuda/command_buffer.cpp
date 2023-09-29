@@ -608,8 +608,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendUSMPrefetchExp(
     uint32_t numSyncPointsInWaitList,
     const ur_exp_command_buffer_sync_point_t *pSyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *pSyncPoint) {
-  // Prefetch cmd is not supported by Cuda Graph
-  // We implement it as an empty node to enforce dependencies
+  // Prefetch cmd is not supported by Cuda Graph.
+  // We implement it as an empty node to enforce dependencies.
   ur_result_t Result = UR_RESULT_SUCCESS;
   CUgraphNode GraphNode;
 
@@ -618,7 +618,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendUSMPrefetchExp(
                                  pSyncPointWaitList, DepsList));
 
   try {
-    // Add an empty node to preserve dependencies
+    // Add an empty node to preserve dependencies.
     Result = UR_CHECK_ERROR(
         cuGraphAddEmptyNode(&GraphNode, hCommandBuffer->CudaGraph,
                             DepsList.data(), DepsList.size()));
@@ -638,8 +638,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendUSMAdviseExp(
     uint32_t numSyncPointsInWaitList,
     const ur_exp_command_buffer_sync_point_t *pSyncPointWaitList,
     ur_exp_command_buffer_sync_point_t *pSyncPoint) {
-  // Mem-Advise cmd is not supported by Cuda Graph
-  // We implement it as an empty node to enforce dependencies
+  // Mem-Advise cmd is not supported by Cuda Graph.
+  // We implement it as an empty node to enforce dependencies.
   ur_result_t Result = UR_RESULT_SUCCESS;
   CUgraphNode GraphNode;
 
@@ -648,7 +648,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendUSMAdviseExp(
                                  pSyncPointWaitList, DepsList));
 
   try {
-    // Add an empty node to preserve dependencies
+    // Add an empty node to preserve dependencies.
     Result = UR_CHECK_ERROR(
         cuGraphAddEmptyNode(&GraphNode, hCommandBuffer->CudaGraph,
                             DepsList.data(), DepsList.size()));

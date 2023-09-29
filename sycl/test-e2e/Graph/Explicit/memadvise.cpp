@@ -6,7 +6,7 @@
 
 // Since Mem advise is only a memory hint that doesn't
 // impact results but only performances, we verify
-// that a node is correctly added by checking PI function calls
+// that a node is correctly added by checking PI function calls.
 
 #define GRAPH_E2E_EXPLICIT
 

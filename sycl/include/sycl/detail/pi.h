@@ -2496,9 +2496,9 @@ __SYCL_EXPORT pi_result piextCommandBufferFillUSM(
 
 /// API to append a USM Prefetch command to the command-buffer.
 /// \param command_buffer The command-buffer to append onto.
-/// \param ptr points to the memory to migrate
-/// \param size is the number of bytes to migrate
-/// \param flags is a bitfield used to specify memory migration options
+/// \param ptr points to the memory to migrate.
+/// \param size is the number of bytes to migrate.
+/// \param flags is a bitfield used to specify memory migration options.
 /// \param num_sync_points_in_wait_list The number of sync points in the
 /// provided wait list.
 /// \param sync_point_wait_list A list of sync points that this command must
@@ -2512,9 +2512,9 @@ __SYCL_EXPORT pi_result piextCommandBufferPrefetchUSM(
 
 /// API to append a USM Advise command to the command-buffer.
 /// \param command_buffer The command-buffer to append onto.
-/// \param ptr is the data to be advised
-/// \param length is the size in bytes of the memory to advise
-/// \param advice is device specific advice
+/// \param ptr is the data to be advised.
+/// \param length is the size in bytes of the memory to advise.
+/// \param advice is device specific advice.
 /// \param num_sync_points_in_wait_list The number of sync points in the
 /// provided wait list.
 /// \param sync_point_wait_list A list of sync points that this command must
