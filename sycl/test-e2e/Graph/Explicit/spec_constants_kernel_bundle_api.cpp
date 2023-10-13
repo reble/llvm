@@ -7,7 +7,7 @@
 // CHECK-NOT: LEAK
 
 // The following limitation is not restricted to Sycl-Graph
-// but comes from the orignal test : `SpecConstants/2020/handler-api.cpp`
+// but comes from the orignal test : `SpecConstants/2020/kernel-bundle-api.cpp`
 // FIXME: ACC devices use emulation path, which is not yet supported
 // UNSUPPORTED: accelerator
 // UNSUPPORTED: hip

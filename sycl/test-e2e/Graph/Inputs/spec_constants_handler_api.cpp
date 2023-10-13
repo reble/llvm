@@ -1,5 +1,8 @@
 // This test is intended to check basic operations with SYCL 2020 specialization
 // constants using Graph and sycl::handler and sycl::kernel_handler APIs
+// This test was taken from `SpecConstants/2020/handler-api.cpp`.
+// Variable names have been changed to meet PascalCase naming convention
+// requirements.
 
 #include "../graph_common.hpp"
 
