@@ -1,16 +1,19 @@
 # SYCL Command Graph Extensions
 
-This is the collaboration space for the oneAPI vendor Command Graph extension for SYCL2020. It provides an API for defining a graph of operations and their dependencies once and submitting this graph repeatedly for execution.
+**This fork is mostly stale since the main development has been moved to the** [Intel staging area for llvm.org contributions](https://github.com/intel/llvm).
+
+This fork has been the collaboration space for the oneAPI vendor Command Graph extension for SYCL2020 until September 2023. 
+SYCL Graph provides an API for defining a graph of operations and their dependencies once and submitting this graph repeatedly for execution.
 
 ### Specification
 
 A draft of our Command Graph extension proposal can be found here:
-[sycl_ext_oneapi_graph](https://github.com/intel/llvm/blob/sycl/sycl/doc/extensions/proposed/sycl_ext_oneapi_graph.asciidoc).
+[sycl_ext_oneapi_graph](https://github.com/intel/llvm/blob/sycl/sycl/doc/extensions/experimental/sycl_ext_oneapi_graph.asciidoc).
 
 ### Implementation
 
-Our current prototype implementation can be found here:
-[https://github.com/reble/llvm/tree/sycl-graph-develop](https://github.com/reble/llvm/tree/sycl-graph-develop).
+Our implementation can be found here:
+[https://github.com/intel/llvm](https://github.com/intel/llvm).
 
 #### Backends
 
