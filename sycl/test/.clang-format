@@ -1,2 +1,0 @@
-BasedOnStyle: LLVM
-CommentPragmas: "RUN|FAIL|REQUIRES|UNSUPPORTED|CHECK|expected-"

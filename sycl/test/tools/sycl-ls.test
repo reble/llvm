@@ -1,3 +1,0 @@
--- Check that sycl-ls exits with 0 exit code. 
-
-RUN: sycl-ls --verbose
