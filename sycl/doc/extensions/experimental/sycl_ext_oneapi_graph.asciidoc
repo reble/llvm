@@ -313,6 +313,15 @@ enum class graph_support_level {
   emulated
 };
 
+enum class graph_debug_print_flag {
+  none = 0x00,
+  kernel_args = 0x01,        // adds the printing of the kernel args 
+                             // where applicable
+  memory_access_desc = 0x02  // adds the printing of information related to 
+                             // the memory access: source address, 
+                             // destination address, length, etc.
+};
+
 namespace property {
 
 namespace graph {
@@ -726,6 +735,32 @@ Parameters:
   properties are defined by this extension.
 
 Returns: A new executable graph object which can be submitted to a queue.
+
+|
+[source,c++]
+----
+void
+print_dot_graph(const char* path, debug_print_flags  flags) const;
+----
+
+|Synchronous operation that write to path a DOT formatted description of the 
+graph. By default this includes the graph topology, node types, node id, 
+and kernel names. 
+flags can be specified to write more detailed information about each node type 
+such as kernel arguments, copy source and destination addresses.  
+Please report to `debug_print_flags` to have more information of extra debug 
+info.
+
+Parameters:
+
+* `path` - The path to write the DOT file to.
+* `flags` - Flags from debug_print_flags for specifying which additional 
+node information to write
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if the path is invalid or 
+if it failed to write.
 
 |===
 
