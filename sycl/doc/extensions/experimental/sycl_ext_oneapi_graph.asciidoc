@@ -315,13 +315,6 @@ enum class graph_support_level {
   emulated
 };
 
-using graph_debug_print_flags = graph_bitfield;
-// Adds the printing of the kernel args where applicable
-constexpr graph_debug_print_flags GRAPH_DEBUG_PRINT_KERNEL_ARGS = (1 << 0);
-// adds the printing of information related to the memory access: 
-// source address, destination address, length, etc.
-constexpr graph_debug_print_flags GRAPH_DEBUG_PRINT_MEMORY_ACCESS_DESC = (1 << 2);
-
 namespace property {
 
 namespace graph {
@@ -392,7 +385,7 @@ public:
 
   void make_edge(node& src, node& dest);
 
-  void print_dot_graph(std::string path, graph_debug_print_flags flags) const;
+  void print_dot_graph(std::string path, bool verbose = false) const;
 };
 
 template<>
@@ -742,22 +735,20 @@ Returns: A new executable graph object which can be submitted to a queue.
 [source,c++]
 ----
 void
-print_dot_graph(std::string path, graph_debug_print_flags  flags) const;
+print_dot_graph(std::string path, bool verbose = false) const;
 ----
 
 |Synchronous operation that write to path a DOT formatted description of the 
 graph. By default this includes the graph topology, node types, node id, 
 and kernel names. 
-Flags can be specified to write more detailed information about each node type 
-such as kernel arguments, copy source and destination addresses.  
-Please report to `graph_debug_print_flags` to have more information of extra debug 
-info.
+Verbose can be set to true to write more detailed information about each node type 
+such as kernel arguments, copy source and destination addresses.
 
 Parameters:
 
 * `path` - The path to write the DOT file to.
-* `flags` - Flags from `graph_debug_print_flags` for specifying which additional 
-node information to write.
+* `verbose` - if true, print additional information about the nodes such as kernel args
+or memory access where applicable.
 
 Exceptions:
 
