@@ -746,7 +746,7 @@ print_dot_graph(const char* path, debug_print_flags  flags) const;
 |Synchronous operation that write to path a DOT formatted description of the 
 graph. By default this includes the graph topology, node types, node id, 
 and kernel names. 
-flags can be specified to write more detailed information about each node type 
+Flags can be specified to write more detailed information about each node type 
 such as kernel arguments, copy source and destination addresses.  
 Please report to `debug_print_flags` to have more information of extra debug 
 info.
