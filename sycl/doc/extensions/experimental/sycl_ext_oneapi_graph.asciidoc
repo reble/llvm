@@ -301,6 +301,8 @@ effects of prior uses as a sub-graph.
 namespace sycl {
 namespace ext::oneapi::experimental {
 
+using graph_bitfield = uint64;
+
 // State of a queue, returned by queue::ext_oneapi_get_state()
 enum class queue_state {
   executing,
@@ -313,14 +315,12 @@ enum class graph_support_level {
   emulated
 };
 
-enum class graph_debug_print_flag {
-  none = 0x00,
-  kernel_args = 0x01,        // adds the printing of the kernel args 
-                             // where applicable
-  memory_access_desc = 0x02  // adds the printing of information related to 
-                             // the memory access: source address, 
-                             // destination address, length, etc.
-};
+using graph_debug_print_flags = graph_bitfield;
+// Adds the printing of the kernel args where applicable
+constexpr graph_debug_print_flags GRAPH_DEBUG_PRINT_KERNEL_ARGS = (1 << 0);
+// adds the printing of information related to the memory access: 
+// source address, destination address, length, etc.
+constexpr graph_debug_print_flags GRAPH_DEBUG_PRINT_MEMORY_ACCESS_DESC = (1 << 2);
 
 namespace property {
 
@@ -391,6 +391,8 @@ public:
   node add(T cgf, const property_list& propList = {});
 
   void make_edge(node& src, node& dest);
+
+  void print_dot_graph(std::string path, graph_debug_print_flags flags) const;
 };
 
 template<>
@@ -740,7 +742,7 @@ Returns: A new executable graph object which can be submitted to a queue.
 [source,c++]
 ----
 void
-print_dot_graph(const char* path, debug_print_flags  flags) const;
+print_dot_graph(std::string path, graph_debug_print_flags  flags) const;
 ----
 
 |Synchronous operation that write to path a DOT formatted description of the 
@@ -748,13 +750,13 @@ graph. By default this includes the graph topology, node types, node id,
 and kernel names. 
 Flags can be specified to write more detailed information about each node type 
 such as kernel arguments, copy source and destination addresses.  
-Please report to `debug_print_flags` to have more information of extra debug 
+Please report to `graph_debug_print_flags` to have more information of extra debug 
 info.
 
 Parameters:
 
 * `path` - The path to write the DOT file to.
-* `flags` - Flags from `debug_print_flags` for specifying which additional 
+* `flags` - Flags from `graph_debug_print_flags` for specifying which additional 
 node information to write.
 
 Exceptions:
