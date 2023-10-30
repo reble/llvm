@@ -754,7 +754,7 @@ info.
 Parameters:
 
 * `path` - The path to write the DOT file to.
-* `flags` - Flags from debug_print_flags for specifying which additional 
+* `flags` - Flags from `debug_print_flags` for specifying which additional 
 node information to write
 
 Exceptions:
