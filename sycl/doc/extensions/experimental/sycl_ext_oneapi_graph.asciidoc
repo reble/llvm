@@ -313,6 +313,14 @@ enum class graph_support_level {
   emulated
 };
 
+enum class node_type {
+			empty = 0,
+			kernel,
+			memcpy,
+			memset,
+			memfill,
+};
+
 namespace property {
 
 namespace graph {
@@ -353,7 +361,21 @@ struct graphs_support;
 } // namespace device
 } // namespace info
 
-class node {};
+
+class node {
+  public:
+  class dynamic_parameter{
+    dynamic_parameter() = delete;
+    const std::string& getLabel() const;
+  };
+
+  node() = delete;
+
+	node_type getType() const;
+  std::vector<Node> getDependencies() const;
+  template <typename T>
+  dynamic_parameter registerDynamicParameter(T Param, std::string label = "") const;
+};
 
 // State of a graph
 enum class graph_state {
@@ -389,12 +411,17 @@ public:
   void make_edge(node& src, node& dest);
 
   void print_graph(std::string path, bool verbose = false) const;
+
+  std::vector<node> getNodes() const;
 };
 
 template<>
 class command_graph<graph_state::executable> {
 public:
-    command_graph() = delete;
+  command_graph() = delete;
+
+  template <typename T>
+  void updateParameter(node Node, dynamic_parameter DynamicParam, T NewValue);
 };
 }  // namespace ext::oneapi::experimental
 
@@ -459,12 +486,75 @@ edges.
 
 The `node` class provides the {crs}[common reference semantics].
 
+==== Dynamic Parameters
+
+Dynamic parameters are inputs to a node's command-group which can be updated by
+the user after the node has been added to a graph. They are updated through an
+executable graph which contains the node associated with a dynamic parameter
+object.
+
+Dynamic parameters may represent either a `sycl::buffer` or a pointer to a USM
+allocation. When dynamic parameters are updated the new value must be
+compatible with the existing value. For USM allocations this must be a pointer
+to a valid USM allocation in the same context, and for buffers the new value
+must have a total memory size that is greater than or equal to the original
+value.
+
+Dynamic parameters can optionally have a user-specified string label associated
+with them. This can provide meaningful names to help track what the parameters
+are when updating them. These labels are not used by the SYCL runtime in any
+way.
+
+
+==== Node Member Functions
+
+Table {counter: tableNumber}. Member functions of the `node` class.
+[cols="2a,a"]
+|===
+|Member Function|Description
+
+|
 [source,c++]
 ----
-namespace sycl::ext::oneapi::experimental {
-  class node {};
-}
+node_type getType() const;
 ----
+|Returns a value representing the type of command this node represents.
+
+|
+[source,c++]
+----
+std::vector<Node> getDependencies() const;
+----
+|Returns a list of the nodes which this node depends on.
+
+|
+[source,c++]
+----
+template <typename T>
+dynamic_parameter registerDynamicParameter(T param, std::string label = "") const;
+----
+|Registers `param` as a dynamic parameter which can be updated in the future.
+See <link> for more information about updating node parameters.
+
+Parameters:
+
+* `param`` - The parameter used in the node which should be registered for
+updating. It can be either a `sycl::buffer` or a pointer to a USM allocation.
+
+* `label` - An optional string label which can be used to help identify the
+parameter which has beeen registered as dynamic.
+
+Returns: A `dynamic_parameter` object which can be used to reference this 
+parameter in future when updating it.
+
+Exceptions:
+
+* Throws with error code `invalid` if `param` has not been used in the node.
+
+* Throws with error code `invalid` if `param` is not a `sycl::buffer` or a 
+pointer to a USM allocation.
+|===
+
 
 ==== Depends-On Property
 
@@ -535,6 +625,20 @@ executable graphs. The state of a `command_graph` object is made explicit by
 templating on state to make the class strongly typed, with the default template
 argument being `graph_state::modifiable` to reduce code verbosity on
 construction.
+
+==== Executable Graph Update
+
+Memory parameters to individual nodes in a graph in the `executable` state
+can be updated between graph executions using dynamic parameters. Updates
+to these parameters will take effect from the next submission of a graph
+and will not affect any previous submissions or in-flight executions of the
+same graph.
+
+Parameters are associated with a `dynamic_parameter` object which is later
+used to reference it when calling 
+`command_graph<graph_state::executable>::updateDynamicParameter()`. This
+prevents the user from having to keep track of the old parameter itself
+until the update is performed.
 
 .Graph State Diagram
 [source, mermaid]
@@ -774,6 +878,36 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if the path is invalid or
 the file extension is not supported or if the write operation failed.
+
+|
+[source,c++]
+----
+template <typename T>
+void updateParameter(node target, dynamic_parameter dynamicParam, T newValue);
+----
+
+| Updates a parameter in a target node with a new value. This new value will
+not affected any prior submissions of this graph and will take affect only
+for future submissions.
+
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::executable`.
+
+Parameters:
+
+* `target` - The node in this graph which will have its parameter value updated.
+
+* `dynamicParam` - The object which represents the parameter to be updated.
+
+* `newValue` - The new value for the parameter being updated.
+
+Exceptions:
+
+* Throws with error code `invalid` if `target` is not part of the graph.
+* Throws with error code `invalid` if `dynamicParam` was not registered with `target`.
+* Throws with error code `invalid` if `newValue` is not compatible with `dynamicParam`.
 
 |===
 
