@@ -911,7 +911,13 @@ Exceptions:
 
 * Throws with error code `invalid` if `target` is not part of the graph.
 * Throws with error code `invalid` if `dynamicParam` was not registered with `target`.
-* Throws with error code `invalid` if `newValue` is not compatible with `dynamicParam`.
+* Throws with error code `invalid` if `newValue` is not compatible with `dynamicParam`. Parameters are considered incompatible if:
+
+** For pointers to USM allocations `newValue` must be a pointer type.
+
+** For buffers `newValue` must have a total memory size that is greater
+than or equal to the parameter represented by `dynamicParam`. 
+
 
 |===
 
