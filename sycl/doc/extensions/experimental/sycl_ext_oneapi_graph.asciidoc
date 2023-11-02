@@ -314,11 +314,15 @@ enum class graph_support_level {
 };
 
 enum class node_type {
-			empty = 0,
-			kernel,
-			memcpy,
-			memset,
-			memfill,
+  empty = 0,
+  subgraph,
+  kernel,
+  memcpy,
+  memset,
+  memfill,
+  prefetch,
+  memadvise,
+  ext_oneapi_barrier,
 };
 
 namespace property {
