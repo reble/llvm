@@ -644,6 +644,18 @@ used to reference it when calling
 prevents the user from having to keep track of the old parameter itself
 until the update is performed.
 
+Since the structure of the graph became fixed when finalizing, updating
+parameters on a node in a graph in the `executable` state will not change
+the already defined dependencies between nodes. This is important to note
+when updating buffer parameters to a node, since no edges will be automatically
+created or removed based on this change. Care should be taken that updates
+of buffer parameters do not change the behaviour of a graph when executed.
+
+For example, if there are two nodes (NodeA and NodeB) which are connected
+by an edge due to a dependency on the same buffer, both nodes must have
+this buffer parameter updated to the new value. This maintains the correct
+data dependency, and prevents unexpected behaviour.
+
 .Graph State Diagram
 [source, mermaid]
 ....
