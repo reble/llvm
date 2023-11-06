@@ -377,6 +377,8 @@ class node {
 
 	node_type getType() const;
   std::vector<Node> getDependencies() const;
+  std::vector<Node> getDependentNodes() const;
+
   template <typename T>
   dynamic_parameter registerDynamicParameter(T Param, std::string label = "") const;
 };
@@ -417,6 +419,7 @@ public:
   void print_graph(std::string path, bool verbose = false) const;
 
   std::vector<node> getNodes() const;
+  std::vector<node> getRootNodes() const;
 };
 
 template<>
@@ -498,7 +501,7 @@ executable graph which contains the node associated with a dynamic parameter
 object.
 
 Dynamic parameters may represent either a `sycl::buffer` or a pointer to a USM
-allocation. When dynamic parameters are updated the new value must be
+allocation. When dynamic parameters are updated, the new value must be
 compatible with the existing value. For USM allocations this must be a pointer
 to a valid USM allocation in the same context, and for buffers the new value
 must have a total memory size that is greater than or equal to the original
@@ -534,6 +537,13 @@ std::vector<Node> getDependencies() const;
 |
 [source,c++]
 ----
+std::vector<Node> getDependentNodes() const;
+----
+|Returns a list of the nodes which depend on this node.
+
+|
+[source,c++]
+----
 template <typename T>
 dynamic_parameter registerDynamicParameter(T param, std::string label = "") const;
 ----
@@ -542,7 +552,7 @@ See <link> for more information about updating node parameters.
 
 Parameters:
 
-* `param`` - The parameter used in the node which should be registered for
+* `param` - The parameter used in the node which should be registered for
 updating. It can be either a `sycl::buffer` or a pointer to a USM allocation.
 
 * `label` - An optional string label which can be used to help identify the
@@ -903,7 +913,7 @@ void updateParameter(node target, dynamic_parameter dynamicParam, T newValue);
 ----
 
 | Updates a parameter in a target node with a new value. This new value will
-not affected any prior submissions of this graph and will take affect only
+not affect any prior submissions of this graph and will take affect only
 for future submissions.
 
 Preconditions:
@@ -1033,6 +1043,21 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if `recordingQueue` is
   recording to a different graph.
+
+|
+[source,c++]
+----
+std::vector<Node> getNodes() const;
+----
+|Returns a list of all the nodes present in the graph.
+
+|
+[source,c++]
+----
+std::vector<Node> getRootNodes() const;
+----
+|Returns a list of all nodes in the graph which have no dependencies.
+
 
 |
 [source, c++]
