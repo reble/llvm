@@ -1661,6 +1661,8 @@ public:
             BufferRef.OffsetInBytes, BufferRef.IsSubBuffer, PropertyList) {
     throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
+    detail::associateBufferWithGraph(CommandGroupHandler,
+                                     detail::getSyclObjImpl(BufferRef));
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     initHostAcc();
     detail::constructorNotification(detail::getSyclObjImpl(BufferRef).get(),
@@ -1699,6 +1701,8 @@ public:
             BufferRef.OffsetInBytes, BufferRef.IsSubBuffer, PropertyList) {
     throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
+    detail::associateBufferWithGraph(CommandGroupHandler,
+                                     detail::getSyclObjImpl(BufferRef));
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     initHostAcc();
     detail::constructorNotification(detail::getSyclObjImpl(BufferRef).get(),
@@ -1834,6 +1838,8 @@ public:
             BufferRef.OffsetInBytes, BufferRef.IsSubBuffer, PropertyList) {
     throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
+    detail::associateBufferWithGraph(CommandGroupHandler,
+                                     detail::getSyclObjImpl(BufferRef));
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     initHostAcc();
     detail::constructorNotification(detail::getSyclObjImpl(BufferRef).get(),
@@ -1871,6 +1877,8 @@ public:
     throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     initHostAcc();
+    detail::associateBufferWithGraph(CommandGroupHandler,
+                                     detail::getSyclObjImpl(BufferRef));
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     detail::constructorNotification(detail::getSyclObjImpl(BufferRef).get(),
                                     detail::AccessorBaseHost::impl.get(),
@@ -2172,6 +2180,8 @@ public:
           PI_ERROR_INVALID_VALUE);
 
     initHostAcc();
+    detail::associateBufferWithGraph(CommandGroupHandler,
+                                     detail::getSyclObjImpl(BufferRef));
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     detail::constructorNotification(detail::getSyclObjImpl(BufferRef).get(),
                                     detail::AccessorBaseHost::impl.get(),
@@ -2216,6 +2226,8 @@ public:
           PI_ERROR_INVALID_VALUE);
 
     initHostAcc();
+    detail::associateBufferWithGraph(CommandGroupHandler,
+                                     detail::getSyclObjImpl(BufferRef));
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     detail::constructorNotification(detail::getSyclObjImpl(BufferRef).get(),
                                     detail::AccessorBaseHost::impl.get(),

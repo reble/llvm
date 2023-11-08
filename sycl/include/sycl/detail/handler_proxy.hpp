@@ -11,6 +11,8 @@
 #include <sycl/access/access.hpp> // for image_target, target
 #include <sycl/detail/export.hpp> // for __SYCL_EXPORT
 
+#include <memory>
+
 namespace sycl {
 inline namespace _V1 {
 
@@ -21,6 +23,7 @@ namespace detail {
 class AccessorBaseHost;
 class UnsampledImageAccessorBaseHost;
 class SampledImageAccessorBaseHost;
+class buffer_impl;
 
 #ifdef __SYCL_DEVICE_ONLY__
 // In device compilation accessor isn't inherited from host base classes, so
@@ -35,6 +38,9 @@ __SYCL_EXPORT void
 associateWithHandler(handler &, UnsampledImageAccessorBaseHost *, image_target);
 __SYCL_EXPORT void
 associateWithHandler(handler &, SampledImageAccessorBaseHost *, image_target);
+
+__SYCL_EXPORT void associateBufferWithGraph(handler &,
+                                            std::shared_ptr<buffer_impl>);
 #endif
 } // namespace detail
 } // namespace _V1

@@ -14,6 +14,7 @@
 #include <sycl/handler.hpp>
 
 #include <detail/accessor_impl.hpp>
+#include <detail/buffer_impl.hpp>
 #include <detail/event_impl.hpp>
 #include <detail/kernel_impl.hpp>
 
@@ -255,6 +256,12 @@ public:
              const sycl::property_list &PropList = {})
       : MContext(SyclContext), MDevice(SyclDevice), MRecordingQueues(),
         MEventsMap(), MInorderQueueMap() {
+    // Check if buffer lifetime extension has been enabled by env var
+    const char *ExtendBufferLifetimes =
+        std::getenv("SYCL_GRAPH_EXTEND_BUFFER_LIFETIMES");
+    MExtendBufferLifetimes =
+        ExtendBufferLifetimes && (std::stoi(ExtendBufferLifetimes) != 0);
+
     if (PropList.has_property<property::graph::no_cycle_check>()) {
       MSkipCycleChecks = true;
     }
@@ -544,6 +551,14 @@ public:
   /// @return vector of events associated to exit nodes.
   std::vector<sycl::detail::EventImplPtr> getExitNodesEvents();
 
+  void associateBufferWithGraph(
+      const std::shared_ptr<sycl::detail::buffer_impl> &bufferImpl) {
+    // If this is false this call is a no-op.
+    if (!MExtendBufferLifetimes)
+      return;
+    MAssociatedBuffers.push_back(bufferImpl);
+  }
+
 private:
   /// Iterate over the graph depth-first and run \p NodeFunc on each node.
   /// @param NodeFunc A function which receives as input a node in the graph to
@@ -622,6 +637,15 @@ private:
   /// This list is mainly used by barrier nodes which must be considered
   /// as predecessors for all nodes subsequently added to the graph.
   std::vector<std::shared_ptr<node_impl>> MExtraDependencies;
+
+  /// List of buffers which are associated with this graph, i.e. accessors
+  /// to these buffers are used in one or more nodes of the graph.
+  /// Buffers are stored here to extend their lifetime for the duration
+  /// of the graph.
+  std::vector<std::shared_ptr<sycl::detail::buffer_impl>> MAssociatedBuffers;
+
+  /// Controls whether buffer lifetimes are extended by the graph.
+  bool MExtendBufferLifetimes = false;
 };
 
 /// Class representing the implementation of command_graph<executable>.
