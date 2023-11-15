@@ -394,7 +394,9 @@ public:
 template<>
 class command_graph<graph_state::executable> {
 public:
-    command_graph() = delete;
+  command_graph() = delete;
+
+  void update(const command_graph<graph_state::modifiable>& graph);
 };
 }  // namespace ext::oneapi::experimental
 
@@ -543,6 +545,37 @@ graph LR
     Modifiable -->|Finalize| Executable
 ....
 
+==== Executable Graph Update
+
+A graph in the executable state can have the configuration of its nodes modified
+using a concept called graph _update_. This avoids a user having to rebuild and
+finalize a new executable graph when only the inputs & outputs to a graph
+change between submissions.
+
+The only type of node that is currently supported for updating in a graph is
+kernel execution nodes.
+
+The aspects of a kernel execution node that can be configured during update are:
+
+* Parameters to the kernel.
+* ND-Range of the kernel.
+
+Two methods are provided by the API to the user for performing this update.
+An API for updating the complete graph object, useful when the graph was
+created from a library, and an individual node update API.
+
+===== Whole Graph Update
+
+The `command_graph::update()` method takes a graph in the modifiable state and
+updates the executable graph to the configuration of the nodes in the
+modifiable graph, a technique called _Whole Graph Update_.
+
+The modifiable graph must have the same topology as the graph originally used
+to create the executable graphs, with the nodes targeting the same devices and
+added in the same order.
+
+===== Individual Node Update
+
 ==== Graph Properties [[graph-properties]]
 
 ===== No-Cycle-Check Property
@@ -615,7 +648,8 @@ with `syclDevice` is not supported.
 
 |===
 
-Table {counter: tableNumber}. Member functions of the `command_graph` class.
+Table {counter: tableNumber}. Member functions of the modifiable `command_graph`
+class.
 [cols="2a,a"]
 |===
 |Member function|Description
@@ -899,6 +933,70 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if any queue in
   `recordingQueues` is recording to a different graph.
+
+|===
+
+:sycl-kernel-function: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#sycl-kernel-function
+
+Table {counter: tableNumber}. Member functions of the executable `command_graph`
+class.
+[cols="2a,a"]
+|===
+|Member function|Description
+
+|
+[source, c++]
+----
+void
+update(const command_graph<graph_state::modifiable>& graph);
+----
+
+|Updates the executable graph node inputs & outputs from a topologically
+identical modifiable graph. A topologically identical graph is one with the
+same structure of nodes and edges, and the nodes added in the same order to
+both graphs. Equivalent nodes in topologically identical graphs each have the
+same command, targeting the same device. There is the additional limitation that
+to update an executable graph every node in the graph must be either a kernel
+command.
+
+The only characteristic that can differ between two topologically identical
+graphs during an update are the arguments to kernel nodes. For example,
+the graph may capture different values for the USM pointers or accessors used
+in the graph. It is these kernels arguments in `graph` that constitute the
+inputs & outputs to update to.
+
+Modifying the {sycl-kernel-function}[kernel function] of a kernel node between
+two graphs during an update results in undefined behavior.
+
+The effects of the update will be visible on the next submission of the
+executable graph without the need for additional user synchronization.
+
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::executable`.
+
+Parameters:
+
+* `graph` - Modifiable graph object to update graph node inputs & outputs with.
+  This graph must have the same topology as the original graph used on
+  executable graph creation.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if the topology of `graph` is
+  not the same as the existing graph topology, or if the nodes were not added in
+  the same order.
+
+:handler-copy-functions: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#table.members.handler.copy
+
+* Throws synchronously with error code `invalid` if `graph` contains any node
+  which is not a kernel command. For example, a host-task or
+  {handler-copy-functions}[memory operations].
+
+* Throws synchronously with error code `invalid` if the context or device
+  associated with `graph` does not match that of the `command_graph` being
+  updated.
 
 |===
 
@@ -1590,83 +1688,6 @@ auto node = graph.add([&](sycl::handler& cgh){
   });
 });
 ----
-
-==== Executable Graph Update
-
-A graph in the executable state can have each nodes inputs & outputs updated
-using the `command_graph::update()` method. This takes a graph in the
-modifiable state and updates the executable graph to use the node input &
-outputs of the modifiable graph, a technique called _Whole Graph Update_. The
-modifiable graph must have the same topology as the graph originally used to
-create the executable graphs, with the nodes targeting the same devices and
-added in the same order.
-
-:sycl-kernel-function: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#sycl-kernel-function
-
-Table {counter: tableNumber}. Member functions of the `command_graph` class (executable graph update).
-[cols="2a,a"]
-|===
-|Member function|Description
-
-|
-[source, c++]
-----
-void
-update(const command_graph<graph_state::modifiable>& graph);
-----
-
-
-|Updates the executable graph node inputs & outputs from a topologically
-identical modifiable graph. A topologically identical graph is one with the
-same structure of nodes and edges, and the nodes added in the same order to
-both graphs. Equivalent nodes in topologically identical graphs each have the
-same command, targeting the same device. There is the additional limitation that
-to update an executable graph, every node in the graph must be either a kernel
-command or a host task.
-
-The only characteristic that can differ between two topologically identical
-graphs during an update are the arguments to kernel nodes. For example,
-the graph may capture different values for the USM pointers or accessors used
-in the graph. It is these kernels arguments in `graph` that constitute the
-inputs & outputs to update to.
-
-Differences in the following characteristics between two graphs during an
-update results in undefined behavior:
-
-* Modifying the native C++ callable of a `host task` node.
-* Modifying the {sycl-kernel-function}[kernel function] of a kernel node.
-
-The effects of the update will be visible on the next submission of the
-executable graph without the need for additional user synchronization.
-
-Preconditions:
-
-* This member function is only available when the `command_graph` state is
-  `graph_state::executable`.
-
-Parameters:
-
-* `graph` - Modifiable graph object to update graph node inputs & outputs with.
-  This graph must have the same topology as the original graph used on
-  executable graph creation.
-
-Exceptions:
-
-* Throws synchronously with error code `invalid` if the topology of `graph` is
-  not the same as the existing graph topology, or if the nodes were not added in
-  the same order.
-
-:handler-copy-functions: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#table.members.handler.copy
-
-* Throws synchronously with error code `invalid` if `graph` contains any node
-  which is not a kernel command or host task, e.g.
-  {handler-copy-functions}[memory operations].
-
-* Throws synchronously with error code `invalid` if the context or device
-  associated with `graph` does not match that of the `command_graph` being
-  updated.
-
-|===
 
 === Features Still in Development
 
