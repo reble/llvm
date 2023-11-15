@@ -367,7 +367,7 @@ struct graphs_support;
 
 
 class node {
-  public:
+public:
   class dynamic_parameter{
     dynamic_parameter() = delete;
     const std::string& getLabel() const;
@@ -375,9 +375,9 @@ class node {
 
   node() = delete;
 
-	node_type getType() const;
-  std::vector<Node> getDependencies() const;
-  std::vector<Node> getDependentNodes() const;
+  node_type getType() const;
+  std::vector<node> getDependencies() const;
+  std::vector<node> getDependentNodes() const;
 
   template <typename T>
   dynamic_parameter registerDynamicParameter(T Param, std::string label = "") const;
@@ -512,7 +512,6 @@ with them. This can provide meaningful names to help track what the parameters
 are when updating them. These labels are not used by the SYCL runtime in any
 way.
 
-
 ==== Node Member Functions
 
 Table {counter: tableNumber}. Member functions of the `node` class.
@@ -530,14 +529,14 @@ node_type getType() const;
 |
 [source,c++]
 ----
-std::vector<Node> getDependencies() const;
+std::vector<node> getDependencies() const;
 ----
 |Returns a list of the nodes which this node depends on.
 
 |
 [source,c++]
 ----
-std::vector<Node> getDependentNodes() const;
+std::vector<node> getDependentNodes() const;
 ----
 |Returns a list of the nodes which depend on this node.
 
@@ -548,7 +547,9 @@ template <typename T>
 dynamic_parameter registerDynamicParameter(T param, std::string label = "") const;
 ----
 |Registers `param` as a dynamic parameter which can be updated in the future.
-See <link> for more information about updating node parameters.
+
+See <<executable-graph-update, Executable Graph Update>> for more information
+about updating node parameters.
 
 Parameters:
 
@@ -556,19 +557,18 @@ Parameters:
 updating. It can be either a `sycl::buffer` or a pointer to a USM allocation.
 
 * `label` - An optional string label which can be used to help identify the
-parameter which has beeen registered as dynamic.
+parameter which has been registered as dynamic.
 
-Returns: A `dynamic_parameter` object which can be used to reference this 
+Returns: A `dynamic_parameter` object which can be used to reference this
 parameter in future when updating it.
 
 Exceptions:
 
 * Throws with error code `invalid` if `param` has not been used in the node.
 
-* Throws with error code `invalid` if `param` is not a `sycl::buffer` or a 
-pointer to a USM allocation.
+* Throws with error code `invalid` if `param` is not a `sycl::buffer` or a
+  pointer to a USM allocation.
 |===
-
 
 ==== Depends-On Property
 
@@ -640,6 +640,13 @@ templating on state to make the class strongly typed, with the default template
 argument being `graph_state::modifiable` to reduce code verbosity on
 construction.
 
+.Graph State Diagram
+[source, mermaid]
+....
+graph LR
+    Modifiable -->|Finalize| Executable
+....
+
 ==== Executable Graph Update
 
 Memory parameters to individual nodes in a graph in the `executable` state
@@ -649,7 +656,7 @@ and will not affect any previous submissions or in-flight executions of the
 same graph.
 
 Parameters are associated with a `dynamic_parameter` object which is later
-used to reference it when calling 
+used to reference it when calling
 `command_graph<graph_state::executable>::updateDynamicParameter()`. This
 prevents the user from having to keep track of the old parameter itself
 until the update is performed.
@@ -665,13 +672,6 @@ For example, if there are two nodes (NodeA and NodeB) which are connected
 by an edge due to a dependency on the same buffer, both nodes must have
 this buffer parameter updated to the new value. This maintains the correct
 data dependency, and prevents unexpected behaviour.
-
-.Graph State Diagram
-[source, mermaid]
-....
-graph LR
-    Modifiable -->|Finalize| Executable
-....
 
 ==== Graph Properties [[graph-properties]]
 
@@ -933,14 +933,13 @@ Exceptions:
 
 * Throws with error code `invalid` if `target` is not part of the graph.
 * Throws with error code `invalid` if `dynamicParam` was not registered with `target`.
-* Throws with error code `invalid` if `newValue` is not compatible with `dynamicParam`. Parameters are considered incompatible if:
+* Throws with error code `invalid` if `newValue` is not compatible with `dynamicParam`.
+   Parameters are considered incompatible if:
 
 ** For pointers to USM allocations `newValue` must be a pointer type.
 
 ** For buffers `newValue` must have a total memory size that is greater
-than or equal to the parameter represented by `dynamicParam`. 
-
-
+than or equal to the parameter represented by `dynamicParam`.
 |===
 
 Table {counter: tableNumber}. Member functions of the `command_graph` class for queue recording.
@@ -1057,7 +1056,6 @@ std::vector<Node> getNodes() const;
 std::vector<Node> getRootNodes() const;
 ----
 |Returns a list of all nodes in the graph which have no dependencies.
-
 
 |
 [source, c++]
