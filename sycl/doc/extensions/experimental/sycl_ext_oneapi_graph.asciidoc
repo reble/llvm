@@ -365,22 +365,25 @@ struct graphs_support;
 } // namespace device
 } // namespace info
 
+class dynamic_parameter {
+public:
+  template <typename T>
+  explicit dynamic_parameter(T param, std::string label = "");
+
+  const std::string& get_label() const;
+};
 
 class node {
 public:
-  class dynamic_parameter{
-    dynamic_parameter() = delete;
-    const std::string& getLabel() const;
-  };
-
   node() = delete;
 
-  node_type getType() const;
-  std::vector<node> getDependencies() const;
-  std::vector<node> getDependentNodes() const;
+  node_type get_type() const;
+  std::vector<node> get_dependencies() const;
+  std::vector<node> get_dependent_nodes() const;
 
-  template <typename T>
-  dynamic_parameter registerDynamicParameter(T Param, std::string label = "") const;
+  void register_dynamic_parameter(dynamic_parameter dynamicParam) const;
+
+  static node get_node_from_event(event nodeEvent);
 };
 
 // State of a graph
@@ -418,8 +421,8 @@ public:
 
   void print_graph(std::string path, bool verbose = false) const;
 
-  std::vector<node> getNodes() const;
-  std::vector<node> getRootNodes() const;
+  std::vector<node> get_nodes() const;
+  std::vector<node> get_root_nodes() const;
 };
 
 template<>
@@ -427,8 +430,12 @@ class command_graph<graph_state::executable> {
 public:
   command_graph() = delete;
 
-  template <typename T>
-  void updateParameter(node Node, dynamic_parameter DynamicParam, T NewValue);
+  void update_dynamic_parameter(const std::vector<node>& nodes,
+                                dynamic_parameter dynamicParam,
+                                T newValue);
+  template<int Dimensions>
+  void update_nd_range(const std::vector<node>& nodes,
+                       nd_range<Dimensions> executionRange);
 };
 }  // namespace ext::oneapi::experimental
 
@@ -495,9 +502,9 @@ The `node` class provides the {crs}[common reference semantics].
 
 ==== Dynamic Parameters
 
-Dynamic parameters are inputs to a node's command-group which can be updated by
-the user after the node has been added to a graph. They are updated through an
-executable graph which contains the node associated with a dynamic parameter
+Dynamic parameters are arguments to a node's command-group which can be updated
+by the user after the node has been added to a graph. They are updated through
+an executable graph which contains the node associated with a dynamic parameter
 object.
 
 Dynamic parameters may represent either a `sycl::buffer` or a pointer to a USM
@@ -512,9 +519,7 @@ with them. This can provide meaningful names to help track what the parameters
 are when updating them. These labels are not used by the SYCL runtime in any
 way.
 
-==== Node Member Functions
-
-Table {counter: tableNumber}. Member functions of the `node` class.
+Table {counter: tableNumber}. Member functions of the `dynamic_parameter` class.
 [cols="2a,a"]
 |===
 |Member Function|Description
@@ -522,31 +527,11 @@ Table {counter: tableNumber}. Member functions of the `node` class.
 |
 [source,c++]
 ----
-node_type getType() const;
-----
-|Returns a value representing the type of command this node represents.
-
-|
-[source,c++]
-----
-std::vector<node> getDependencies() const;
-----
-|Returns a list of the nodes which this node depends on.
-
-|
-[source,c++]
-----
-std::vector<node> getDependentNodes() const;
-----
-|Returns a list of the nodes which depend on this node.
-
-|
-[source,c++]
-----
 template <typename T>
-dynamic_parameter registerDynamicParameter(T param, std::string label = "") const;
+dynamic_parameter(T param, std::string label = "") const;
 ----
-|Registers `param` as a dynamic parameter which can be updated in the future.
+|Constructs a dynamic parameter used to reference `param` as a node argument
+during update.
 
 See <<executable-graph-update, Executable Graph Update>> for more information
 about updating node parameters.
@@ -559,15 +544,92 @@ updating. It can be either a `sycl::buffer` or a pointer to a USM allocation.
 * `label` - An optional string label which can be used to help identify the
 parameter which has been registered as dynamic.
 
-Returns: A `dynamic_parameter` object which can be used to reference this
-parameter in future when updating it.
-
 Exceptions:
-
-* Throws with error code `invalid` if `param` has not been used in the node.
 
 * Throws with error code `invalid` if `param` is not a `sycl::buffer` or a
   pointer to a USM allocation.
+
+|
+[source,c++]
+----
+const std::string& get_label() const;
+----
+|Returns the label associated with the dynamic parameter.
+
+|===
+
+==== Node Member Functions
+
+Table {counter: tableNumber}. Member functions of the `node` class.
+[cols="2a,a"]
+|===
+|Member Function|Description
+
+|
+[source,c++]
+----
+node_type get_type() const;
+----
+|Returns a value representing the type of command this node represents.
+
+|
+[source,c++]
+----
+std::vector<node> get_dependencies() const;
+----
+|Returns a list of the nodes which this node depends on.
+
+|
+[source,c++]
+----
+std::vector<node> get_dependent_nodes() const;
+----
+|Returns a list of the nodes which depend on this node.
+
+|
+[source,c++]
+----
+void register_dynamic_parameter(T dynamicParam) const;
+----
+|Associate a dynamic parameter with this node, so that an updated to the
+ dynamic parameter
+
+See <<executable-graph-update, Executable Graph Update>> for more information
+about updating node parameters.
+
+Parameters:
+
+* `dynamicParam` - Dynamic parameter used in the node which is registered for
+   updating.
+
+Exceptions:
+
+* Throws with error code `invalid` if the memory wrapped by `dynamicParam` can not
+  be tied to a parameter of the node.
+
+* Throws with error code `invalid` if the type of the node is not a kernel
+  execution.
+
+|
+[source,c++]
+----
+static node get_node_from_event(event nodeEvent);
+----
+| Finds the node associated with an event created from a submission to a queue
+  in the recording state.
+
+Parameters:
+
+* `nodeEvent` - Event returned from a submission to a queue in the recording
+  state.
+
+Returns: Graph node associated to `nodeEvent`.
+
+Exceptions:
+
+* Throws with error code `invalid` if `nodeEvent` is not associated with a
+  graph node.
+
 |===
 
 ==== Depends-On Property
@@ -649,17 +711,50 @@ graph LR
 
 ==== Executable Graph Update
 
-Memory parameters to individual nodes in a graph in the `executable` state
-can be updated between graph executions using dynamic parameters. Updates
-to these parameters will take effect from the next submission of a graph
-and will not affect any previous submissions or in-flight executions of the
-same graph.
+A graph in the executable state can have the configuration of its nodes modified
+using a concept called graph _update_. This avoids a user having to rebuild and
+finalize a new executable graph when only the inputs & outputs to a graph
+change between submissions. Updates to a node take effect from the next
+submission of a graph and will not affect any previous submissions or in-flight
+executions of the same graph.
 
-Parameters are associated with a `dynamic_parameter` object which is later
-used to reference it when calling
-`command_graph<graph_state::executable>::updateDynamicParameter()`. This
-prevents the user from having to keep track of the old parameter itself
-until the update is performed.
+The only type of node that is currently supported for updating in a graph is
+kernel execution nodes.
+
+The aspects of a kernel execution node that can be configured during update are:
+
+* Parameters to the kernel.
+* ND-Range of the kernel.
+
+Two methods are provided by the API to the user for performing this update.
+An API for updating the complete graph object, useful when the graph was
+created from a library, and an individual node update API.
+
+===== Whole Graph Update
+
+===== Individual Node Update
+
+Memory parameters to individual nodes in a graph in the `executable` state
+can be updated between graph executions using dynamic parameters. When a
+`dynamic_parameter` instance is created it is associated with a memory object.
+By registering the `dynamic_parameter` with a node using
+`node::register_dynamic_parameter()` the memory object underlying dynamic parameter
+is matched to a node argument, and the `dynamic_parameter` can then be
+used to update that node argument in future. This registration is necessary
+because SYCL kernel arguments don't have indices and ordering of lambda captures
+isn't defined, so to we need a way to tie the underlying node argument to
+a `dynamic_parameter` object.
+
+The update itself is then performed on the `dynamic_parameter` by calling
+`command_graph<graph_state::executable>::update_dynamic_parameter()`. If
+a user tries to register a dynamic parameter with a node, after that dynamic
+parameter has been updated with a new value, then it is the new value that
+must match one of the nodes arguments for the registration to be successful,
+rather than the value originally used to construct the dynamic parameter.
+
+The other node configuration that can be updated is the ND-Range, this can
+be set through `command_graph<graph_state::executable>::update_nd_range` but
+does not require any prior registration.
 
 Since the structure of the graph became fixed when finalizing, updating
 parameters on a node in a graph in the `executable` state will not change
@@ -905,16 +1000,27 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the path is invalid or
 the file extension is not supported or if the write operation failed.
 
+|===
+
+Table {counter: tableNumber}. Member functions of the `command_graph` class for
+graph update
+[cols="2a,a"]
+|===
+|Member function|Description
+
 |
 [source,c++]
 ----
 template <typename T>
-void updateParameter(node target, dynamic_parameter dynamicParam, T newValue);
+void update_dynamic_parameter(const std::vector<node>& nodes,
+                              dynamic_parameter dynamicParam,
+                              T newValue);
 ----
 
-| Updates a parameter in a target node with a new value. This new value will
+| Updates a parameter in target nodes with a new value. This new value will
 not affect any prior submissions of this graph and will take affect only
-for future submissions.
+for future submissions. See <<executable-graph-update, Executable Graph Update>>
+for more information about updating node parameters.
 
 Preconditions:
 
@@ -923,7 +1029,7 @@ Preconditions:
 
 Parameters:
 
-* `target` - The node in this graph which will have its parameter value updated.
+* `nodes` - The node in this graph which will have their parameter value updated.
 
 * `dynamicParam` - The object which represents the parameter to be updated.
 
@@ -931,8 +1037,10 @@ Parameters:
 
 Exceptions:
 
-* Throws with error code `invalid` if `target` is not part of the graph.
-* Throws with error code `invalid` if `dynamicParam` was not registered with `target`.
+* Throws with error code `invalid` if any node in `nodes` is not part of the
+  graph.
+* Throws with error code `invalid` if `dynamicParam` is not registered with any
+  node in `nodes`.
 * Throws with error code `invalid` if `newValue` is not compatible with `dynamicParam`.
    Parameters are considered incompatible if:
 
@@ -940,6 +1048,37 @@ Exceptions:
 
 ** For buffers `newValue` must have a total memory size that is greater
 than or equal to the parameter represented by `dynamicParam`.
+
+|
+[source,c++]
+----
+template<int Dimensions>
+void update_nd_range(const std::vector<node>& nodes,
+                     nd_range<Dimensions> executionRange);
+----
+
+| Updates the ND-Range for the nodes with a new value. This new value will
+not affect any prior submissions of this graph and will take affect only
+for future submissions. See <<executable-graph-update, Executable Graph Update>>
+for more information about updating node parameters.
+
+Preconditions:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::executable`.
+
+Parameters:
+
+* `nodes` - The nodes in this graph which will have their ND-Range values updated.
+
+* `executionRange` - The new value for the ND-Range.
+
+Exceptions:
+
+* Throws with error code `invalid` if any node in `nodes` is not part of the
+  graph.
+* Throws with error code `nd_range` if `executionRange` is an invalid ND-Range
+  for any node in `nodes`.
 |===
 
 Table {counter: tableNumber}. Member functions of the `command_graph` class for queue recording.
@@ -1046,14 +1185,14 @@ Exceptions:
 |
 [source,c++]
 ----
-std::vector<Node> getNodes() const;
+std::vector<node> get_nodes() const;
 ----
 |Returns a list of all the nodes present in the graph.
 
 |
 [source,c++]
 ----
-std::vector<Node> getRootNodes() const;
+std::vector<node> get_root_nodes() const;
 ----
 |Returns a list of all nodes in the graph which have no dependencies.
 
