@@ -623,6 +623,7 @@ private:
                             image_target AccTarget);
   void associateWithHandler(detail::SampledImageAccessorBaseHost *AccBase,
                             image_target AccTarget);
+  void associateBufferWithGraph(std::shared_ptr<detail::buffer_impl> Buffer);
 #endif
 
   // Recursively calls itself until arguments pack is fully processed.
@@ -3388,6 +3389,9 @@ private:
       handler &, detail::UnsampledImageAccessorBaseHost *, image_target);
   friend void detail::associateWithHandler(
       handler &, detail::SampledImageAccessorBaseHost *, image_target);
+  friend void
+  detail::associateBufferWithGraph(handler &,
+                                   std::shared_ptr<detail::buffer_impl>);
 #endif
 
   friend class ::MockHandler;

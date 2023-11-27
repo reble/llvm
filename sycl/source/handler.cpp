@@ -575,6 +575,13 @@ void handler::associateWithHandler(
                              static_cast<int>(AccTarget));
 }
 
+void handler::associateBufferWithGraph(
+    std::shared_ptr<detail::buffer_impl> Buffer) {
+  if (auto graph = getCommandGraph(); graph) {
+    graph->associateBufferWithGraph(Buffer);
+  }
+}
+
 static void addArgsForGlobalAccessor(detail::Requirement *AccImpl, size_t Index,
                                      size_t &IndexShift, int Size,
                                      bool IsKernelCreatedFromSource,

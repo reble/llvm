@@ -29,6 +29,11 @@ void associateWithHandler(handler &CGH, SampledImageAccessorBaseHost *Acc,
   CGH.associateWithHandler(Acc, Target);
 }
 
+void associateBufferWithGraph(handler &CGH,
+                              std::shared_ptr<buffer_impl> Buffer) {
+  CGH.associateBufferWithGraph(Buffer);
+}
+
 } // namespace detail
 } // namespace _V1
 } // namespace sycl
