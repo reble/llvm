@@ -435,8 +435,7 @@ class command_graph<graph_state::executable> {
 public:
   command_graph() = delete;
 
-  void update_dynamic_parameter(const std::vector<node>& nodes,
-                                dynamic_parameter dynamicParam,
+  void update_dynamic_parameter(dynamic_parameter dynamicParam,
                                 T newValue);
   template<int Dimensions>
   void update_nd_range(const std::vector<node>& nodes,
@@ -596,8 +595,11 @@ std::vector<node> get_dependent_nodes() const;
 ----
 void register_dynamic_parameter(T dynamicParam) const;
 ----
-|Associate a dynamic parameter with this node, so that an updated to the
- dynamic parameter
+|Associate a dynamic parameter with a kernel parameter of this node, so that an
+update to the dynamic parameter modifies the kernel parameter. All matching
+kernel arguments are bound, therefore if a kernel has identical parameters
+which reference the same memory object as `dynamicParam`, all those parameters
+are associated to `dynamicParam` and will be affected by an update to it.
 
 See <<executable-graph-update, Executable Graph Update>> for more information
 about updating node parameters.
@@ -786,7 +788,7 @@ this buffer parameter updated to the new value. This maintains the correct
 data dependency, and prevents unexpected behaviour. To achieve this, one
 dynamic parameter for the buffer can be registered with all the nodes which
 use the buffer as a parameter. Then a single `update_dynamic_parameter()` call
-with this list of nodes will maintain the graphs data dependencies.
+will maintain the graphs data dependencies.
 
 ==== Graph Properties [[graph-properties]]
 
@@ -1049,15 +1051,14 @@ graph update.
 [source,c++]
 ----
 template <typename T>
-void update_dynamic_parameter(const std::vector<node>& nodes,
-                              dynamic_parameter dynamicParam,
+void update_dynamic_parameter(dynamic_parameter dynamicParam,
                               T newValue);
 ----
 
-| Updates a parameter in target nodes with a new value. This new value will
-not affect any prior submissions of this graph and will take affect only
-for future submissions. See <<executable-graph-update, Executable Graph Update>>
-for more information about updating node parameters.
+| Updates parameters in nodes associated with `dynamicParam` to a new value.
+This new value will not affect any prior submissions of this graph and will
+take affect only for future submissions. See <<executable-graph-update,
+Executable Graph Update>> for more information about updating node parameters.
 
 Preconditions:
 
@@ -1065,8 +1066,6 @@ Preconditions:
   `graph_state::executable`.
 
 Parameters:
-
-* `nodes` - The node in this graph which will have their parameter value updated.
 
 * `dynamicParam` - The object which represents the parameter to be updated.
 
@@ -1077,10 +1076,6 @@ Exceptions:
 * Throws synchronously with error code `invalid` if
   `property::graph::updatable_graph` was not set when the executable graph
   was created.
-* Throws with error code `invalid` if any node in `nodes` is not part of the
-  graph.
-* Throws with error code `invalid` if `dynamicParam` is not registered with any
-  node in `nodes`.
 * Throws with error code `invalid` if `newValue` is not compatible with `dynamicParam`.
    Parameters are considered incompatible if:
 
