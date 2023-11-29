@@ -326,6 +326,11 @@ class assume_buffer_outlives_graph {
   public:
     assume_buffer_outlives_graph() = default;
 };
+
+class updatable_graph {
+  public:
+    updatable_graph() = default;
+};
 } // namespace graph
 
 namespace node {
@@ -564,6 +569,18 @@ Two methods are provided by the API to the user for performing this update.
 An API for updating the complete graph object, useful when the graph was
 created from a library, and an individual node update API.
 
+To update an executable graph, the `property::graph::updatable_graph` property
+must have been set when the graph was created during finalization. Otherwise, an
+exception will be thrown if a user tries to update an executable graph. This
+guarantee allows the backend to provide a more optimized implementation, if
+possible.
+
+The `property::graph::updatable_graph` property also allows an executable graph
+to be submitted for execution while a previous submission of the same
+executable graph instance is still executing. This is because the ability to
+change the graph inputs/outputs can remove the data race conditions that could
+otherwise exist if the same executable graph was executed concurrently.
+
 ===== Whole Graph Update
 
 The `command_graph::update()` method takes a graph in the modifiable state and
@@ -778,8 +795,9 @@ Preconditions:
 
 Parameters:
 
-* `propList` - Optional parameter for passing properties. No finalization
-  properties are defined by this extension.
+* `propList` - Optional parameter for passing properties. The only property
+  that is valid to pass here is `property::graph::updatable_graph`, to enable
+  the returned executable graph to be <<executable-graph-update, updated>>.
 
 Returns: A new executable graph object which can be submitted to a queue.
 
@@ -988,6 +1006,10 @@ Exceptions:
   not the same as the existing graph topology, or if the nodes were not added in
   the same order.
 
+* Throws synchronously with error code `invalid` if
+  `property::graph::updatable_graph` was not set when the executable graph
+  was created.
+
 :handler-copy-functions: https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#table.members.handler.copy
 
 * Throws synchronously with error code `invalid` if `graph` contains any node
@@ -1158,8 +1180,8 @@ handler::ext_oneapi_graph(command_graph<graph_state::executable>& graph)
 ----
 
 |Invokes the execution of a graph. Only one instance of `graph` may be executing,
-or pending execution, at any time. Concurrent graph execution can be achieved by
-finalizing a graph in modifiable state into multiple graphs in executable state.
+or pending execution, at any time unless `property::graph::updatable_graph` is
+set.
 
 Parameters:
 
@@ -1172,7 +1194,8 @@ Exceptions:
   from the device and context used on creation of the graph.
 
 * Throws synchronously with error code `invalid` if a previous submission of
-  `graph` has yet to complete execution.
+  `graph` has yet to complete execution and `property::graph::updatable_graph`
+  is not set on `graph`.
 |===
 
 === Thread Safety
