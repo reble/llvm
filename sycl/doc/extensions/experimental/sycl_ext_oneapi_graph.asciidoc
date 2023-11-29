@@ -732,8 +732,8 @@ The aspects of a kernel execution node that can be configured during update are:
 * ND-Range of the kernel.
 
 Two methods are provided by the API to the user for performing this update.
-An API for updating the complete graph object, useful when the graph was
-created from a library, and an individual node update API.
+An API for updating the complete graph object, which is most useful when the
+graph was created from a library, and an individual node update API.
 
 To update an executable graph, the `property::graph::updatable_graph` property
 must have been set when the graph was created during finalization. Otherwise, an
@@ -758,9 +758,9 @@ By registering the `dynamic_parameter` with a node using
 `node::register_dynamic_parameter()` the memory object underlying dynamic parameter
 is matched to a node argument, and the `dynamic_parameter` can then be
 used to update that node argument in future. This registration is necessary
-because SYCL kernel arguments don't have indices and ordering of lambda captures
-isn't defined, so to we need a way to tie the underlying node argument to
-a `dynamic_parameter` object.
+because SYCL kernel arguments don't have indices and the argument ordering of
+lambda captures isn't defined, so we need a way to tie the underlying node
+argument to a `dynamic_parameter` object.
 
 The update itself is then performed on the `dynamic_parameter` by calling
 `command_graph<graph_state::executable>::update_dynamic_parameter()`. If
@@ -783,7 +783,10 @@ of buffer parameters do not change the behaviour of a graph when executed.
 For example, if there are two nodes (NodeA and NodeB) which are connected
 by an edge due to a dependency on the same buffer, both nodes must have
 this buffer parameter updated to the new value. This maintains the correct
-data dependency, and prevents unexpected behaviour.
+data dependency, and prevents unexpected behaviour. To achieve this, one
+dynamic parameter for the buffer can be registered with all the nodes which
+use the buffer as a parameter. Then a single `update_dynamic_parameter()` call
+with this list of nodes will maintain the graphs data dependencies.
 
 ==== Graph Properties [[graph-properties]]
 
@@ -1018,10 +1021,26 @@ Exceptions:
 * Throws synchronously with error code `invalid` if the path is invalid or
 the file extension is not supported or if the write operation failed.
 
+|
+[source,c++]
+----
+std::vector<node> get_nodes() const;
+----
+|Returns a list of all the nodes present in the graph in the order that they
+were added.
+
+|
+[source,c++]
+----
+std::vector<node> get_root_nodes() const;
+----
+|Returns a list of all nodes in the graph which have no dependencies in the
+order they were added to the graph.
+
 |===
 
 Table {counter: tableNumber}. Member functions of the `command_graph` class for
-graph update
+graph update.
 [cols="2a,a"]
 |===
 |Member function|Description
@@ -1138,6 +1157,7 @@ Exceptions:
 * Throws synchronously with error code `invalid` if `recordingQueue` is
   associated with a device or context that is different from the device
   and context used on creation of the graph.
+
 |
 [source, c++]
 ----
@@ -1202,20 +1222,6 @@ Exceptions:
 
 * Throws synchronously with error code `invalid` if `recordingQueue` is
   recording to a different graph.
-
-|
-[source,c++]
-----
-std::vector<node> get_nodes() const;
-----
-|Returns a list of all the nodes present in the graph.
-
-|
-[source,c++]
-----
-std::vector<node> get_root_nodes() const;
-----
-|Returns a list of all nodes in the graph which have no dependencies.
 
 |
 [source, c++]
