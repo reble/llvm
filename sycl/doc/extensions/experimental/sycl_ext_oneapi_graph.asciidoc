@@ -338,6 +338,11 @@ class assume_buffer_outlives_graph {
   public:
     assume_buffer_outlives_graph() = default;
 };
+
+class updatable_graph {
+  public:
+    updatable_graph() = default;
+};
 } // namespace graph
 
 namespace node {
@@ -730,6 +735,18 @@ Two methods are provided by the API to the user for performing this update.
 An API for updating the complete graph object, useful when the graph was
 created from a library, and an individual node update API.
 
+To update an executable graph, the `property::graph::updatable_graph` property
+must have been set when the graph was created during finalization. Otherwise, an
+exception will be thrown if a user tries to update an executable graph. This
+guarantee allows the backend to provide a more optimized implementation, if
+possible.
+
+The `property::graph::updatable_graph` property also allows an executable graph
+to be submitted for execution while a previous submission of the same
+executable graph instance is still executing. This is because the ability to
+change the graph inputs/outputs can remove the data race conditions that could
+otherwise exist if the same executable graph was executed concurrently.
+
 ===== Whole Graph Update
 
 ===== Individual Node Update
@@ -969,8 +986,9 @@ Preconditions:
 
 Parameters:
 
-* `propList` - Optional parameter for passing properties. No finalization
-  properties are defined by this extension.
+* `propList` - Optional parameter for passing properties. The only property
+  that is valid to pass here is `property::graph::updatable_graph`, to enable
+  the returned executable graph to be <<executable-graph-update, updated>>.
 
 Returns: A new executable graph object which can be submitted to a queue.
 
@@ -1037,6 +1055,9 @@ Parameters:
 
 Exceptions:
 
+* Throws synchronously with error code `invalid` if
+  `property::graph::updatable_graph` was not set when the executable graph
+  was created.
 * Throws with error code `invalid` if any node in `nodes` is not part of the
   graph.
 * Throws with error code `invalid` if `dynamicParam` is not registered with any
@@ -1378,9 +1399,9 @@ handler::ext_oneapi_graph(command_graph<graph_state::executable>& graph)
 ----
 
 |Invokes the execution of a graph. Only one instance of `graph` will
-execute at any time. If `graph` is submitted multiple times, dependencies
-are automatically added by the runtime to prevent concurrent executions of 
-an identical graph.
+execute at any time. If `graph` is submitted multiple times and
+`property::graph::updatable_graph` is not set, dependencies are automatically
+added by the runtime to prevent concurrent executions of an identical graph.
 
 Parameters:
 
