@@ -314,7 +314,7 @@ enum class graph_support_level {
 };
 
 enum class node_type {
-  empty = 0,
+  empty,
   subgraph,
   kernel,
   memcpy,
@@ -373,7 +373,9 @@ struct graphs_support;
 class dynamic_parameter {
 public:
   template <typename T>
-  explicit dynamic_parameter(T param, std::string label = "");
+  dynamic_parameter(T param, std::string label = "");
+
+  dynamic_parameter(std::string label = "");
 
   const std::string& get_label() const;
 };
@@ -382,11 +384,20 @@ class node {
 public:
   node() = delete;
 
-  node_type get_type() const;
-  std::vector<node> get_dependencies() const;
-  std::vector<node> get_dependent_nodes() const;
+  /* -- parameter update interface -- */
 
   void register_dynamic_parameter(dynamic_parameter dynamicParam) const;
+
+  void register_dynamic_parameter(int argIndex,
+                                  dynamic_parameter dynamicParam) const;
+
+  /* -- query interface -- */
+
+  node_type get_type() const;
+
+  std::vector<node> get_dependencies() const;
+
+  std::vector<node> get_dependent_nodes() const;
 
   static node get_node_from_event(event nodeEvent);
 };
@@ -435,9 +446,12 @@ class command_graph<graph_state::executable> {
 public:
   command_graph() = delete;
 
-  void update_dynamic_parameter(dynamic_parameter dynamicParam,
-                                T newValue);
-  template<int Dimensions>
+  /* -- update interface -- */
+
+  template <typename T>
+  void update_dynamic_parameter(T newValue, dynamic_parameter dynamicParam);
+
+  template <int Dimensions>
   void update_nd_range(const std::vector<node>& nodes,
                        nd_range<Dimensions> executionRange);
 };
@@ -508,15 +522,16 @@ The `node` class provides the {crs}[common reference semantics].
 
 Dynamic parameters are arguments to a node's command-group which can be updated
 by the user after the node has been added to a graph. They are updated through
-an executable graph which contains the node associated with a dynamic parameter
+an executable graph which contains the nodes associated with a dynamic parameter
 object.
 
-Dynamic parameters may represent either a `sycl::buffer` or a pointer to a USM
-allocation. When dynamic parameters are updated, the new value must be
-compatible with the existing value. For USM allocations this must be a pointer
-to a valid USM allocation in the same context, and for buffers the new value
-must have a total memory size that is greater than or equal to the original
-value.
+When dynamic parameters are created they are either empty or represent an
+underlying memory object. This underlying memory object can be a `sycl::buffer`,
+a pointer to a USM allocation, otherwise it is treated as a scalar. When dynamic
+parameters are registered with nodes or updated, the new value must be
+compatible with any existing value. Empty nodes are registered with kernel
+parameters using the argument index, after which they are initialized to
+reference the underlying memory object at that index.
 
 Dynamic parameters can optionally have a user-specified string label associated
 with them. This can provide meaningful names to help track what the parameters
@@ -543,15 +558,26 @@ about updating node parameters.
 Parameters:
 
 * `param` - The parameter used in the node which should be registered for
-updating. It can be either a `sycl::buffer` or a pointer to a USM allocation.
+updating. It can be either a `sycl::buffer`, a pointer to a USM allocation,
+or else is treated as a scalar.
 
 * `label` - An optional string label which can be used to help identify the
 parameter which has been registered as dynamic.
 
-Exceptions:
+|
+[source,c++]
+----
+dynamic_parameter(std::string label = "") const;
+----
+|Constructs an empty dynamic parameter. The registration of an empty dynamic
+parameter must use the kernel argument index, as there is no underlying memory
+object to match kernel parameters against.
 
-* Throws with error code `invalid` if `param` is not a `sycl::buffer` or a
-  pointer to a USM allocation.
+See <<executable-graph-update, Executable Graph Update>> for more information
+about updating node parameters.
+
+* `label` - An optional string label which can be used to help identify the
+parameter which has been registered as dynamic.
 
 |
 [source,c++]
@@ -568,6 +594,63 @@ Table {counter: tableNumber}. Member functions of the `node` class.
 [cols="2a,a"]
 |===
 |Member Function|Description
+
+|
+[source,c++]
+----
+void register_dynamic_parameter(dynamic_parameter dynamicParam) const;
+----
+|Associate a dynamic parameter with kernel parameter of this node.
+All kernel arguments matching the memory object referenced by `dynamicParam`
+are bound to `dynamicParam`.
+
+See <<executable-graph-update, Executable Graph Update>> for more information
+about updating node parameters.
+
+Parameters:
+
+* `dynamicParam` - Dynamic parameter which is to be associated with the kernel
+   arguments matching `param`.
+
+Exceptions:
+
+* Throws with error code `invalid` if `dynamicParam` is empty or does not match
+  any arguments in the node.
+
+* Throws with error code `invalid` if the type of the node is not a kernel
+  execution.
+
+|
+[source,c++]
+----
+void register_dynamic_parameter(int argIndex,
+                                dynamic_parameter dynamicParam) const;
+----
+|Associate a dynamic parameter with a kernel parameter of this node via the
+argument index. Although argument ordering is not defined for lambda captures,
+the ordering is reliable for arguments set using `handler::set_arg()` or
+`handler::set_args()`.
+
+See <<executable-graph-update, Executable Graph Update>> for more information
+about updating node parameters.
+
+Parameters:
+
+* `argIndex` - Kernel argument index starting from zero to associate
+  `dynamicParam` with.
+* `dynamicParam` - Dynamic parameter which is associated with the kernel
+   argument at index `argIndex`.
+
+Exceptions:
+
+* Throws with error code `invalid` if `argIndex` is not a valid argument index
+  for the kernel.
+
+* Throws with error code `invalid` if `dynamicParam` wraps a memory object that
+  cannot be tied to the parameter of the node at `argIndex`.
+
+* Throws with error code `invalid` if the type of the node is not a kernel
+  execution.
 
 |
 [source,c++]
@@ -593,37 +676,10 @@ std::vector<node> get_dependent_nodes() const;
 |
 [source,c++]
 ----
-void register_dynamic_parameter(T dynamicParam) const;
-----
-|Associate a dynamic parameter with a kernel parameter of this node, so that an
-update to the dynamic parameter modifies the kernel parameter. All matching
-kernel arguments are bound, therefore if a kernel has identical parameters
-which reference the same memory object as `dynamicParam`, all those parameters
-are associated to `dynamicParam` and will be affected by an update to it.
-
-See <<executable-graph-update, Executable Graph Update>> for more information
-about updating node parameters.
-
-Parameters:
-
-* `dynamicParam` - Dynamic parameter used in the node which is registered for
-   updating.
-
-Exceptions:
-
-* Throws with error code `invalid` if the memory wrapped by `dynamicParam` can not
-  be tied to a parameter of the node.
-
-* Throws with error code `invalid` if the type of the node is not a kernel
-  execution.
-
-|
-[source,c++]
-----
 static node get_node_from_event(event nodeEvent);
 ----
-| Finds the node associated with an event created from a submission to a queue
-  in the recording state.
+|Finds the node associated with an event created from a submission to a queue
+ in the recording state.
 
 Parameters:
 
@@ -755,24 +811,23 @@ otherwise exist if the same executable graph was executed concurrently.
 
 Memory parameters to individual nodes in a graph in the `executable` state
 can be updated between graph executions using dynamic parameters. When a
-`dynamic_parameter` instance is created it is associated with a memory object.
-By registering the `dynamic_parameter` with a node using
-`node::register_dynamic_parameter()` the memory object underlying dynamic parameter
-is matched to a node argument, and the `dynamic_parameter` can then be
-used to update that node argument in future. This registration is necessary
-because SYCL kernel arguments don't have indices and the argument ordering of
-lambda captures isn't defined, so we need a way to tie the underlying node
-argument to a `dynamic_parameter` object.
+`dynamic_parameter` instance is created it is either empty or associated with a
+memory object. By registering the `dynamic_parameter` with a node using
+`node::register_dynamic_parameter()`, the dynamic parameter is matched to a node
+argument, and the `dynamic_parameter` can then be used to update that node
+argument in future.
 
-The update itself is then performed on the `dynamic_parameter` by calling
-`command_graph<graph_state::executable>::update_dynamic_parameter()`. If
-a user tries to register a dynamic parameter with a node, after that dynamic
-parameter has been updated with a new value, then it is the new value that
-must match one of the nodes arguments for the registration to be successful,
-rather than the value originally used to construct the dynamic parameter.
+The update itself is then performed using a `dynamic_parameter` instance by
+calling `command_graph<graph_state::executable>::update_dynamic_parameter()` to
+update all the parameters of nodes in an executable graph to which the
+`dynamic_parameter` is registered. If a user tries to register a dynamic
+parameter with a node, after that dynamic parameter has been updated with a new
+value, then it is the new value that must match one of the nodes arguments for
+the registration to be successful, rather than the value originally used to
+construct the dynamic parameter.
 
 The other node configuration that can be updated is the ND-Range, this can
-be set through `command_graph<graph_state::executable>::update_nd_range` but
+be set through `command_graph<graph_state::executable>::update_nd_range()` but
 does not require any prior registration.
 
 Since the structure of the graph became fixed when finalizing, updating
@@ -1051,8 +1106,7 @@ graph update.
 [source,c++]
 ----
 template <typename T>
-void update_dynamic_parameter(dynamic_parameter dynamicParam,
-                              T newValue);
+void update_dynamic_parameter(T newValue, dynamic_parameter dynamicParam);
 ----
 
 | Updates parameters in nodes associated with `dynamicParam` to a new value.
@@ -1067,9 +1121,10 @@ Preconditions:
 
 Parameters:
 
-* `dynamicParam` - The object which represents the parameter to be updated.
-
 * `newValue` - The new value for the parameter being updated.
+
+* `dynamicParam` - The object which represents the node parameters to be
+  updated.
 
 Exceptions:
 
@@ -1083,6 +1138,9 @@ Exceptions:
 
 ** For buffers `newValue` must have a total memory size that is greater
 than or equal to the parameter represented by `dynamicParam`.
+
+** For scalars `newValue` must have a memory size that is equal to the
+parameter represented by `dynamicParam`.
 
 |
 [source,c++]
