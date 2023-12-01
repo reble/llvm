@@ -397,7 +397,7 @@ class node {
 public:
   node() = delete;
 
-  /* -- parameter update interface -- */
+  /* -- parameter registration interface -- */
 
   void register_dynamic_parameter(void* param,
                                   dynamic_parameter<dynamic_parameter_type::usm> dynamicParam) const;
@@ -555,14 +555,15 @@ by the user after the node has been added to a graph. They are updated through
 an executable graph which contains the nodes associated with a dynamic parameter
 object.
 
-The type of the underlying object a dynamic parameter represents is set at compile
-time using a template parameter. This underlying memory object can be a
-`sycl::buffer`, a pointer to a USM allocation, or a scalar passed by value.
+The type of the underlying object a dynamic parameter represents is set at
+compile time using a template parameter. This underlying memory object can be a
+`sycl::buffer` accessor, a pointer to a USM allocation, or a scalar passed by
+value.
 
 Dynamic parameters are registered with nodes, with each registration associating
 a node argument to the dynamic parameter instance. An update of the dynamic
-parameter instance to a new value, will then update all the parameter which have
-been registered to the node.
+parameter instance to a new value, will then update all the node parameter which
+have been registered to the node.
 
 Dynamic parameters can optionally have a user-specified string label associated
 with them. This can provide meaningful names to help track what the parameters
@@ -681,8 +682,9 @@ void register_dynamic_parameter(
     T param,
     dynamic_parameter<dynamic_parameter_type::buffer> dynamicParam) const;
 ----
-|Associate a buffer dynamic parameter with buffer kernel parameter of this node.
-All buffer kernel arguments matching `param` are bound to `dynamicParam`.
+|Associate a buffer dynamic parameter with buffer accessor kernel parameter of
+this node. All buffer accessor kernel arguments matching `param` are bound to
+`dynamicParam`.
 
 See <<executable-graph-update, Executable Graph Update>> for more information
 about updating node parameters.
@@ -733,7 +735,6 @@ Exceptions:
 
 * Throws with error code `invalid` if the type of the node is not a kernel
   execution.
-
 
 |
 [source,c++]
@@ -907,8 +908,8 @@ The aspects of a kernel execution node that can be configured during update are:
 * ND-Range of the kernel.
 
 Two methods are provided by the API to the user for performing this update.
-An API for updating the complete graph object, which is most useful when the
-graph was created from a library, and an individual node update API.
+An API for updating the whole graph object, which is most useful when the
+graph was recorded, and an individual node update API.
 
 To update an executable graph, the `property::graph::updatable_graph` property
 must have been set when the graph was created during finalization. Otherwise, an
@@ -1285,7 +1286,7 @@ Exceptions:
   `property::graph::updatable_graph` was not set when the executable graph
   was created.
 
-* Throws with error code `invalid` if `newValue` is not a valid buffer.
+* Throws with error code `invalid` if `newValue` is not a valid buffer accessor.
 
 |
 [source,c++]
