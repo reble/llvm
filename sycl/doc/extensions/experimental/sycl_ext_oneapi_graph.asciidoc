@@ -1484,13 +1484,16 @@ Parameters:
 
 Exceptions:
 
+* Throws synchronously with error code `invalid` if
+  `property::graph::updatable` was not set when the executable graph was created.
 * Throws with error code `invalid` if any node in `nodes` is not part of the
   graph.
 * Throws with error code `nd_range` if `executionRange` is an invalid ND-Range
   for any node in `nodes`.
 |===
 
-Table {counter: tableNumber}. Member functions of the `command_graph` class for queue recording.
+Table {counter: tableNumber}. Member functions of the `command_graph` class for
+queue recording.
 [cols="2a,a"]
 |===
 |Member function|Description
@@ -2528,6 +2531,14 @@ runtime.
 
 == Issues
 
+=== Update More Command Types
+
+Support updating arguments to types of nodes other that kernel execution
+commands.
+
+**RESOLVED** Should be added be for at least memory copy nodes, however
+fully scope of support needs designed and implemented.
+
 === Multi Device Graph
 
 Allow an executable graph to contain nodes targeting different devices.
@@ -2592,8 +2603,8 @@ if used in application code.
   `sycl::ext::intel::property::queue::no_immediate_command_list`
   should be set on construction to any queues an executable
   graph is submitted to.
-. Synchronization between multiple executions of the same command-buffer 
-  must be handled in the host for level-zero backend, which may involve 
+. Synchronization between multiple executions of the same command-buffer
+  must be handled in the host for level-zero backend, which may involve
   extra latency for subsequent submissions.
 
 == Revision History
