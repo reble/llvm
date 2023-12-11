@@ -244,7 +244,7 @@ to define an edge between existing nodes, or using a
 
 Edges can also be created when explicitly adding nodes to the graph through
 existing SYCL mechanisms for expressing dependencies. Data dependencies from
-buffer accessors to existing nodes in the graph are captured as an edge. Using
+accessors to existing nodes in the graph are captured as an edge. Using
 `handler::depends_on()` will also create a graph edge when passed an event
 returned from a queue submission captured by a queue recording to the same graph.
 |===
@@ -323,6 +323,7 @@ enum class node_type {
   prefetch,
   memadvise,
   ext_oneapi_barrier,
+  host_task,
 };
 
 namespace property {
@@ -497,7 +498,6 @@ class command_graph<graph_state::executable> {
 public:
   command_graph() = delete;
 
-
   template <int Dimensions>
   void update_nd_range(const std::vector<node>& nodes,
                        nd_range<Dimensions> executionRange);
@@ -568,8 +568,8 @@ The `node` class provides the {crs}[common reference semantics].
 ==== Dynamic Parameters
 
 Dynamic parameters are arguments to a node's command-group which can be updated
-by the user after the node has been added to a graph. They are updated through
-an executable graph which contains the nodes associated with a dynamic parameter
+by the user after the node has been added to a graph. They are updated on an
+executable graph which contains the nodes associated with the dynamic parameter
 object.
 
 The type of the underlying object a dynamic parameter represents is set at
@@ -691,7 +691,7 @@ void register(void* param, node node);
 ----
 |Associate the dynamic parameter with USM kernel parameter for `node`. All USM
 kernel arguments matching `param` are bound to the dynamic parameter. If `param`
-has already been registered with the dynamic-parameter for `node`, this
+has already been registered with the dynamic parameter for `node`, this
 operation is a no-op.
 
 Preconditions:
@@ -701,8 +701,8 @@ Preconditions:
 
 Parameters:
 
-* `param` - USM pointer to used as a node argument.
-* `node` - Kernel command node to look for a argument matching `param`.
+* `param` - USM pointer used as a node argument.
+* `node` - Kernel command to look for an argument matching `param`.
 
 Exceptions:
 
@@ -711,7 +711,7 @@ Exceptions:
 * Throws with error code `invalid` if the type of `node` is not a kernel
   execution.
 * Throws with error code `invalid` if `node` is not a member of the graph that
-  this dynamic-parameter was created with.
+  this dynamic parameter was created with.
 
 |
 [source,c++]
@@ -731,7 +731,7 @@ Preconditions:
 
 Parameters:
 
-* `param` - USM pointer to used as a node argument.
+* `param` - USM pointer used as a node argument.
 
 Exceptions:
 
@@ -757,17 +757,17 @@ Preconditions:
 Parameters:
 
 * `param` - Accessor used as a node argument.
-* `node` - Kernel command node to look for a argument matching `param`.
+* `node` - Kernel command to look for an argument matching `param`.
 
 Exceptions:
 
 * Throws with error code `invalid` if `param` does not match any arguments in
   `node`.
-* Throws with error code `invalid` if `param` is not a buffer accessor.
+* Throws with error code `invalid` if `param` is not an accessor.
 * Throws with error code `invalid` if the type of `node` is not a kernel
   execution.
 * Throws with error code `invalid` if `node` is not a member of the graph that
-  this dynamic-parameter was created with.
+  this dynamic parameter was created with.
 
 |
 [source,c++]
@@ -789,7 +789,7 @@ Preconditions:
 
 Parameters:
 
-* `param` - Scalar used as a node argument.
+* `param` - Accessor used as a node argument.
 
 Exceptions:
 
@@ -815,7 +815,7 @@ Preconditions:
 Parameters:
 
 * `param` - Scalar used as a node argument.
-* `node` - Kernel command node to look for a argument matching `param`.
+* `node` - Kernel command to look for an argument matching `param`.
 
 Exceptions:
 
@@ -826,7 +826,7 @@ Exceptions:
 * Throws with error code `invalid` if the type of `node` is not a kernel
   execution.
 * Throws with error code `invalid` if `node` is not a member of the graph that
-  this dynamic-parameter was created with.
+  this dynamic parameter was created with.
 
 |
 [source,c++]
@@ -874,7 +874,7 @@ Parameters:
 
 * `argIndex` - Kernel argument index starting from zero to associate with
   the dynamic parameter.
-* `node` - Kernel command node to associate with argument at index `argIndex`.
+* `node` - Kernel command to associate with argument at index `argIndex`.
 
 Exceptions:
 
@@ -885,7 +885,7 @@ Exceptions:
 * Throws with error code `invalid` if the type of `node` is not a kernel
   execution.
 * Throws with error code `invalid` if `node` is not a member of the graph that
-  this dynamic-parameter was created with.
+  this dynamic parameter was created with.
 
 |===
 
@@ -915,7 +915,7 @@ Preconditions:
 
 Parameters:
 
-* `newValue` - The new value for the parameters being updated.
+* `newValue` - Value to the parameters being updated to.
 * `execGraph` - The executable graph to update the node parameters for.
 
 Exceptions:
@@ -950,7 +950,7 @@ Preconditions:
 
 Parameters:
 
-* `newValue` - The new value for the parameter being updated.
+* `newValue` - Value to the parameters being updated to.
 * `execGraph` - The executable graph to update the node parameters for.
 
 Exceptions:
@@ -984,7 +984,7 @@ Preconditions:
 
 Parameters:
 
-* `newValue` - The new value for the parameter being updated.
+* `newValue` - Value to the parameters being updated to.
 * `execGraph` - The executable graph to update the node parameters for.
 
 Exceptions:
