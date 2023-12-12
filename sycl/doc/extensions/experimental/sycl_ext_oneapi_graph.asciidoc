@@ -374,7 +374,8 @@ struct graphs_support;
 enum class dynamic_parameter_type {
   usm,
   accessor,
-  scalar
+  scalar,
+  raw
 };
 
 template <dynamic_parameter_type DynParamType>
@@ -387,6 +388,7 @@ public:
                     std::string label = "");
 
   void register(void* param, node node);
+
   void register(void* param);
 
   void register(int argIndex, node node);
@@ -435,6 +437,25 @@ public:
 
   template <typename T>
   void update(T newValue,
+              command_graph<graph_state::executable> execGraph);
+
+  size_t get_size() const;
+  const std::string& get_label() const;
+};
+
+template <>
+class dynamic_parameter<dynamic_parameter_type::raw> {
+public:
+  dynamic_parameter(command_graph<graph_state::modifiable> graph,
+                    size_t size, std::string label = "");
+
+  void register(void* param, node node);
+
+  void register(void* param);
+
+  void register(int argIndex, node node);
+
+  void update(void* newValue,
               command_graph<graph_state::executable> execGraph);
 
   size_t get_size() const;
@@ -574,7 +595,10 @@ object.
 
 The type of the underlying object a dynamic parameter represents is set at
 compile time using a template parameter. This underlying memory object can be an
-accessor, a pointer to a USM allocation, or a scalar passed by value.
+accessor, a pointer to a USM allocation, scalar passed by value, or a raw byte
+representation of the argument. The raw byte representation is intended to enable
+updating arguments set using
+link:../proposed/sycl_ext_oneapi_raw_kernel_arg.asciidoc[sycl_ext_oneapi_raw_kernel_arg].
 
 Dynamic parameters are registered with nodes in a modifiable graph, with each
 registration associating one or more node arguments to the dynamic parameter
@@ -642,18 +666,18 @@ parameter which has been registered as dynamic.
 dynamic_parameter(command_graph<graph_state::modifiable> graph,
                   size_t size, std::string label = "");
 ----
-|Constructs a scalar dynamic parameter object that can be registered with node
-arguments.
+|Constructs a dynamic parameter object representing defined number of bytes
+that can be registered with node arguments.
 
 Preconditions:
 
 * This constructor is only available when the templated `dynamic_parameter_type`
-  is `dynamic_parameter_type::scalar`.
+  is `dynamic_parameter_type::scalar` or `dynamic_parameter_type::raw`.
 
 Parameters:
 
 * `graph` - Graph containing the nodes which will have dynamic parameters.
-* `size` - Size in bytes of the scalar object.
+* `size` - Size in bytes of the parameter.
 * `label` - An optional string label which can be used to help identify the
 parameter which has been registered as dynamic.
 
@@ -674,7 +698,7 @@ size_t get_size() const;
 Preconditions:
 
 * This constructor is only available when the templated `dynamic_parameter_type`
-  is `dynamic_parameter_type::scalar`.
+  is `dynamic_parameter_type::scalar` or `dynamic_parameter_type::raw`.
 
 |===
 
@@ -735,7 +759,7 @@ Parameters:
 
 Exceptions:
 
-* Throws with error code `invalid` if `param` no node arguments are matched
+* Throws with error code `invalid` if no node arguments are matched to `param`
   in the graph.
 
 |
@@ -793,7 +817,7 @@ Parameters:
 
 Exceptions:
 
-* Throws with error code `invalid` if `param` no node arguments are matched
+* Throws with error code `invalid` if no node arguments are matched to `param`
   in the graph.
 
 |
@@ -852,7 +876,7 @@ Parameters:
 
 Exceptions:
 
-* Throws with error code `invalid` if `param` no node arguments are matched
+* Throws with error code `invalid` if no node arguments are matched to `param`
   in the graph.
 
 * Throws with error code `invalid` if the size of `param` does not match the
@@ -861,8 +885,65 @@ Exceptions:
 |
 [source,c++]
 ----
-template <dynamic_parameter_type DynParamType, >
-void register_dynamic_parameter(int argIndex, node node);
+void register(void* param, node node);
+----
+|Associate the dynamic parameter with kernel parameter for `node`. All
+kernel arguments matching the bytes pointed to by `param` are bound to the
+dynamic parameter. If `param` has already been registered with the dynamic
+parameter for `node`, this operation is a no-op.
+
+Preconditions:
+
+* This method is only available when the templated `dynamic_parameter_type`
+  of the `dynamic_parameter` instance is `dynamic_parameter_type::raw`.
+
+Parameters:
+
+* `param` - Byte array of size set on the creation of the dynamic parameter.
+* `node` - Kernel command to look for an argument matching `param`.
+
+Exceptions:
+
+* Throws with error code `invalid` if `param` is a null pointer.
+* Throws with error code `invalid` if `param` does not match any arguments in
+  `node`.
+* Throws with error code `invalid` if the type of `node` is not a kernel
+  execution.
+* Throws with error code `invalid` if `node` is not a member of the graph that
+  this dynamic parameter was created with.
+
+|
+[source,c++]
+----
+void register(void* param);
+----
+|Associate the dynamic parameter with all the kernel parameters which match
+the bytes pointed to by `param` in the graph used on creation of the dynamic
+parameter. For every kernel node in the graph, the dynamic parameter binds to
+any kernel arguments matching the bytes of `param`. It is not an error if the
+dynamic parameter fails to bind to a single node, only if no nodes in the graph
+have an argument matching `param`.
+
+Preconditions:
+
+* This method is only available when the templated `dynamic_parameter_type`
+  of the `dynamic_parameter` instance is `dynamic_parameter_type::raw`.
+
+Parameters:
+
+* `param` - Byte array of size set on the creation of the dynamic parameter.
+
+Exceptions:
+
+* Throws with error code `invalid` if `param` is a null pointer.
+* Throws with error code `invalid` if no node arguments are matched to `param`
+  in the graph.
+
+|
+[source,c++]
+----
+template <dynamic_parameter_type DynParamType>
+void register(int argIndex, node node);
 ----
 |Associate the dynamic parameter with a kernel parameter of `node` via the
 argument index. Although argument ordering is not defined for lambda captures,
@@ -993,6 +1074,40 @@ Exceptions:
   `property::graph::updatable` was not set when `execGraph` was created.
 * Throws with error code `invalid` if `newValue` does not have the same size
   as specified on creation of the dynamic parameter.
+* Throws synchronously with error code `invalid` if the graph set on creation of
+  the dynamic parameter is not the same graph as used to create `execGraph`.
+* Throws synchronously with error code `invalid` if the dynamic parameter is
+  not associated with any nodes in `execGraph`.
+
+|
+[source,c++]
+----
+void update(void* newValue,
+            command_graph<graph_state::executable> execGraph);
+----
+
+|Updates raw byte parameters in `execGraph` nodes associated with the dynamic
+parameter to a new value represented by array `newValue` of the size set when
+the dynamic parameter was created. This new value will not affect any prior submissions
+of `execGraph` and will take affect only for future submissions. It is not an
+error if `newValue` is set to the current parameter value in nodes of
+`execGraph`, i.e. no update occurred.
+
+Preconditions:
+
+* This method is only available when the templated `dynamic_parameter_type`
+  of the `dynamic_parameter` instance is `dynamic_parameter_type::raw`.
+
+Parameters:
+
+* `newValue` - Byte array containing the value to update the parameters to.
+* `execGraph` - The executable graph to update the node parameters for.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if `newValue` is a null pointer.
+* Throws synchronously with error code `invalid` if
+  `property::graph::updatable` was not set when `execGraph` was created.
 * Throws synchronously with error code `invalid` if the graph set on creation of
   the dynamic parameter is not the same graph as used to create `execGraph`.
 * Throws synchronously with error code `invalid` if the dynamic parameter is
