@@ -603,7 +603,9 @@ link:../proposed/sycl_ext_oneapi_raw_kernel_arg.asciidoc[sycl_ext_oneapi_raw_ker
 Dynamic parameters are registered with nodes in a modifiable graph, with each
 registration associating one or more node arguments to the dynamic parameter
 instance. It is valid for a node argument to be registered with more than one
-dynamic argument instance.
+dynamic parameter instance, the semantics of this are that the last update to
+any of the dynamic parameters on an executable graph is the new node argument
+on the next submissions of that executable graph.
 
 When registration is done by matching the node argument value, it must
 be the original argument value. Attempting to register the dynamic parameter
