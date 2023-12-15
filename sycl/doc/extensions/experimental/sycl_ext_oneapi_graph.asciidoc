@@ -427,12 +427,6 @@ public:
   dynamic_parameter(command_graph<graph_state::modifiable> graph,
                     size_t size, std::string label = "");
 
-  template <typename T>
-  void register(T param, node node);
-
-  template <typename T>
-  void register(T param);
-
   void register(int argIndex, node node);
 
   template <typename T>
@@ -448,10 +442,6 @@ class dynamic_parameter<dynamic_parameter_type::raw> {
 public:
   dynamic_parameter(command_graph<graph_state::modifiable> graph,
                     size_t size, std::string label = "");
-
-  void register(void* param, node node);
-
-  void register(void* param);
 
   void register(int argIndex, node node);
 
@@ -606,6 +596,14 @@ instance. It is valid for a node argument to be registered with more than one
 dynamic parameter instance, the semantics of this are that the last update to
 any of the dynamic parameters on an executable graph is the new node argument
 on the next submissions of that executable graph.
+
+Registration is done either using the argument index (known when argument
+originally set using `set_arg()`/`set_args()`), or by matching the argument
+value. Matching for USM typed dynamic parameters is done by direct comparison
+of the pointer values. Matching for accessors is done by verifying the
+underlying managed data is the same. Raw and scalar typed dynamic parameters
+can't be registered by matching however, as the chances of unintentional
+collisions in the comparison are too high.
 
 When registration is done by matching the node argument value, it must
 be the original argument value. Attempting to register the dynamic parameter
@@ -819,125 +817,6 @@ Parameters:
 
 Exceptions:
 
-* Throws with error code `invalid` if no node arguments are matched to `param`
-  in the graph.
-
-|
-[source,c++]
-----
-template <typename T>
-void register(T param, node node);
-----
-|Associate a scalar dynamic parameter with a scalar kernel parameter of `node`.
-All scalar kernel arguments matching `param` are bound to the dynamic parameter.
-If `param` has already been registered with the dynamic parameter for this node,
-then this operation is a no-op.
-
-Preconditions:
-
-* This method is only available when the templated `dynamic_parameter_type`
-  of the `dynamic_parameter` instance is `dynamic_parameter_type::scalar`.
-
-Parameters:
-
-* `param` - Scalar used as a node argument.
-* `node` - Kernel command to look for an argument matching `param`.
-
-Exceptions:
-
-* Throws with error code `invalid` if `param` does not match any arguments in
-  `node`.
-* Throws with error code `invalid` if the size of `param` does not match the
-  size specified on creation of the dynamic parameter.
-* Throws with error code `invalid` if the type of `node` is not a kernel
-  execution.
-* Throws with error code `invalid` if `node` is not a member of the graph that
-  this dynamic parameter was created with.
-
-|
-[source,c++]
-----
-template <typename T>
-void register(T param);
-----
-|Associate the dynamic parameter with all the scalar kernel parameters which
-match `param` in the graph used on creation of the dynamic parameter. For
-every kernel node in the graph, the dynamic parameter binds to any kernel
-arguments matching `param`. It is not an error if the dynamic parameter fails
-to bind to a single node, only if no nodes in the graph have an argument
-matching `param`.
-
-Preconditions:
-
-* This method is only available when the templated `dynamic_parameter_type`
-  of the `dynamic_parameter` instance is `dynamic_parameter_type::scalar`.
-
-Parameters:
-
-* `param` - Scalar used as a node argument.
-
-Exceptions:
-
-* Throws with error code `invalid` if no node arguments are matched to `param`
-  in the graph.
-
-* Throws with error code `invalid` if the size of `param` does not match the
-  size specified on creation of the dynamic parameter.
-
-|
-[source,c++]
-----
-void register(void* param, node node);
-----
-|Associate the dynamic parameter with kernel parameter for `node`. All
-kernel arguments matching the bytes pointed to by `param` are bound to the
-dynamic parameter. If `param` has already been registered with the dynamic
-parameter for `node`, this operation is a no-op.
-
-Preconditions:
-
-* This method is only available when the templated `dynamic_parameter_type`
-  of the `dynamic_parameter` instance is `dynamic_parameter_type::raw`.
-
-Parameters:
-
-* `param` - Byte array of size set on the creation of the dynamic parameter.
-* `node` - Kernel command to look for an argument matching `param`.
-
-Exceptions:
-
-* Throws with error code `invalid` if `param` is a null pointer.
-* Throws with error code `invalid` if `param` does not match any arguments in
-  `node`.
-* Throws with error code `invalid` if the type of `node` is not a kernel
-  execution.
-* Throws with error code `invalid` if `node` is not a member of the graph that
-  this dynamic parameter was created with.
-
-|
-[source,c++]
-----
-void register(void* param);
-----
-|Associate the dynamic parameter with all the kernel parameters which match
-the bytes pointed to by `param` in the graph used on creation of the dynamic
-parameter. For every kernel node in the graph, the dynamic parameter binds to
-any kernel arguments matching the bytes of `param`. It is not an error if the
-dynamic parameter fails to bind to a single node, only if no nodes in the graph
-have an argument matching `param`.
-
-Preconditions:
-
-* This method is only available when the templated `dynamic_parameter_type`
-  of the `dynamic_parameter` instance is `dynamic_parameter_type::raw`.
-
-Parameters:
-
-* `param` - Byte array of size set on the creation of the dynamic parameter.
-
-Exceptions:
-
-* Throws with error code `invalid` if `param` is a null pointer.
 * Throws with error code `invalid` if no node arguments are matched to `param`
   in the graph.
 
@@ -1291,9 +1170,10 @@ dynamic parameter is matched to a node argument, and the `dynamic_parameter`
 can then be used to update that node argument in future.
 
 If a user doesn't have the individual `node` handles to register parameters
-with, they can use the `dynamic_parameter::register()` API that doesn't take
-a `node`. This entry-point iterates through the modifiable graph nodes, and
-tries to register the parameter against every kernel node in the graph.
+with, and the dynamic parameter type isn't raw or scalar, they can use the
+`dynamic_parameter::register()` API that doesn't take a `node` argument.
+This entry-point iterates through the modifiable graph nodes, and tries to
+register the parameter against every kernel node in the graph.
 
 The update itself is then performed using a `dynamic_parameter` instance by
 calling `dynamic_parameter::update()` to update all the parameters of nodes in
