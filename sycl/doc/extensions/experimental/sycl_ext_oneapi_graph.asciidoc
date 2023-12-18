@@ -458,9 +458,9 @@ public:
 
   node_type get_type() const;
 
-  std::vector<node> get_dependencies() const;
+  std::vector<node> get_predecessors() const;
 
-  std::vector<node> get_dependent_nodes() const;
+  std::vector<node> get_successors() const;
 
   static node get_node_from_event(event nodeEvent);
 };
@@ -1013,14 +1013,14 @@ node_type get_type() const;
 |
 [source,c++]
 ----
-std::vector<node> get_dependencies() const;
+std::vector<node> get_predecessors() const;
 ----
 |Returns a list of the predecessor nodes which this node depends on.
 
 |
 [source,c++]
 ----
-std::vector<node> get_dependent_nodes() const;
+std::vector<node> get_successors() const;
 ----
 |Returns a list of the successor nodes which depend on this node.
 
@@ -1188,12 +1188,12 @@ parameters on a node in a graph in the `executable` state will not change
 the already defined dependencies between nodes. This is important to note
 when updating buffer parameters to a node, since no edges will be automatically
 created or removed based on this change. Care should be taken that updates
-of buffer parameters do not change the behaviour of a graph when executed.
+of buffer parameters do not change the behavior of a graph when executed.
 
 For example, if there are two nodes (NodeA and NodeB) which are connected
 by an edge due to a dependency on the same buffer, both nodes must have
 this buffer parameter updated to the new value. This maintains the correct
-data dependency, and prevents unexpected behaviour. To achieve this, one
+data dependency and prevents unexpected behavior. To achieve this, one
 dynamic parameter for the buffer can be registered with all the nodes which
 use the buffer as a parameter. Then a single `dynamic_parameter::update()` call
 will maintain the graphs data dependencies.
@@ -2255,8 +2255,6 @@ int *ptrY = malloc_device<int>(n, myQueue);
 int *ptrZ = malloc_shared<int>(n, myQueue);
 int *ptrQ = malloc_device<int>(n, myQueue);
 
-// Initialize USM allocations
-
 // Kernel loaded from kernel bundle
 const std::vector<kernel_id> builtinKernelIds =
       myDevice.get_info<info::device::built_in_kernel_ids>();
@@ -2275,7 +2273,7 @@ dynamic_parameter<sycl_ext::dynamic_parameter_type::scalar> dynParamScalar(myGra
 // First node uses ptrX as an input & output parameter, with operand
 // mySclar as another argument.
 int myScalar = 42;
-node nodeA = myGraph.add[&](handler& cgh) {
+node nodeA = myGraph.add([&](handler& cgh) {
     cgh.set_args(ptrX, myScalar);
     cgh.parallel_for(range {n}, builtinKernel);
 });
@@ -2285,7 +2283,7 @@ dynParamInput.register(0, nodeA);  // Argument index 0 is ptrX
 dynParamInput.register(1, nodeA);  // Argument index 1 is myScalar
 
 // Second node uses ptrX as an inputs, and ptrY as input/output/
-node nodeB = myGraph.add[&](handler& cgh) {
+node nodeB = myGraph.add([&](handler& cgh) {
     cgh.parallel_for(sycl::range<1>{n}, [=](sycl::id<1> it) {
       const size_t i = it[0];
       ptrY[i] += ptrX[i];
