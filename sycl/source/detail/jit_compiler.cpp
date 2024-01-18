@@ -22,10 +22,6 @@ namespace sycl {
 inline namespace _V1 {
 namespace detail {
 
-jit_compiler::jit_compiler() : MJITContext{new ::jit_compiler::JITContext{}} {}
-
-jit_compiler::~jit_compiler() = default;
-
 static ::jit_compiler::BinaryFormat
 translateBinaryImageFormat(pi::PiDeviceBinaryType Type) {
   switch (Type) {
@@ -54,6 +50,13 @@ translateBinaryImageFormat(pi::PiDeviceBinaryType Type) {
         sycl::make_error_code(sycl::errc::feature_not_supported),
         "Backend unsupported by kernel fusion");
   }
+}
+
+::jit_compiler::TargetInfo getTargetInfo(QueueImplPtr &Queue) {
+  ::jit_compiler::BinaryFormat Format = getTargetFormat(Queue);
+  return ::jit_compiler::TargetInfo::get(
+      Format, static_cast<::jit_compiler::DeviceArchitecture>(
+                  Queue->getDeviceImplPtr()->getDeviceArch()));
 }
 
 std::pair<const RTDeviceBinaryImage *, sycl::detail::pi::PiProgram>
@@ -691,19 +694,24 @@ jit_compiler::fuseKernels(QueueImplPtr Queue,
       return A.MIndex < B.MIndex;
     });
 
-    ::jit_compiler::SYCLArgumentDescriptor ArgDescriptor;
+    ::jit_compiler::SYCLArgumentDescriptor ArgDescriptor{Args.size()};
     size_t ArgIndex = 0;
     // The kernel function in SPIR-V will only have the non-eliminated
     // arguments, so keep track of this "actual" argument index.
     unsigned ArgFunctionIndex = 0;
+    auto KindIt = ArgDescriptor.Kinds.begin();
+    auto UsageMaskIt = ArgDescriptor.UsageMask.begin();
     for (auto &Arg : Args) {
-      ArgDescriptor.Kinds.push_back(translateArgType(Arg.MType));
+      *KindIt = translateArgType(Arg.MType);
+      ++KindIt;
+
       // DPC++ internally uses 'true' to indicate that an argument has been
       // eliminated, while the JIT compiler uses 'true' to indicate an
       // argument is used. Translate this here.
       bool Eliminated = EliminatedArgs && !EliminatedArgs->empty() &&
                         (*EliminatedArgs)[ArgIndex++];
-      ArgDescriptor.UsageMask.emplace_back(!Eliminated);
+      *UsageMaskIt = !Eliminated;
+      ++UsageMaskIt;
 
       // If the argument has not been eliminated, i.e., is still present on
       // the kernel function in LLVM-IR/SPIR-V, collect information about the
@@ -824,11 +832,12 @@ jit_compiler::fuseKernels(QueueImplPtr Queue,
   JITConfig.set<::jit_compiler::option::JITEnableCaching>(
       detail::SYCLConfig<detail::SYCL_ENABLE_FUSION_CACHING>::get());
 
-  ::jit_compiler::BinaryFormat TargetFormat = getTargetFormat(Queue);
-  JITConfig.set<::jit_compiler::option::JITTargetFormat>(TargetFormat);
+  ::jit_compiler::TargetInfo TargetInfo = getTargetInfo(Queue);
+  ::jit_compiler::BinaryFormat TargetFormat = TargetInfo.getFormat();
+  JITConfig.set<::jit_compiler::option::JITTargetInfo>(TargetInfo);
 
   auto FusionResult = ::jit_compiler::KernelFusion::fuseKernels(
-      *MJITContext, std::move(JITConfig), InputKernelInfo, InputKernelNames,
+      std::move(JITConfig), InputKernelInfo, InputKernelNames,
       FusedKernelName.str(), ParamIdentities, BarrierFlags, InternalizeParams,
       JITConstants);
 
@@ -953,7 +962,8 @@ pi_device_binaries jit_compiler::createPIDeviceBinary(
     auto ReqdWGS = std::find_if(
         FusedKernelInfo.Attributes.begin(), FusedKernelInfo.Attributes.end(),
         [](const ::jit_compiler::SYCLKernelAttribute &Attr) {
-          return Attr.AttributeName == "reqd_work_group_size";
+          return Attr.Kind == ::jit_compiler::SYCLKernelAttribute::AttrKind::
+                                  ReqdWorkGroupSize;
         });
     if (ReqdWGS != FusedKernelInfo.Attributes.end()) {
       auto Encoded = encodeReqdWorkGroupSize(*ReqdWGS);
@@ -1019,7 +1029,8 @@ std::vector<uint8_t> jit_compiler::encodeArgUsageMask(
 
 std::vector<uint8_t> jit_compiler::encodeReqdWorkGroupSize(
     const ::jit_compiler::SYCLKernelAttribute &Attr) const {
-  assert(Attr.AttributeName == "reqd_work_group_size");
+  assert(Attr.Kind ==
+         ::jit_compiler::SYCLKernelAttribute::AttrKind::ReqdWorkGroupSize);
   size_t NumBytes = sizeof(uint64_t) + (Attr.Values.size() * sizeof(uint32_t));
   std::vector<uint8_t> Encoded(NumBytes, 0u);
   uint8_t *Ptr = Encoded.data();
@@ -1027,7 +1038,7 @@ std::vector<uint8_t> jit_compiler::encodeReqdWorkGroupSize(
   // See CUDA PI (pi_cuda.cpp) _pi_program::set_metadata for reference.
   Ptr += sizeof(uint64_t);
   for (const auto &Val : Attr.Values) {
-    uint32_t UVal = std::stoul(Val);
+    auto UVal = static_cast<uint32_t>(Val);
     std::memcpy(Ptr, &UVal, sizeof(uint32_t));
     Ptr += sizeof(uint32_t);
   }

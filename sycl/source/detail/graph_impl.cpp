@@ -724,11 +724,6 @@ void exec_graph_impl::createCommandBuffers(
 }
 
 exec_graph_impl::~exec_graph_impl() {
-  WriteLock LockImpl(MGraphImpl->MMutex);
-
-  // clear all recording queue if not done before (no call to end_recording)
-  MGraphImpl->clearQueues();
-
   const sycl::detail::PluginPtr &Plugin =
       sycl::detail::getSyclObjImpl(MContext)->getPlugin();
   MSchedule.clear();
@@ -923,6 +918,11 @@ modifiable_command_graph::modifiable_command_graph(
     const sycl::property_list &PropList)
     : impl(std::make_shared<detail::graph_impl>(SyclContext, SyclDevice,
                                                 PropList)) {}
+
+modifiable_command_graph::modifiable_command_graph(
+    const sycl::queue &SyclQueue, const sycl::property_list &PropList)
+    : impl(std::make_shared<detail::graph_impl>(
+          SyclQueue.get_context(), SyclQueue.get_device(), PropList)) {}
 
 node modifiable_command_graph::addImpl(const std::vector<node> &Deps) {
   impl->throwIfGraphRecordingQueue("Explicit API \"Add()\" function");
