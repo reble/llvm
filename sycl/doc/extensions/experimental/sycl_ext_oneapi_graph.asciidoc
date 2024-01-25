@@ -1738,8 +1738,8 @@ Parameters:
 
 Exceptions:
 
-* Throws synchronously with error code `feature_not_supported` if any devices in `context` 
-does not have `aspect::usm_device_allocations`.
+* Throws synchronously with error code `feature_not_supported` if any device associated
+with the command graph does not have `aspect::usm_device_allocations`.
 |
 
 [source, c++]
