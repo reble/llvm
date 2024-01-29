@@ -1794,16 +1794,6 @@ Allow an executable graph to contain nodes targeting different devices.
 introducing into the extension in later revisions. It has been planned for to the
 extent that the definition of a graph node is device specific.
 
-=== Memory Allocation API
-
-We would like to provide an API that allows graph scope memory to be
-allocated and used in nodes, such that optimizations can be done on
-the allocation. No mechanism is currently provided, but see the
-section on <<memory-allocation-nodes, Memory Allocation Nodes>> for
-some designs being considered.
-
-**UNRESOLVED:** Trending "yes". Design is under consideration.
-
 === Device Agnostic Graph
 
 Explicit API could support device-agnostic graphs that can be submitted
