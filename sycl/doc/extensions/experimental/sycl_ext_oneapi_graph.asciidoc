@@ -632,6 +632,10 @@ public:
 
   void make_edge(node& src, node& dest);
 
+  node add_barrier(const std::vector<event> eventList = {});
+
+  node make_external_event(event& recordedEvent, event& externalEvent, bool updatable = false);
+
   void print_graph(std::string path, bool verbose = false) const;
 
   std::vector<node> get_nodes() const;
@@ -645,6 +649,8 @@ public:
 
     void update(node& node);
     void update(const std::vector<node>& nodes);
+    
+    void update_external_event(node externalEventNode, event& newExternalEvent);
 };
 
 }  // namespace sycl::ext::oneapi::experimental
@@ -999,6 +1005,93 @@ Exceptions:
 |
 [source,c++]
 ----
+node add_barrier(const std::vector<event> eventList = {});
+----
+
+|Adds a barrier to the graph.
+
+Constraints:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::modifiable`.
+
+Parameters:
+
+* `eventList` - Zero or more events to wait for.
+  These events can be graph-limited events (from graph recording) 
+  or general sycl events (such as events external to the graph).
+  If no event are provided, the barrier waits for all the previous nodes 
+  of the graph to complete.
+
+Returns: The command-group function object node which has been added to the graph.
+
+|
+[source,c++]
+----
+node make_external_event(event& recordedEvent, event& externalEvent, bool updatable = false);
+----
+
+|Turns a graph-limited event into an external event on which other operations 
+can wait (including other graphs).
+
+Constraints:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::modifiable`.
+
+Parameters:
+
+* `recordedEvent` - Graph-limited event that will be linked to 
+  the external event.
+
+* `externalEvent` - Sycl event to be used as external event.
+
+* `updatable` - Flag indicating that users will update the external event 
+  after the graph finalization. Please, note that setting this flag may degrade 
+  graph execution performance for level-zero backend, as updatable events 
+  are handled by the host.
+
+Returns: The command-group function object node which has been added to the graph.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if `recordedEvent` 
+  is not a valid event assigned to the graph object.
+  
+|
+[source,c++]
+----
+void update_external_event(node externalEventNode, event& newExternalEvent)
+----
+
+|Updates the external event associated to a graph-limited event.
+
+Constraints:
+
+* This member function is only available when the `command_graph` state is
+  `graph_state::executable`.
+
+Parameters:
+
+* `externalEventNode` - Node that has been added to signal or wait for 
+  the external event.
+
+* `newExternalEvent` - Sycl event that must be used as external event.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if `externalEventNode` 
+  is not a valid node of the graph.
+
+* Throws synchronously with error code `invalid` if the external event 
+  associated with `externalEventNode` has not been created with 
+  the `updatable` flag set.
+
+* Throws synchronously with error code `invalid` if the graph is executing.
+  
+|
+[source,c++]
+----
 command_graph<graph_state::executable>
 finalize(const property_list& propList = {}) const;
 ----
@@ -1297,6 +1390,10 @@ public:
                    event depEvent);
   event ext_oneapi_graph(command_graph<graph_state::executable>& graph,
                    const std::vector<event>& depEvents);
+
+  /* -- External events management -- */
+  void ext_oneapi_external_event(event& recordedEvent, event& externalEvent, 
+                                bool updatable = false);
 };
 } // namespace sycl
 ----
@@ -1456,6 +1553,7 @@ all the nodes have finished execution.
 
 The queue should be associated with a device and context that are the same
 as the device and context used on creation of the graph.
+
 |===
 
 ==== New Handler Member Functions
@@ -1546,6 +1644,41 @@ a normal SYCL command-group submission.
 * Throws synchronously with error code `invalid` if the graph which will be
 associated with the graph node resulting from this command-group submission is
 different from the one with which the dynamic_parameter was created.
+
+| 
+[source,c++]
+----
+void handler::ext_oneapi_external_event(event& recordedEvent, 
+                                        event& externalEvent, 
+                                        bool updatable = false);
+----
+
+|Turns a graph-limited event into an external event on which other operations 
+can wait (including other graphs).
+
+Parameters:
+
+* `recordedEvent` - Graph-limited event that will be linked to 
+  the external event.
+
+* `externalEvent` - Sycl event to be used as external event.
+
+* `updatable` - Flag indicating that users will update the external event 
+  after the graph finalization. Please, note that setting this flag may degrade 
+  graph execution performance for level-zero backend, as updatable events 
+  are handled by the host.
+
+Returns: The graph-limited event referencing the command-group function 
+object node which has been added to the graph.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if the queue is not 
+  in recording mode. 
+
+* Throws synchronously with error code `invalid` if `recordedEvent` 
+  is not a valid event assigned to the graph object.
+
 
 |===
 
@@ -1683,6 +1816,137 @@ state change occurred. False is returned rather than throwing an exception when
 no queue state is changed. This design is because the queues are already in
 the state the user desires, so if the function threw an exception in this case,
 the application would likely swallow it and then proceed.
+
+=== External events
+
+The default behavior is that the event associated with a graph node cannot be 
+used to synchronize workload outside the graph.
+To overcome this limitation, users can define and use graph exernal events.
+These events can be used as regular sycl events. Users can therefore use them
+to manage the synchronizations between different graphs running concurrently 
+or between the graph's kernels and regular operations submit to a sycl queue.
+If a graph containing one or more external events is run multiple times, 
+the external events are automatically reset when the graph is resubmitted to 
+the queue.
+
+[source,c++]
+----
+/* Basic usage example using the Record&Reply API. */
+
+// Create the graph `A`.
+sycl::queue queueA;
+sycl_ext::command_graph graphA(queueA.get_context(), queueA.get_device());
+
+// Start recording the queue.
+graphA.begin_recording(queueA);
+
+// Submit kernel on the recorded queue.
+// EventA is a graph-limited event that can only be used for managing
+// graph internal dependencies.
+EventA = queueA.submit([&](handler& cgh) {...});
+
+event externalEventA;
+queueA.submit([&](handler& cgh) {ext_oneapi_external_event(EventA, 
+                                  externalEventA, 
+                                  false /* non-updatable */)});;
+
+// Stop recording the queue.
+graphA.end_recording();
+
+// Create another graph `B`
+sycl::queue queueB;
+sycl_ext::command_graph graphB(queueB.get_context(), queueB.get_device());
+
+// Start recording the queue.
+graphB.begin_recording(queueB);
+
+// Submit kernel on the recorded queue.
+queueB.submit([&](handler& cgh) {...});
+
+queueB.ext_oneapi_submit_barrier({externalEventA});
+
+// Stop recording the queue.
+graphB.end_recording();
+
+// Finalize the modifiable graphs to create an executable graphs that can be
+// submitted for execution.
+auto execGraphA = graphA.finalize();
+auto execGraphB = graphB.finalize();
+
+// Execute graph
+for(int i = 0 ; i < Iterations, i++) {
+  queueA.submit([&](handler& cgh) {
+    cgh.ext_oneapi_graph(execGraphA);
+  })
+
+  queueB.submit([&](handler& cgh) {
+    cgh.ext_oneapi_graph(execGraphB);
+  })
+}
+----
+
+[source,c++]
+----
+/* Example: Event update. */
+
+// Create the graph `A`.
+sycl::queue queueA;
+sycl_ext::command_graph graphA(queueA.get_context(), queueA.get_device());
+
+// Start recording the queue.
+graphA.begin_recording(queueA);
+
+// Submit kernel on the recorded queue.
+// EventA is a graph-limited event that can only be used for managing
+// graph internal dependencies.
+EventA = queueA.submit([&](handler& cgh) {...});
+
+// Stop recording the queue.
+graphA.end_recording();
+
+event externalEventA;
+auto nodeSignalExternalEvent = graphA.make_external_event(EventA, 
+                                                          externalEventA, 
+                                                          true /* updatable */);
+
+// Create another graph `B`
+sycl::queue queueB;
+sycl_ext::command_graph graphB(queueB.get_context(), queueB.get_device());
+
+// Submit kernel on the recorded queue.
+graphB.add([&](handler& cgh) {...});
+
+auto nodeWaitExternalEvent = graphB.add_barrier({externalEventA});
+
+// Finalize the modifiable graphs to create an executable graphs that can be
+// submitted for execution.
+auto execGraphA = graphA.finalize();
+auto execGraphB = graphB.finalize();
+
+// Execute graph
+// first execution
+queueA.submit([&](handler& cgh) {
+  cgh.ext_oneapi_graph(execGraphA);
+})
+queueB.submit([&](handler& cgh) {
+  cgh.ext_oneapi_graph(execGraphB);
+})
+
+event newExternalEventA;
+execGraphA.update_external_event(nodeSignalExternalEvent, newExternalEventA);
+
+event newExternalEventB;
+execGraphB.update_external_event(nodeWaitExternalEvent, newExternalEventB);
+
+// second execution
+queueA.submit([&](handler& cgh) {
+  cgh.ext_oneapi_graph(execGraphA);
+})
+queueB.submit([&](handler& cgh) {
+  cgh.ext_oneapi_graph(execGraphB);
+})
+----
+   
 
 === Interaction With Other Extensions [[extension-interaction]]
 
