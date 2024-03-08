@@ -2271,8 +2271,8 @@ TEST_F(CommandGraphTest, ProfilingExceptionProperty) {
       [&](sycl::handler &cgh) { cgh.single_task<TestKernel<>>([]() {}); });
   Graph.end_recording(Queue);
 
-  // Checks exception thrown if profiling is requested while the
-  // enable_profiling property has not been passed to `finalize()`.
+  // Checks exception thrown if profiling is requested while profiling has
+  // not be enabled during the graph building.
   auto GraphExecInOrder = Graph.finalize();
   queue QueueProfile{Dev, {sycl::property::queue::enable_profiling()}};
   auto EventInOrder = QueueProfile.submit(

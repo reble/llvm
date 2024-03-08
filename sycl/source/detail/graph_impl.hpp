@@ -94,6 +94,9 @@ public:
   /// Used for tracking visited status during cycle checks.
   bool MVisited = false;
 
+  /// If true, the graph profiling is enabled for this node.
+  bool MProfilingEnabled = false;
+
   /// Partition number needed to assign a Node to a a partition.
   /// Note : This number is only used during the partitionning process and
   /// cannot be used to find out the partion of a node outside of this process.
@@ -152,7 +155,8 @@ public:
   node_impl(node_impl &Other)
       : MSuccessors(Other.MSuccessors), MPredecessors(Other.MPredecessors),
         MCGType(Other.MCGType), MNodeType(Other.MNodeType),
-        MCommandGroup(Other.getCGCopy()), MSubGraphImpl(Other.MSubGraphImpl) {}
+        MCommandGroup(Other.getCGCopy()), MSubGraphImpl(Other.MSubGraphImpl),
+        MProfilingEnabled(Other.MProfilingEnabled) {}
 
   /// Checks if this node has a given requirement.
   /// @param Requirement Requirement to lookup.
@@ -540,6 +544,9 @@ private:
     default:
       Stream << "Other \\n";
       break;
+    }
+    if (MProfilingEnabled) {
+      Stream << "Profiling Enabled \\n";
     }
     Stream << "\"];" << std::endl;
   }
@@ -1066,9 +1073,7 @@ public:
                   const std::shared_ptr<graph_impl> &GraphImpl,
                   const property_list &PropList)
       : MSchedule(), MGraphImpl(GraphImpl), MPiSyncPoints(), MContext(Context),
-        MRequirements(), MExecutionEvents(),
-        MEnableProfiling(
-            PropList.has_property<property::graph::enable_profiling>()) {
+        MRequirements(), MExecutionEvents() {
     // Copy nodes from GraphImpl and merge any subgraph nodes into this graph.
     duplicateNodes();
   }
