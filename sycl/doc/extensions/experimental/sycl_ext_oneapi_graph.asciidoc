@@ -2026,18 +2026,18 @@ int myScalar = 42;
 dynamic_parameter dynParamInput(myGraph, ptrX);
 dynamic_parameter dynParamScalar(myGraph, myScalar);
 
-// First node uses ptrX as an input & output parameter, with operand
-// mySclar as another argument.
+// First node uses ptrX as an input & output parameter,
+// with operand myScalar as another argument.
 node nodeA = myGraph.add([&](handler& cgh) {
     cgh.set_args(dynParamInput, ptrY, dynParamScalar);
     cgh.parallel_for(range {n}, builtinKernel);
 });
 
-
 // Create an executable graph with the updatable property.
-auto execGraph = myGraph.finalize({sycl_ext::property::graph::updatable});
+auto execGraph = myGraph.finalize(
+                  {sycl_ext::property::graph::updatable});
 
-// Execute graph, then update without needing to wait for it to complete
+// Execute graph, then update without needing to wait
 myQueue.ext_oneapi_graph(execGraph);
 
 // Change ptrX argument to node A to ptrZ
