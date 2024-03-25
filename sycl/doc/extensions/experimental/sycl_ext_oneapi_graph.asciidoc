@@ -1889,6 +1889,25 @@ int main() {
 ...
 ----
 
+=== Profiling
+
+[source, c++]
+----
+  queue Queue{sycl::property::queue::enable_profiling()};
+  event Event = Queue.submit(
+        [&](handler &CGH) { CGH.ext_oneapi_graph(ExecGraph); });
+  Event.wait;
+
+  auto SubmitEvent =
+      Event.get_profiling_info<sycl::info::event_profiling::command_submit>();
+  auto StartEvent =
+      Event.get_profiling_info<sycl::info::event_profiling::command_start>();
+  auto EndEvent =
+      Event.get_profiling_info<sycl::info::event_profiling::command_end>();
+----
+
+
+
 === Diamond Dependency
 
 The following snippet of code shows how a SYCL `queue` can be put into a
