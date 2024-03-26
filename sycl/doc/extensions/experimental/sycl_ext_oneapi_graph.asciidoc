@@ -1889,6 +1889,22 @@ int main() {
 ...
 ----
 
+=== Host Task
+
+[source, c++]
+----
+...
+
+node HostTaskNode = myGraph.add([&](handler& cgh) {
+    cgh.host_task([=]() {
+            Ptr[i] = N;
+        }
+    });
+});
+
+...
+----
+
 === Profiling
 
 [source, c++]
