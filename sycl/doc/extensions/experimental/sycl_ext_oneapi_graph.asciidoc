@@ -1683,17 +1683,39 @@ different from the one with which the dynamic_parameter was created.
 
 [source, c++]
 ----
-namespace sycl {
-// New methods added to the sycl::event class
-using namespace ext::oneapi::experimental;
-class event {
-public:
-  bool is_graph_limited() const;
-};
-} // namespace sycl
+namespace sycl::info {
+  enum class ext_oneapi_event_t{
+    normal,
+    graph_limited,
+    graph_external
+  };
+} // namespace sycl::info
 ----
 
 :event-class: https://www.khronos.org/registry/SYCL/specs/sycl-2020/html/sycl-2020.html#sec:interface.event
+
+==== Event Type Query
+
+This extension adds the following new information descriptor to the event class
+for use with `event::get_info<>()` which can be used to query the type of a SYCL
+event.
+
+Table {counter: tableNumber}. Additions to the `sycl::event` class information descriptors.
+[%header,cols="2a,a,a"]
+|===
+|Event Descriptor
+|Return Type
+|Description
+
+|info::event::ext_oneapi_event_type
+|info::ext_oneapi_event_t
+|Returns the type of this SYCL event
+|===
+
+Events of type `ext_oneapi_event_t::normal` are normal SYCL events as described
+in the SYCL specification. `ext_oneapi_event_t::graph_limited` and
+`ext_oneapi_event_t::graph_external` events are new as part of this extension,
+and are differentiated from normal SYCL events in how they can be used.
 
 ==== Graph-Limited Events
 
