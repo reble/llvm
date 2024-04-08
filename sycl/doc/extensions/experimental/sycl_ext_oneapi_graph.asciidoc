@@ -1039,7 +1039,7 @@ Parameters:
 * `eventList` - Zero or more events to wait for.
   These events can be graph-limited events (from graph recording) 
   or general sycl events (such as events external to the graph).
-  If no event are provided, the barrier waits for all the previous nodes 
+  If no events are provided, the barrier waits for all the previous nodes 
   of the graph to complete.
 
 Returns: The command-group function object node which has been added to the graph.
@@ -1728,8 +1728,8 @@ events with some restrictions (see below).
 
 External events can be obtained by either:
 
-* Calling `command_graph::add_external_event()` on a modifiable command_graph to
-add an external event node, then obtain the SYCL event object by calling
+* Calling `command_graph::add_external_event()` on a modifiable `command_graph`
+to add an external event node, then obtain the SYCL event object by calling
 `node::get_external_event()`. 
 
 * Calling `queue::ext_oneapi_external_event()` on a queue in the recording
