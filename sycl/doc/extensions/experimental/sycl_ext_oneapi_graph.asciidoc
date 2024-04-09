@@ -248,9 +248,9 @@ to define an edge between existing nodes, or using a
 Edges can also be created when explicitly adding nodes to the graph through
 existing SYCL mechanisms for expressing dependencies. Data dependencies from
 accessors to existing nodes in the graph are captured as an edge. Using
-`handler::depends_on()` will also create a graph edge when passed an event
-returned from a queue submission captured by a queue recording to the same
-graph.
+`handler::depends_on()` will also create a graph edge when passed certain kinds
+of events, for more information see <<event-class-modifications, the "Event
+Class Modifications" section>>.
 |===
 
 ==== Queue Recording API
@@ -279,12 +279,14 @@ dependencies in one of three ways. Firstly, through buffer accessors that
 represent data dependencies between two command groups captured as nodes.
 Secondly, by using the `handler::depends_on()` mechanism inside a command group
 captured as a node. However, for an event passed to `handler::depends_on()` to
-create an edge, it must be an event returned from a queue
-submission captured by the same graph. Otherwise, a synchronous error will be
-thrown with error code `invalid`. `handler::depends_on()` can be
-used to express edges when a user is working with USM memory rather than SYCL
-buffers. Thirdly, for a graph recorded with an in-order queue, an edge is added
-automatically between two sequential command groups submitted to the in-order queue.
+create an edge, it must be of a specific type (see <<event-class-modifications,
+the "Event Class Modifications" section>> for more information). Using normal
+SYCL events from regular queue submissions is not allowed.
+`handler::depends_on()` can be used to express edges when a user is working with
+USM memory rather than SYCL buffers. For more information about event usage see
+<<event-class-modifications, the "Event Class Modifications" section>>. For a
+graph recorded with an in-order queue, an edge is added automatically between
+two sequential command groups submitted to the in-order queue.
 |===
 
 ==== Sub-Graph
@@ -337,6 +339,7 @@ enum class node_type {
   ext_oneapi_barrier,
   host_task,
   external_event,
+  wait_external_event
 };
 
 class node {
@@ -653,9 +656,9 @@ public:
 
   void make_edge(node& src, node& dest);
 
-  node add_barrier(const std::vector<event> eventList = {});
+  node add_wait_external_event(const std::vector<event> eventList = {}, const property_list& propList = {});
 
-  node add_external_event(event& externalEvent, const property_list& propList = {});
+  node add_external_event(const property_list& propList = {});
 
   void print_graph(std::string path, bool verbose = false) const;
 
@@ -1024,10 +1027,13 @@ Exceptions:
 |
 [source,c++]
 ----
-node add_barrier(const std::vector<event> eventList = {});
+node add_wait_external_event(const std::vector<event> eventList, const property_list& propList = {});
 ----
 
-|Adds a barrier to the graph.
+|Adds a node to the graph which waits on a number of external events.
+
+For more information on external events see <<event-class-modifications, the
+"Event Class Modifications" section>>.
 
 Constraints:
 
@@ -1036,13 +1042,21 @@ Constraints:
 
 Parameters:
 
-* `eventList` - Zero or more events to wait for.
-  These events can be graph-limited events (from graph recording) 
-  or general sycl events (such as events external to the graph).
-  If no events are provided, the barrier waits for all the previous nodes 
-  of the graph to complete.
+* `eventList` - The events to wait for.
+  These events can only be external events from other graph's external event
+  nodes.
 
-Returns: The command-group function object node which has been added to the graph.
+* `propList` - Zero or more properties can be provided to the constructed node
+  via an instance of `property_list`. The `property::node::depends_on` property
+  can be passed here with a list of nodes to create dependency edges on.
+
+Returns: The external event wait node which has been added to the
+graph.
+
+Exceptions:
+
+* Throws synchronously with error code `invalid` if any event in `eventList` is
+  not an external event.
 
 |
 [source,c++]
@@ -1707,9 +1721,9 @@ Table {counter: tableNumber}. Additions to the `sycl::event` class information d
 |Return Type
 |Description
 
-|info::event::ext_oneapi_event_type
-|info::ext_oneapi_event_t
-|Returns the type of this SYCL event
+|`info::event::ext_oneapi_event_type`
+|`info::ext_oneapi_event_t`
+|Returns the type of this SYCL event.
 |===
 
 Events of type `ext_oneapi_event_t::normal` are normal SYCL events as described
@@ -1837,7 +1851,8 @@ the only events that can be used as parameters to `handler::depends_on()`, or as
 dependent events for queue shortcuts like `queue::parallel_for()`, are
 graph-limited events that have been returned from queue submissions recorded to
 the same modifiable `command_graph` and external events from graphs other than
-the one currently being recorded to.
+the one currently being recorded to. Normal SYCL events returned from regular
+queue submissions outside of a graph are not valid.
 
 === Thread Safety
 
