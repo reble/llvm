@@ -283,10 +283,9 @@ create an edge, it must be of a specific type (see <<event-class-modifications,
 the "Event Class Modifications" section>> for more information). Using normal
 SYCL events from regular queue submissions is not allowed.
 `handler::depends_on()` can be used to express edges when a user is working with
-USM memory rather than SYCL buffers. For more information about event usage see
-<<event-class-modifications, the "Event Class Modifications" section>>. For a
-graph recorded with an in-order queue, an edge is added automatically between
-two sequential command groups submitted to the in-order queue.
+USM memory rather than SYCL buffers. For a graph recorded with an in-order
+queue, an edge is added automatically between two sequential command groups
+submitted to the in-order queue.
 |===
 
 ==== Sub-Graph
