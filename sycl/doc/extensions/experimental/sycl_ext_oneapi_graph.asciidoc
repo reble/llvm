@@ -280,8 +280,7 @@ represent data dependencies between two command groups captured as nodes.
 Secondly, by using the `handler::depends_on()` mechanism inside a command group
 captured as a node. However, for an event passed to `handler::depends_on()` to
 create an edge, it must be of a specific type (see <<event-class-modifications,
-the "Event Class Modifications" section>> for more information). Using normal
-SYCL events from regular queue submissions outside of the graph is not allowed.
+the "Event Class Modifications" section>> for more information).
 `handler::depends_on()` can be used to express edges when a user is working with
 USM memory rather than SYCL buffers. For a graph recorded with an in-order
 queue, an edge is added automatically between two sequential command groups
@@ -1770,13 +1769,13 @@ to add an external event node, then obtain the SYCL event object by calling
 * Calling `queue::ext_oneapi_external_event()` on a queue in the recording
 state, which will return an external SYCL event.
 
-External events may be used as parameters to `handler::depends_on()` or as
-dependent events for queue submissions outside of the graph they
-are associated with. For example, this allows enqueing work outside of the graph
-part-way through the graph execution, rather than having to wait for the entire
-graph to finish.
+External events may be used as parameters to `handler::depends_on()`, as
+dependent events for queue submissions outside of the graph they are associated
+with or as parameters to `command_graph::add_wait_external_event()`. For
+example, this allows enqueing work outside of the graph part-way through the
+graph execution, rather than having to wait for the entire graph to finish.
 
-External events are considered complete when all their dependent graph nodes
+External events are considered complete when all of their dependent graph nodes
 have finished execution, and their execution status is automatically reset when
 the executable graph which contains them is submitted to a queue for execution.
 
@@ -1843,15 +1842,14 @@ for(int i = 0 ; i < Iterations, i++) {
 }
 ----
 
-==== Event Limitations
+==== Normal SYCL Events
 
-For queue submissions that are being recorded to a modifiable `command_graph`,
-the only events that can be used as parameters to `handler::depends_on()`, or as
-dependent events for queue shortcuts like `queue::parallel_for()`, are
-graph-limited events that have been returned from queue submissions recorded to
-the same modifiable `command_graph` and external events from graphs other than
-the one currently being recorded to. Normal SYCL events returned from regular
-queue submissions outside of a graph are not valid.
+Normal SYCL events from queue submissions outside of a `command_graph` may be
+used as dependent events for queue submissions recorded to a `command_graph` or
+passed to `handler::depends_on()` for nodes added explicitly to a
+`command_graph`. These types of dependencies may be useful for one-off
+operations that do not need to run on every graph execution but must be executed
+before the main graph commands, such as warm-ups or initialization.
 
 === Thread Safety
 
