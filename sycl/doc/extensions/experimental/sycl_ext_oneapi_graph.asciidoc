@@ -1842,6 +1842,19 @@ for(int i = 0 ; i < Iterations, i++) {
 }
 ----
 
+[source,c++]
+----
+// Explicit API usage snippet
+
+// Add an external event node to Graph A
+auto ExtEventNode = GraphA.add_external_event();
+
+...
+
+// Add a wait external event node in GraphB
+auto ExtWaitNode = GraphB.add_wait_external_event({ExtEventNode.get_external_event()});
+----
+
 ==== Normal SYCL Events
 
 Normal SYCL events from queue submissions outside of a `command_graph` may be
@@ -1850,6 +1863,29 @@ passed to `handler::depends_on()` for nodes added explicitly to a
 `command_graph`. These types of dependencies may be useful for one-off
 operations that do not need to run on every graph execution but must be executed
 before the main graph commands, such as warm-ups or initialization.
+
+[source,c++]
+----
+
+// Normal submission to a queue
+auto NormalEvent = Queue.submit(...);
+
+Graph.begin_recording(Queue);
+
+auto GraphEvent = Queue.submit([&](handler& CGH){
+  // OK! This node will depend on NormalEvent
+  CGH.depends_on(NormalEvent);
+  CGH.parallel_for(...);
+});
+
+Graph.end_recording(Queue);
+
+auto ExecGraph = Graph.finalize();
+
+// The node associated with GraphEvent will be correctly ordered with respect to
+// NormalEvent
+Queue.ext_oneapi_graph(ExecGraph);
+----
 
 === Thread Safety
 
