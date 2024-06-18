@@ -1236,18 +1236,22 @@ void exec_graph_impl::update(
           sycl::make_error_code(errc::invalid),
           "Node passed to update() is not part of the graph.");
     }
-    if (Node->MCGType != sycl::detail::CG::Kernel) {
-      throw sycl::exception(errc::invalid, "Cannot update non-kernel nodes");
+
+    if (!(Node->isEmpty() || Node->MCGType == sycl::detail::CG::Kernel ||
+          Node->MCGType == sycl::detail::CG::Barrier)) {
+      throw sycl::exception(errc::invalid,
+                            "Cannot update node type. Node must be be of "
+                            "kernel, empty, or barrier type.");
     }
 
-    if (Node->MCommandGroup->getRequirements().size() == 0) {
-      continue;
-    }
-    NeedScheduledUpdate = true;
+    if (const auto &CG = Node->MCommandGroup;
+        CG->getRequirements().size() != 0) {
+      NeedScheduledUpdate = true;
 
-    UpdateRequirements.insert(UpdateRequirements.end(),
-                              Node->MCommandGroup->getRequirements().begin(),
-                              Node->MCommandGroup->getRequirements().end());
+      UpdateRequirements.insert(UpdateRequirements.end(),
+                                Node->MCommandGroup->getRequirements().begin(),
+                                Node->MCommandGroup->getRequirements().end());
+    }
   }
 
   // Clean up any execution events which have finished so we don't pass them to
@@ -1290,6 +1294,11 @@ void exec_graph_impl::update(
 }
 
 void exec_graph_impl::updateImpl(std::shared_ptr<node_impl> Node) {
+  // Kernel node update is the only command type supported in UR for update.
+  // Updating any other types of nodes, e.g. empty & barrier nodes is a no-op.
+  if (Node->MCGType != sycl::detail::CG::Kernel) {
+    return;
+  }
   auto ContextImpl = sycl::detail::getSyclObjImpl(MContext);
   const sycl::detail::PluginPtr &Plugin = ContextImpl->getPlugin();
   auto DeviceImpl = sycl::detail::getSyclObjImpl(MGraphImpl->getDevice());
