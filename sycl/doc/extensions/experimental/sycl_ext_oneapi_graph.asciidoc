@@ -2270,45 +2270,79 @@ Exceptions:
 
 |===
 
-=== Features Still in Development
-
 ==== Memory Allocation Nodes
 
-There is no provided interface for users to define a USM allocation/free
-operation belonging to the scope of the graph. It would be error prone and
-non-performant to allocate or free memory as a node executed during graph
-submission. Instead, such a memory allocation API needs to provide a way to
-return a pointer which won't be valid until the allocation is made on graph
-finalization, as allocating at finalization is the only way to benefit from
-the known graph scope for optimal memory allocation, and even optimize to
-eliminate some allocations entirely.
+Support depends on the availablity of backend support for deferred allocation:
+link:../experimental/sycl_ext_oneapi_virtual_mem.asciidoc[sycl_ext_oneapi_virtual_mem]
 
-Such a deferred allocation strategy presents challenges however, and as a result
-we recommend instead that prior to graph construction users perform core SYCL
-USM allocations to be used in the graph submission. Before to coming to this
-recommendation we considered the following explicit graph building interfaces
-for adding a memory allocation owned by the graph:
+The following interfaces enables users to define a memory allocation/free operation 
+belonging to the scope of the graph. It would be error prone and non-performant
+to allocate or free memory as a node executed during graph submission. Instead,
+such a memory allocation API needs to provide a way to return a pointer which
+won't be valid until the allocation is made on graph finalization, as allocating
+at finalization is the only way to benefit from the known graph scope for optimal
+memory allocation, and even optimize to eliminate some allocations entirely.
 
-1. Allocation function returning a reference to the raw pointer, i.e. `void*&`,
-   which will be instantiated on graph finalization with the location of the
-   allocated USM memory.
+Table {counter: tableNumber}. Member functions of the `command_graph` class (memory allocation).
+[cols="2a,a"]
+|===
+|Member function|Description
 
-2. Allocation function returning a handle to the allocation. Applications use
-   the handle in node command-group functions to access memory when allocated.
+|
+[source, c++]
+----
+std::pair<void*,node>
+add_malloc_device(size_t num_bytes, const property_list& propList = {});
+----
 
-3. Allocation function returning a pointer to a virtual allocation, only backed
-   with an actual allocation when graph is finalized or submitted.
 
-Design 1) has the drawback of forcing users to keep the user pointer variable
-alive so that the reference is valid, which is unintuitive and is likely to
-result in bugs.
+|
+Returns a pair of a pointer to memory and a node. The pointer is allocated on the `device` 
+that is associated with current graph by first execution of the `command_graph`.
+All nodes that depend on this node and are thereby executed after have access to the allocated memory.
+The allocation size is specified in bytes.
 
-Design 2) introduces a handle object which has the advantages of being a less
-error prone way to provide the pointer to the deferred allocation. However, it
-requires kernel changes and introduces an overhead above the raw pointers that
-are the advantage of USM.
+Preconditions:
 
-Design 3) needs specific backend support for deferred allocation.
+* This member function is only available when the `command_graph` state is
+  `graph_state::modifiable`.
+
+Parameters:
+
+* `num_bytes` - allocation size in bytes.
+
+* `propList` - Zero or more properties can be provided to the constructed node
+  via an instance of `property_list`. The `property::node::depends_on` property
+  can be passed here with a list of nodes to create dependency edges on.
+
+Exceptions:
+
+* Throws synchronously with error code `feature_not_supported` if any device associated
+with the command graph does not have `aspect::usm_device_allocations`.
+|
+
+[source, c++]
+----
+node
+add_free(void* ptr, const property_list& propList = {});
+----
+
+
+|
+Returns a free node that has been added to the graph. Accesses of nodes that depend of this node
+(predecessors) to the allocated memory are undefined behavior.
+
+Parameters:
+
+* `ptr` - memory pointed to by. Must be allocated by `add_malloc_device`.
+
+* `propList` - Zero or more properties can be provided to the constructed node
+  via an instance of `property_list`. The `property::node::depends_on` property
+  can be passed here with a list of nodes to create dependency edges on.
+
+|===
+
+=== Features Still in Development
 
 ==== Device Specific Graph
 
@@ -2355,16 +2389,6 @@ Allow an executable graph to contain nodes targeting different devices.
 **UNRESOLVED:** Trending "yes". This feature is something that we are considering
 introducing into the extension in later revisions. It has been planned for to the
 extent that the definition of a graph node is device specific.
-
-=== Memory Allocation API
-
-We would like to provide an API that allows graph scope memory to be
-allocated and used in nodes, such that optimizations can be done on
-the allocation. No mechanism is currently provided, but see the
-section on <<memory-allocation-nodes, Memory Allocation Nodes>> for
-some designs being considered.
-
-**UNRESOLVED:** Trending "yes". Design is under consideration.
 
 === Device Agnostic Graph
 
