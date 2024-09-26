@@ -117,13 +117,14 @@ if(SYCL_UR_USE_FETCH_CONTENT)
   endfunction()
 
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
-  # commit 2bbe952669861579ea84fa30f14e1ed27ead0692
-  # Merge: d357964a 6b353545
-  # Author: Omar Ahmed <omar.ahmed@codeplay.com>
-  # Date:   Thu Sep 12 11:36:11 2024 +0100
-  #     Merge pull request #1928 from isaacault/iault/image_array_copy
-  #     [Bindless][Exp] Image Array Sub-Region Copies
-  set(UNIFIED_RUNTIME_TAG 2bbe952669861579ea84fa30f14e1ed27ead0692)
+  # commit 2ad32681efd2c977f2c1f7f3a30d572d4c15499c
+  # Author: Hugh Delaney <hugh.delaney@codeplay.com>
+  # Date:   Wed Sep 25 15:55:05 2024 +0100
+  #     Associate queue with device in context (#1992)
+  #     Making a native queue doesn't require hDevice to be non null, but this
+  #     associates the queue with a null device, even if hContext contains valid
+  #     devices.
+  set(UNIFIED_RUNTIME_TAG 2ad32681efd2c977f2c1f7f3a30d572d4c15499c)
 
   set(UMF_BUILD_EXAMPLES OFF CACHE INTERNAL "EXAMPLES")
   # Due to the use of dependentloadflag and no installer for UMF and hwloc we need
