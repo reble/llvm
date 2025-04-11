@@ -680,6 +680,19 @@ private:
   work_group_memory<DataT> LocalMem;
 };
 
+template <typename DataT, int Dimensions>
+class __attribute__((sycl_special_class))
+__SYCL_TYPE(dynamic_local_accessor) dynamic_local_accessor {
+public:
+  dynamic_local_accessor() = default;
+
+  void __init(__attribute((opencl_local)) DataT *Ptr) { this->LocalMem.__init(Ptr); }
+  local_accessor<DataT, Dimensions> get() const { return LocalMem; }
+
+private:
+  local_accessor<DataT, Dimensions> LocalMem;
+};
+
 template <typename T, int dimensions = 1,
           typename AllocatorT = int /*fake type as AllocatorT is not used*/>
 class buffer {

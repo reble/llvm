@@ -215,6 +215,7 @@
 namespace sycl {
 inline namespace _V1 {
 class stream;
+
 namespace ext::intel::esimd::detail {
 // Forward declare a "back-door" access class to support ESIMD.
 class AccessorPrivateProxy;
@@ -226,6 +227,10 @@ template <typename DataT, int Dimensions = 1,
           access::placeholder IsPlaceholder = access::placeholder::false_t,
           typename PropertyListT = ext::oneapi::accessor_property_list<>>
 class accessor;
+
+namespace ext::oneapi::experimental {
+template <typename, int> class dynamic_local_accessor;
+}
 
 namespace detail {
 
@@ -344,6 +349,7 @@ protected:
             typename AccType =
                 accessor<DataT, Dimensions, AccessMode, AccessTarget,
                          IsPlaceholder, PropertyListT>>
+
   class AccessorSubscript {
     static constexpr int Dims = Dimensions;
 
@@ -2148,6 +2154,7 @@ class __SYCL_SPECIAL_CLASS local_accessor_base :
 #endif
     public detail::accessor_common<DataT, Dimensions, AccessMode,
                                    access::target::local, IsPlaceholder> {
+
 protected:
   constexpr static int AdjustedDim = Dimensions == 0 ? 1 : Dimensions;
 
@@ -2638,6 +2645,7 @@ public:
 
 private:
   friend class sycl::ext::intel::esimd::detail::AccessorPrivateProxy;
+  template<typename, int> friend class ext::oneapi::experimental::dynamic_local_accessor;
 };
 
 template <typename DataT, int Dimensions = 1,
