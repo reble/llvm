@@ -18,6 +18,7 @@
 #include <detail/kernel_impl.hpp>                     // for kernel_impl
 #include <detail/program_manager/program_manager.hpp> // ProgramManager
 #include <detail/queue_impl.hpp>                      // for queue_impl
+#include <iostream>                                   // for debug output
 #include <detail/sycl_mem_obj_t.hpp>                  // for SYCLMemObjT
 #include <stack>                                      // for stack
 #include <sycl/detail/common.hpp>      // for tls_code_loc_t etc..
@@ -68,6 +69,8 @@ inline const char *nodeTypeToString(node_type NodeType) {
     return "async_malloc";
   case node_type::async_free:
     return "async_free";
+    case node_type::host_sync:
+    return "host_sync";
   }
   assert(false && "Unhandled node type");
   return {};
@@ -140,19 +143,19 @@ void propagatePartitionUp(node_impl &Node, int PartitionNum) {
 /// remain.
 /// @param Node Node to assign to the partition.
 /// @param PartitionNum Number to propagate.
-/// @param HostTaskList List of host tasks that have already been processed and
+/// @param CutVertexList List of tasks that have already been processed and
 /// are encountered as successors to the node Node.
 void propagatePartitionDown(node_impl &Node, int PartitionNum,
-                            std::list<node_impl *> &HostTaskList) {
+                            std::list<node_impl *> &CutVertexList) {
   if (Node.MCGType == sycl::detail::CGType::CodeplayHostTask) {
     if (Node.MPartitionNum != -1) {
-      HostTaskList.push_front(&Node);
+      CutVertexList.push_front(&Node);
     }
     return;
   }
   Node.MPartitionNum = PartitionNum;
   for (node_impl &Successor : Node.successors()) {
-    propagatePartitionDown(Successor, PartitionNum, HostTaskList);
+    propagatePartitionDown(Successor, PartitionNum, CutVertexList);
   }
 }
 
@@ -180,24 +183,50 @@ void partition::updateSchedule() {
 
 void exec_graph_impl::makePartitions() {
   int CurrentPartition = -1;
-  std::list<node_impl *> HostTaskList;
+  std::list<node_impl *> CutVertexList;
+
+#define SYCL_GRAPH_DEBUG 1
+#ifdef SYCL_GRAPH_DEBUG
+  // Debug: Print total number of nodes
+  std::cout << "[DEBUG] makePartitions: Starting with " << MNodeStorage.size() << " nodes" << std::endl;
+  
+  // Debug: Print all nodes and their types
+  int nodeIndex = 0;
+  for (node_impl &Node : nodes()) {
+    std::cout << "[DEBUG] Node " << nodeIndex << ": Type=" << nodeTypeToString(Node.MNodeType) 
+              << ", CGType=" << static_cast<int>(Node.MCGType) << std::endl;
+    nodeIndex++;
+  }
+#endif
+
+  // A cut vertex is a node that, when removed, increases the number of connected components
+  // in the graph. In our case, cut vertices are host-tasks / sync tasks that separate partitions
+  auto const IsCutVertex = [](node_impl const& node) {
+    return node.MCGType == sycl::detail::CGType::CodeplayHostTask || 
+           node.MNodeType == node_type::host_sync;
+  };
+  
   // find all the host-tasks in the graph
   for (node_impl &Node : nodes()) {
-    if (Node.MCGType == sycl::detail::CGType::CodeplayHostTask) {
-      HostTaskList.push_back(&Node);
+    if (IsCutVertex(Node)) {
+      CutVertexList.push_back(&Node);
     }
   }
 
-  MContainsHostTask = HostTaskList.size() > 0;
+  MContainsHostTask = CutVertexList.size() > 0;
+#ifdef SYCL_GRAPH_DEBUG
+  std::cout << "[DEBUG] Found " << CutVertexList.size() << " host tasks, MContainsHostTask=" 
+            << (MContainsHostTask ? "true" : "false") << std::endl;
+#endif
   // Annotate nodes
   // The first step in graph partitioning is to annotate all nodes of the graph
   // with a temporary partition or group number. This step allows us to group
   // the graph nodes into sets of nodes with kind of meta-dependencies that must
   // be enforced by the runtime. For example, Group 2 depends on Groups 0 and 1,
   // which means that we should not try to run Group 2 before Groups 0 and 1
-  // have finished executing. Since host-tasks are currently the only tasks that
+  // have finished executing. Since host-tasks and sync-tasks are the only tasks that
   // require runtime dependency handling, groups of nodes are created from
-  // host-task nodes. We therefore loop over all the host-task nodes, and for
+  // these nodes. We therefore loop over all the host-task and sync-task nodes, and for
   // each node:
   //  - Its predecessors are assigned to group number `n-1`
   //  - The node itself constitutes a group, group number `n`
@@ -213,23 +242,32 @@ void exec_graph_impl::makePartitions() {
   // case, the host-task node `A` must be reprocessed after the node `B` and the
   // group that includes the predecessor of `B` can be merged with the group of
   // the predecessors of the node `A`.
-  while (HostTaskList.size() > 0) {
-    node_impl &Node = *HostTaskList.front();
-    HostTaskList.pop_front();
+  while (CutVertexList.size() > 0) {
+    node_impl &Node = *CutVertexList.front();
+    CutVertexList.pop_front();
+#ifdef SYCL_GRAPH_DEBUG
+    std::cout << "[DEBUG] Processing host task node, CurrentPartition=" << CurrentPartition << std::endl;
+#endif
     CurrentPartition++;
     for (node_impl &Predecessor : Node.predecessors()) {
       propagatePartitionUp(Predecessor, CurrentPartition);
     }
     CurrentPartition++;
     Node.MPartitionNum = CurrentPartition;
+#ifdef SYCL_GRAPH_DEBUG
+    std::cout << "[DEBUG] Assigned host task to partition " << CurrentPartition << std::endl;
+#endif
     CurrentPartition++;
-    auto TmpSize = HostTaskList.size();
+    auto TmpSize = CutVertexList.size();
     for (node_impl &Successor : Node.successors()) {
-      propagatePartitionDown(Successor, CurrentPartition, HostTaskList);
+      propagatePartitionDown(Successor, CurrentPartition, CutVertexList);
     }
-    if (HostTaskList.size() > TmpSize) {
+    if (CutVertexList.size() > TmpSize) {
+#ifdef SYCL_GRAPH_DEBUG
+      std::cout << "[DEBUG] Host task list size increased, merging partitions" << std::endl;
+#endif
       // At least one HostTask has been re-numbered so group merge opportunities
-      for (node_impl *HT : HostTaskList) {
+      for (node_impl *HT : CutVertexList) {
         auto HTPartitionNum = HT->MPartitionNum;
         if (HTPartitionNum != -1) {
           // can merge predecessors of node `Node` with predecessors of node
@@ -246,14 +284,32 @@ void exec_graph_impl::makePartitions() {
     }
   }
 
+#ifdef SYCL_GRAPH_DEBUG
+  // Debug: Print node partition assignments before creating partitions
+  std::cout << "[DEBUG] Node partition assignments:" << std::endl;
+  nodeIndex = 0;
+  for (node_impl &Node : nodes()) {
+    std::cout << "[DEBUG] Node " << nodeIndex << ": Partition=" << Node.MPartitionNum 
+              << ", Type=" << nodeTypeToString(Node.MNodeType) << std::endl;
+    nodeIndex++;
+  }
+#endif
+
   // Create partitions
   int PartitionFinalNum = 0;
+#ifdef SYCL_GRAPH_DEBUG
+  std::cout << "[DEBUG] Creating partitions from " << -1 << " to " << CurrentPartition << std::endl;
+#endif
   for (int i = -1; i <= CurrentPartition; i++) {
     const std::shared_ptr<partition> &Partition = std::make_shared<partition>();
+    int nodesInPartition = 0;
+    int rootsInPartition = 0;
     for (node_impl &Node : nodes()) {
       if (Node.MPartitionNum == i) {
+        nodesInPartition++;
         MPartitionNodes[&Node] = PartitionFinalNum;
         if (isPartitionRoot(Node)) {
+          rootsInPartition++;
           Partition->MRoots.insert(&Node);
           if (Node.MCGType == CGType::CodeplayHostTask) {
             Partition->MIsHostTask = true;
@@ -261,20 +317,36 @@ void exec_graph_impl::makePartitions() {
         }
       }
     }
+#ifdef SYCL_GRAPH_DEBUG
+    std::cout << "[DEBUG] Partition " << i << ": " << nodesInPartition << " nodes, " 
+              << rootsInPartition << " roots" << std::endl;
+#endif
     if (Partition->MRoots.size() > 0) {
       Partition->updateSchedule();
       Partition->MIsInOrderGraph = Partition->checkIfGraphIsSinglePath();
       MPartitions.push_back(Partition);
       MRootPartitions.push_back(Partition);
+#ifdef SYCL_GRAPH_DEBUG
+      std::cout << "[DEBUG] Added partition " << PartitionFinalNum << " (original " << i 
+                << "), IsHostTask=" << (Partition->MIsHostTask ? "true" : "false") 
+                << ", IsInOrder=" << (Partition->MIsInOrderGraph ? "true" : "false") << std::endl;
+#endif
       PartitionFinalNum++;
     }
   }
 
   // Add an empty partition if there is no partition, i.e. empty graph
   if (MPartitions.empty()) {
+#ifdef SYCL_GRAPH_DEBUG
+    std::cout << "[DEBUG] No partitions created, adding empty partition" << std::endl;
+#endif
     MPartitions.push_back(std::make_shared<partition>());
     MRootPartitions.push_back(MPartitions[0]);
   }
+
+#ifdef SYCL_GRAPH_DEBUG
+  std::cout << "[DEBUG] Final result: " << MPartitions.size() << " partitions created" << std::endl;
+#endif
 
   // Make global schedule list
   for (const auto &Partition : MPartitions) {
@@ -283,21 +355,38 @@ void exec_graph_impl::makePartitions() {
   }
 
   // Compute partition dependencies
+  int partitionIdx = 0;
   for (const auto &Partition : MPartitions) {
+    int predecessorCount = 0;
+    int successorCount = 0;
     for (node_impl &Root : Partition->roots()) {
       for (node_impl &NodeDep : Root.predecessors()) {
         auto &Predecessor = MPartitions[MPartitionNodes[&NodeDep]];
         Partition->MPredecessors.push_back(Predecessor.get());
         Predecessor->MSuccessors.push_back(Partition.get());
+        predecessorCount++;
       }
     }
+    for (auto &Succ : Partition->MSuccessors) {
+      successorCount++;
+    }
+#ifdef SYCL_GRAPH_DEBUG
+    std::cout << "[DEBUG] Partition " << partitionIdx << " dependencies: " 
+              << predecessorCount << " predecessors, " << successorCount << " successors" << std::endl;
+#endif
+    partitionIdx++;
   }
 
   // Reset node groups (if node have to be re-processed - e.g. subgraph)
   for (node_impl &Node : nodes()) {
     Node.MPartitionNum = -1;
   }
+  
+#ifdef SYCL_GRAPH_DEBUG
+  std::cout << "[DEBUG] makePartitions completed" << std::endl;
+#endif
 }
+
 
 graph_impl::graph_impl(const sycl::context &SyclContext,
                        const sycl::device &SyclDevice,
@@ -699,6 +788,7 @@ void graph_impl::beginRecordingUnlockedQueue(sycl::detail::queue_impl &Queue) {
 
 void graph_impl::beginRecording(sycl::detail::queue_impl &Queue) {
   graph_impl::WriteLock Lock(MMutex);
+  printf("Graph %p beginRecording on Queue %p\n", this, &Queue);
   if (!Queue.hasCommandGraph()) {
     Queue.setCommandGraph(shared_from_this());
     addQueue(Queue);

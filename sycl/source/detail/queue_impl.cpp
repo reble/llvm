@@ -10,6 +10,9 @@
 #include <detail/event_impl.hpp>
 #include <detail/memory_manager.hpp>
 #include <detail/queue_impl.hpp>
+#include <detail/cg.hpp>
+#include <detail/graph/graph_impl.hpp>
+#include <detail/graph/node_impl.hpp>
 #include <sycl/context.hpp>
 #include <sycl/detail/common.hpp>
 #include <sycl/detail/ur.hpp>
@@ -891,11 +894,31 @@ void queue_impl::wait(const detail::code_location &CodeLoc) {
     TelemetryEvent = instrumentationProlog(CodeLoc, Name, StreamID, IId);
   }
 #endif
+    printf("FOOBAR4 %d\n", MGraph.expired());
+
 
   if (!MGraph.expired()) {
-    throw sycl::exception(make_error_code(errc::invalid),
-                          "wait cannot be called for a queue which is "
-                          "recording to a command graph.");
+    auto GraphImpl = MGraph.lock();
+
+    // TODO: test if partitioned wait bits are set
+    if (GraphImpl) {
+
+      auto EmptyCG = std::make_shared<detail::CG>(
+          detail::CGType::None,
+          detail::CG::StorageInitHelper{},
+          CodeLoc
+      );
+
+      printf("FOOBAR1\n");
+
+      std::vector<ext::oneapi::experimental::detail::node_impl *> EmptyDeps;
+      GraphImpl->add(
+          ext::oneapi::experimental::node_type::host_sync,
+          EmptyCG,
+          EmptyDeps
+      );
+    }
+    return;
   }
 
   // If there is an external event set, we know we are using an in-order queue

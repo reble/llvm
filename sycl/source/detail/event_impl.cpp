@@ -272,10 +272,30 @@ void event_impl::wait(bool *Success) {
     throw sycl::exception(make_error_code(errc::invalid),
                           "wait method cannot be used for a discarded event.");
 
+    printf("FOOBAR3 %d\n", MGraph.expired());
+
+
   if (!MGraph.expired()) {
-    throw sycl::exception(make_error_code(errc::invalid),
-                          "wait method cannot be used for an event associated "
-                          "with a command graph.");
+    auto GraphImpl = MGraph.lock();
+
+    // Add a host sync node to the graph to create a partition point.
+    // TODO: test if partitioned wait bits are set
+    if (GraphImpl) {
+      auto EmptyCG = std::make_shared<detail::CG>(
+          detail::CGType::None,
+          detail::CG::StorageInitHelper{}
+      );
+
+      std::vector<ext::oneapi::experimental::detail::node_impl *> EmptyDeps;
+      ext::oneapi::experimental::detail::node_impl &HostSyncNode = GraphImpl->add(
+          ext::oneapi::experimental::node_type::host_sync,
+          EmptyCG,
+          EmptyDeps
+      );
+
+      printf("FOOBAR2\n");
+
+    }
   }
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
