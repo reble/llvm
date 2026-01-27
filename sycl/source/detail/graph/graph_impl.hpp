@@ -316,18 +316,30 @@ public:
   /// @param Verbose If true, print additional information about the nodes such
   /// as kernel args or memory access where applicable.
   void printGraphAsDot(const std::string FilePath, bool Verbose) const {
-    /// Vector of nodes visited during the graph printing
-    std::vector<node_impl *> VisitedNodes;
+    if (MEnableNativeRecording && MNativeGraphHandle) {
+      context_impl &ContextImpl = *sycl::detail::getSyclObjImpl(MContext);
+      sycl::detail::adapter_impl &Adapter = ContextImpl.getAdapter();
+      ur_result_t Result =
+          Adapter.call_nocheck<sycl::detail::UrApiKind::urGraphDumpContentsExp>(
+              MNativeGraphHandle, FilePath.c_str());
+      if (Result != UR_RESULT_SUCCESS) {
+        throw sycl::exception(sycl::make_error_code(errc::runtime),
+                              "Failed to dump native UR graph contents");
+      }
+    } else {
+      /// Vector of nodes visited during the graph printing
+      std::vector<node_impl *> VisitedNodes;
 
-    std::fstream Stream(FilePath, std::ios::out);
-    Stream << "digraph dot {" << std::endl;
+      std::fstream Stream(FilePath, std::ios::out);
+      Stream << "digraph dot {" << std::endl;
 
-    for (node_impl &Node : roots())
-      Node.printDotRecursive(Stream, VisitedNodes, Verbose);
+      for (node_impl &Node : roots())
+        Node.printDotRecursive(Stream, VisitedNodes, Verbose);
 
-    Stream << "}" << std::endl;
+      Stream << "}" << std::endl;
 
-    Stream.close();
+      Stream.close();
+    }
   }
 
   /// Make an edge between two nodes in the graph. Performs some mandatory
