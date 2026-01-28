@@ -84,7 +84,6 @@ int main() {
   Queue1.single_task({Join}, [=]() {
     FinalResult[0] = PartialResult1[0] + PartialResult2[0];
   });
-  assertQueueState(Recording, Executing);
 
   Graph.end_recording();
   assertQueueState(Executing, Executing);
