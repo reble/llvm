@@ -76,6 +76,24 @@ template <> device queue_impl::get_info<info::queue::device>() const {
   return get_device();
 }
 
+ext::oneapi::experimental::queue_state
+queue_impl::ext_oneapi_get_state_impl() const {
+  // A graph may either be recording at the SYCL level or recording at a lower
+  // level API (e.g. L0)
+  if (hasCommandGraph()) {
+    return ext::oneapi::experimental::queue_state::recording;
+  }
+
+  bool IsGraphCaptureEnabled = false;
+  ur_result_t Result =
+      getAdapter().call_nocheck<UrApiKind::urQueueIsGraphCaptureEnabledExp>(
+          MQueue, &IsGraphCaptureEnabled);
+  if (Result == UR_RESULT_SUCCESS && IsGraphCaptureEnabled) {
+    return ext::oneapi::experimental::queue_state::recording;
+  }
+  return ext::oneapi::experimental::queue_state::executing;
+}
+
 static event
 prepareSYCLEventAssociatedWithQueue(detail::queue_impl &QueueImpl) {
   auto EventImpl = detail::event_impl::create_device_event(QueueImpl);
